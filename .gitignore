@@ -1,25 +1,47 @@
+HELP.md
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### IntelliJ IDEA ###
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
-*.iws
-*.iml
-*.ipr
-
-### Eclipse ###
+### STS ###
 .apt_generated
 .classpath
 .factorypath
 .project
 .settings
+/.settings/**
+!/.settings/
+!/.settings/runConfigurations
+!/.settings/runConfigurations/**
 .springBeans
 .sts4-cache
+
+### IntelliJ IDEA ###
+.idea/**
+!.idea/icon.png
+!.idea/copyright
+!.idea/copyright/profiles_settings.xml
+!.idea/copyright/tlcsdm.xml
+!.idea/runConfigurations
+!.idea/runConfigurations/**
+!.idea/vcs.xml
+!.idea/jarRepositories.xml
+!.idea/artifacts
+!.idea/artifacts/**
+!.idea/codeStyles
+!.idea/codeStyles/**
+!.idea/fileTemplates
+!.idea/fileTemplates/**
+!.idea/dictionaries
+*.iws
+*.iml
+*.ipr
+out/
+qodana.sarif.json
+**/integration-test-screenshots/**
+.flattened-pom.xml
+dependency-reduced-pom.xml
 
 ### NetBeans ###
 /nbproject/private/
@@ -32,7 +54,19 @@ build/
 !**/src/test/**/build/
 
 ### VS Code ###
-.vscode/
+.vscode/**
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+/.mvn/wrapper/
+/mvnw
+/mvnw.cmd
 
-### Mac OS ###
-.DS_Store
+### Application ###
+logs/
+.jython_cache
+pom.xml.versionsBackup
+.cache/
+*.bak
+.xcodemap/
+.okhttpcache
