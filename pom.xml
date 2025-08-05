@@ -7,7 +7,11 @@
     <groupId>com.tlcsdm.game</groupId>
     <artifactId>dalian-dagunzi-fx</artifactId>
     <version>1.0.0</version>
-    <name>dalian-dagunzi-fx</name>
+    <name>dalian-dagunzi</name>
+    <url>https://github.com/unknowIfGuestInDream/dalian-dagunzi-fx</url>
+    <inceptionYear>2025</inceptionYear>
+    <description>DaLian DaGunZi
+    </description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -18,7 +22,41 @@
         <junit.version>5.13.3</junit.version>
         <fxgl.version>21.1</fxgl.version>
         <jackson.version>2.19.2</jackson.version>
+        <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
+        <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
+        <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
+        <maven-dependency-plugin.version>3.8.1</maven-dependency-plugin.version>
+        <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
+        <maven-help-plugin.version>3.5.1</maven-help-plugin.version>
+        <flatten-maven-plugin.version>1.7.1</flatten-maven-plugin.version>
+        <maven-enforcer-plugin.version>3.6.1</maven-enforcer-plugin.version>
+        <cyclonedx-maven-plugin.version>2.9.1</cyclonedx-maven-plugin.version>
+        <lifecycle-mapping.version>1.0.0</lifecycle-mapping.version>
+        <maven-project-info-reports-plugin.version>3.9.0</maven-project-info-reports-plugin.version>
     </properties>
+
+    <issueManagement>
+        <system>Github Issues</system>
+        <url>https://github.com/unknowIfGuestInDream/dalian-dagunzi-fx/issues</url>
+    </issueManagement>
+    <organization>
+        <name>Tlcsdm</name>
+        <url>https://github.com/tlcsdm</url>
+    </organization>
+    <developers>
+        <developer>
+            <name>UnknowIfGuestInDream</name>
+            <email>liang.tang.cx@gmail.com</email>
+            <url>https://tlcsdm.com</url>
+            <organization>Tlcsdm</organization>
+            <organizationUrl>https://github.com/tlcsdm</organizationUrl>
+            <roles>
+                <role>owner</role>
+                <role>developer</role>
+            </roles>
+            <timezone>+8</timezone>
+        </developer>
+    </developers>
 
     <dependencies>
         <dependency>
@@ -90,55 +128,313 @@
     </dependencies>
 
     <dependencyManagement>
-            <dependencies>
-                <dependency>
-                    <groupId>org.junit</groupId>
-                    <artifactId>junit-bom</artifactId>
-                    <version>${junit.version}</version>
-                    <type>pom</type>
-                    <scope>import</scope>
-                </dependency>
-                <dependency>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-databind</artifactId>
-                    <version>${jackson.version}</version>
-                </dependency>
-            </dependencies>
+        <dependencies>
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+        </dependencies>
     </dependencyManagement>
 
     <build>
+        <finalName>${project.name}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+                <version>${maven-compiler-plugin.version}</version>
                 <configuration>
                     <source>${maven.compiler.source}</source>
                     <target>${maven.compiler.target}</target>
                 </configuration>
             </plugin>
-<!--            <plugin>-->
-<!--                <groupId>org.openjfx</groupId>-->
-<!--                <artifactId>javafx-maven-plugin</artifactId>-->
-<!--                <version>0.0.8</version>-->
-<!--                <executions>-->
-<!--                    <execution>-->
-<!--                        &lt;!&ndash; Default configuration for running with: mvn clean javafx:run &ndash;&gt;-->
-<!--                        <id>default-cli</id>-->
-<!--                        <configuration>-->
-<!--                            <mainClass>-->
-<!--                                com.tlcsdm.game.daliandagunzifx/com.tlcsdm.game.daliandagunzifx.HelloApplication-->
-<!--                            </mainClass>-->
-<!--                            <launcher>app</launcher>-->
-<!--                            <jlinkZipName>app</jlinkZipName>-->
-<!--                            <jlinkImageName>app</jlinkImageName>-->
-<!--                            <noManPages>true</noManPages>-->
-<!--                            <stripDebug>true</stripDebug>-->
-<!--                            <noHeaderFiles>true</noHeaderFiles>-->
-<!--                        </configuration>-->
-<!--                    </execution>-->
-<!--                </executions>-->
-<!--            </plugin>-->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>${maven-jar-plugin.version}</version>
+                <configuration>
+                    <forceCreation>true</forceCreation>
+                    <archive>
+                        <manifestEntries>
+                            <Built-By>${user.name}</Built-By>
+                            <Build-Os>${os.name} (${os.version}; (${os.arch})</Build-Os>
+                            <Build-Jdk>${java.vendor} ${java.version}</Build-Jdk>
+                            <Build-Day>${maven.build.timestamp}</Build-Day>
+                            <Bundle-ManifestVersion>2</Bundle-ManifestVersion>
+                            <Bundle-SymbolicName>${project.groupId}.${project.artifactId}</Bundle-SymbolicName>
+                            <Bundle-Vendor>${project.organization.name}</Bundle-Vendor>
+                        </manifestEntries>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>${maven-dependency-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <!-- 绑定生命周期 -->
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <!-- 设置依赖的存放路径 -->
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                            <includeScope>runtime</includeScope>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!--            <plugin>-->
+            <!--                <groupId>org.apache.maven.plugins</groupId>-->
+            <!--                <artifactId>maven-jar-plugin</artifactId>-->
+            <!--                <configuration>-->
+            <!--                    <archive>-->
+            <!--                        <manifest>-->
+            <!--                            <addClasspath>true</addClasspath>-->
+            <!--                            <classpathPrefix>lib/</classpathPrefix>-->
+            <!--                            <mainClass>com.tlcsdm.smc.SmcSampler</mainClass>-->
+            <!--                        </manifest>-->
+            <!--                    </archive>-->
+            <!--                </configuration>-->
+            <!--            </plugin>-->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>${maven-source-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>${maven-resources-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>copy-licence</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/license</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${basedir}/../</directory>
+                                    <includes>
+                                        <include>LICENSE</include>
+                                    </includes>
+                                    <filtering>true</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-mf-licence</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/classes/META-INF</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${basedir}/../</directory>
+                                    <includes>
+                                        <include>LICENSE</include>
+                                    </includes>
+                                    <filtering>true</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-help-plugin</artifactId>
+                <version>${maven-help-plugin.version}</version>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>${flatten-maven-plugin.version}</version>
+                <configuration>
+                    <flattenMode>oss</flattenMode>
+                    <pomElements>
+                        <url>keep</url>
+                        <scm>flatten</scm>
+                        <distributionManagement>remove</distributionManagement>
+                    </pomElements>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>flatten.clean</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${maven-enforcer-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>enforce-env</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <phase>validate</phase>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <message>
+                                        <![CDATA[You are running an older version of Java. This application requires at least JDK ${maven.compiler.source}.]]>
+                                    </message>
+                                    <version>[${maven.compiler.source}},)</version>
+                                </requireJavaVersion>
+                                <requireMavenVersion>
+                                    <message>
+                                        <![CDATA[You are running an older version of Maven. This application requires at least Maven 3.6.0]]>
+                                    </message>
+                                    <version>[3.8.0,)</version>
+                                </requireMavenVersion>
+                                <banDuplicatePomDependencyVersions/>
+                                <dependencyConvergence/>
+                                <requireExplicitDependencyScope/>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.cyclonedx</groupId>
+                <artifactId>cyclonedx-maven-plugin</artifactId>
+                <version>${cyclonedx-maven-plugin.version}</version>
+                <!-- Only run this in the root module of the project -->
+                <inherited>false</inherited>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>makeAggregateBom</goal>
+                        </goals>
+                        <configuration>
+                            <outputName>${project.artifactId}-${project.version}-sbom</outputName>
+                            <includeBomSerialNumber>true</includeBomSerialNumber>
+                            <includeCompileScope>true</includeCompileScope>
+                            <includeProvidedScope>true</includeProvidedScope>
+                            <includeRuntimeScope>true</includeRuntimeScope>
+                            <includeSystemScope>true</includeSystemScope>
+                            <includeTestScope>false</includeTestScope>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--            <plugin>-->
+            <!--                <groupId>org.openjfx</groupId>-->
+            <!--                <artifactId>javafx-maven-plugin</artifactId>-->
+            <!--                <version>0.0.8</version>-->
+            <!--                <executions>-->
+            <!--                    <execution>-->
+            <!--                        &lt;!&ndash; Default configuration for running with: mvn clean javafx:run &ndash;&gt;-->
+            <!--                        <id>default-cli</id>-->
+            <!--                        <configuration>-->
+            <!--                            <mainClass>-->
+            <!--                                com.tlcsdm.game.daliandagunzifx/com.tlcsdm.game.daliandagunzifx.HelloApplication-->
+            <!--                            </mainClass>-->
+            <!--                            <launcher>app</launcher>-->
+            <!--                            <jlinkZipName>app</jlinkZipName>-->
+            <!--                            <jlinkImageName>app</jlinkImageName>-->
+            <!--                            <noManPages>true</noManPages>-->
+            <!--                            <stripDebug>true</stripDebug>-->
+            <!--                            <noHeaderFiles>true</noHeaderFiles>-->
+            <!--                        </configuration>-->
+            <!--                    </execution>-->
+            <!--                </executions>-->
+            <!--            </plugin>-->
         </plugins>
+
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.eclipse.m2e</groupId>
+                    <artifactId>lifecycle-mapping</artifactId>
+                    <version>${lifecycle-mapping.version}</version>
+                    <configuration>
+                        <lifecycleMappingMetadata>
+                            <pluginExecutions>
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>org.apache.maven.plugins</groupId>
+                                        <artifactId>maven-dependency-plugin</artifactId>
+                                        <versionRange>[1.0.0,)</versionRange>
+                                        <goals>
+                                            <goal>copy-dependencies</goal>
+                                            <goal>unpack</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <ignore/>
+                                    </action>
+                                </pluginExecution>
+                            </pluginExecutions>
+                        </lifecycleMappingMetadata>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
+
+    <reporting>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-project-info-reports-plugin</artifactId>
+                <reportSets>
+                    <reportSet>
+                        <reports>
+                            <report>dependencies</report>
+                            <report>team</report>
+                            <report>mailing-lists</report>
+                            <report>ci-management</report>
+                            <report>issue-management</report>
+                            <report>licenses</report>
+                            <report>scm</report>
+                        </reports>
+                    </reportSet>
+                </reportSets>
+            </plugin>
+        </plugins>
+    </reporting>
+
 </project>
