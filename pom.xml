@@ -27,7 +27,7 @@
 <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-media</artifactId>
-      <version>17.0.6</version>
+      <version>26-ea+2</version>
     </dependency><dependency>
       <groupId>com.github.almasb</groupId>
       <artifactId>fxgl</artifactId>
