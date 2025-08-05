@@ -1,6 +1,8 @@
 module com.tlcsdm.game.daliandagunzifx {
     requires javafx.controls;
     requires javafx.fxml;
+    requires javafx.graphics;
+    requires javafx.base;
     requires com.almasb.fxgl.core;
     requires com.almasb.fxgl.entity;
     requires com.almasb.fxgl.io;
