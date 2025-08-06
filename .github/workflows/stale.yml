@@ -23,7 +23,7 @@ jobs:
     steps:
     - uses: actions/stale@v9
       with:
-        repo-token: ${{ secrets.CHANGELOG }}
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
         stale-issue-message: 'This issue is stale because it has been open 30 days with no activity. Remove stale label or comment or this will be closed in 5 days'
         stale-pr-message: 'Stale pull request message'
         stale-issue-label: 'no-issue-activity'
