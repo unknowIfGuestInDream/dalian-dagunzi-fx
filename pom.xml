@@ -25,7 +25,7 @@
         <commons-lang3.version>3.18.0</commons-lang3.version>
         <logback-classic.version>1.5.18</logback-classic.version>
         <slf4j-api.version>2.0.17</slf4j-api.version>
-        <jackson.version>2.19.2</jackson.version>
+        <jackson.version>2.20.0</jackson.version>
         <sqlite.version>3.50.3.0</sqlite.version>
         <ikonli.version>12.4.0</ikonli.version>
         <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
