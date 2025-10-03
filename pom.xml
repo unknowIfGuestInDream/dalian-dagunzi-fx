@@ -31,7 +31,7 @@
         <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
         <maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
-        <maven-dependency-plugin.version>3.8.1</maven-dependency-plugin.version>
+        <maven-dependency-plugin.version>3.9.0</maven-dependency-plugin.version>
         <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
         <maven-help-plugin.version>3.5.1</maven-help-plugin.version>
         <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
