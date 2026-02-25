@@ -42,12 +42,18 @@ import com.tlcsdm.game.daliandagunzifx.model.Rank;
 import com.tlcsdm.game.daliandagunzifx.model.Suit;
 import com.tlcsdm.game.daliandagunzifx.tracker.CardTracker;
 
+import javafx.animation.FadeTransition;
+import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
+import javafx.animation.ParallelTransition;
+import javafx.animation.ScaleTransition;
 import javafx.animation.Timeline;
+import javafx.animation.TranslateTransition;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -372,7 +378,53 @@ public class DaGunZiApp extends Application {
         updateAIPlayerPanes();
         clearTrickArea();
 
-        beginTrumpDeclaration();
+        // Dealing animation: show cards appearing one by one in the human hand
+        animateDealing(() -> beginTrumpDeclaration());
+    }
+
+    private void animateDealing(Runnable onComplete) {
+        statusLabel.setText("发牌中...");
+        humanHandPane.getChildren().clear();
+
+        List<Card> hand = sortForDisplay(players[0].getHand(), engine.getTrumpInfo());
+        Timeline dealTimeline = new Timeline();
+
+        for (int i = 0; i < hand.size(); i++) {
+            final int index = i;
+            final Card card = hand.get(i);
+            KeyFrame kf = new KeyFrame(Duration.millis(40.0 * i), e -> {
+                StackPane cardNode = createCardFace(card);
+                cardNode.setLayoutX(10 + index * CARD_OVERLAP);
+                cardNode.setLayoutY(25);
+                cardNode.setOpacity(0);
+                cardNode.setScaleX(0.3);
+                cardNode.setScaleY(0.3);
+                humanHandPane.getChildren().add(cardNode);
+
+                // Card fade+scale in animation
+                FadeTransition fade = new FadeTransition(Duration.millis(200), cardNode);
+                fade.setFromValue(0);
+                fade.setToValue(1);
+                ScaleTransition scale = new ScaleTransition(Duration.millis(200), cardNode);
+                scale.setFromX(0.3);
+                scale.setFromY(0.3);
+                scale.setToX(1.0);
+                scale.setToY(1.0);
+                scale.setInterpolator(Interpolator.EASE_OUT);
+                ParallelTransition pt = new ParallelTransition(fade, scale);
+                pt.play();
+            });
+            dealTimeline.getKeyFrames().add(kf);
+        }
+
+        // After all cards dealt, refresh the hand properly and proceed
+        KeyFrame finalKf = new KeyFrame(Duration.millis(40.0 * hand.size() + 300), e -> {
+            updateHumanHand();
+            playerCountLabels[0].setText("牌数：" + players[0].getHand().size());
+            onComplete.run();
+        });
+        dealTimeline.getKeyFrames().add(finalKf);
+        dealTimeline.play();
     }
 
     // ======================== Trump Declaration ========================
@@ -592,9 +644,14 @@ public class DaGunZiApp extends Application {
         if (engine.isRoundOver()) {
             showRoundResult();
         } else {
-            clearTrickArea();
             statusLabel.setText(players[winner].getName() + " 赢得此墩");
-            Timeline pause = new Timeline(new KeyFrame(Duration.millis(500), e -> processCurrentPlayer()));
+            // Animate trick collection, then proceed to next trick
+            Timeline pause = new Timeline(new KeyFrame(Duration.millis(300), e ->
+                animateTrickCollection(() -> {
+                    Timeline next = new Timeline(new KeyFrame(Duration.millis(200), ev -> processCurrentPlayer()));
+                    next.play();
+                })
+            ));
             pause.play();
         }
     }
@@ -760,15 +817,91 @@ public class DaGunZiApp extends Application {
         for (int i = 0; i < 4; i++) {
             trickCardNodes[i].getChildren().clear();
             if (trick[i] != null) {
-                trickCardNodes[i].getChildren().add(createCardFace(trick[i]));
+                StackPane cardFace = createCardFace(trick[i]);
+                trickCardNodes[i].getChildren().add(cardFace);
+                animateCardPlay(cardFace, i);
             }
         }
     }
 
-    private void clearTrickArea() {
-        for (int i = 0; i < 4; i++) {
-            trickCardNodes[i].getChildren().clear();
+    private void animateCardPlay(Node cardNode, int playerIndex) {
+        // Card appears with a scale-up + fade-in + slide from the player direction
+        cardNode.setOpacity(0);
+        cardNode.setScaleX(0.5);
+        cardNode.setScaleY(0.5);
+
+        // Slide direction based on player position
+        double startTranslateX = 0;
+        double startTranslateY = 0;
+        switch (playerIndex) {
+            case 0 -> startTranslateY = 60;   // human (bottom) slides up
+            case 1 -> startTranslateX = -60;  // left player slides right
+            case 2 -> startTranslateY = -60;  // top player slides down
+            case 3 -> startTranslateX = 60;   // right player slides left
         }
+        cardNode.setTranslateX(startTranslateX);
+        cardNode.setTranslateY(startTranslateY);
+
+        FadeTransition fade = new FadeTransition(Duration.millis(250), cardNode);
+        fade.setFromValue(0);
+        fade.setToValue(1);
+
+        ScaleTransition scale = new ScaleTransition(Duration.millis(250), cardNode);
+        scale.setFromX(0.5);
+        scale.setFromY(0.5);
+        scale.setToX(1.0);
+        scale.setToY(1.0);
+        scale.setInterpolator(Interpolator.EASE_OUT);
+
+        TranslateTransition slide = new TranslateTransition(Duration.millis(250), cardNode);
+        slide.setFromX(startTranslateX);
+        slide.setFromY(startTranslateY);
+        slide.setToX(0);
+        slide.setToY(0);
+        slide.setInterpolator(Interpolator.EASE_OUT);
+
+        ParallelTransition pt = new ParallelTransition(fade, scale, slide);
+        pt.play();
+    }
+
+    private void clearTrickArea() {
+        animateTrickCollection(null);
+    }
+
+    private void animateTrickCollection(Runnable onComplete) {
+        List<Node> cardsToRemove = new ArrayList<>();
+        boolean hasCards = false;
+        for (int i = 0; i < 4; i++) {
+            if (!trickCardNodes[i].getChildren().isEmpty()) {
+                hasCards = true;
+                cardsToRemove.addAll(trickCardNodes[i].getChildren());
+            }
+        }
+        if (!hasCards) {
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+
+        ParallelTransition allFade = new ParallelTransition();
+        for (Node card : cardsToRemove) {
+            FadeTransition fade = new FadeTransition(Duration.millis(300), card);
+            fade.setFromValue(1);
+            fade.setToValue(0);
+
+            ScaleTransition shrink = new ScaleTransition(Duration.millis(300), card);
+            shrink.setToX(0.3);
+            shrink.setToY(0.3);
+            shrink.setInterpolator(Interpolator.EASE_IN);
+
+            allFade.getChildren().add(new ParallelTransition(fade, shrink));
+        }
+        allFade.setOnFinished(e -> {
+            for (int i = 0; i < 4; i++) {
+                trickCardNodes[i].getChildren().clear();
+            }
+            if (onComplete != null) onComplete.run();
+        });
+        allFade.play();
     }
 
     private void updateAIPlayerPanes() {
