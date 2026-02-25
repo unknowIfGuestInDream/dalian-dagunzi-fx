@@ -3,6 +3,7 @@ package com.tlcsdm.game.daliandagunzifx.ai;
 import com.tlcsdm.game.daliandagunzifx.engine.GameEngine;
 import com.tlcsdm.game.daliandagunzifx.engine.Player;
 import com.tlcsdm.game.daliandagunzifx.model.Card;
+import com.tlcsdm.game.daliandagunzifx.model.Rank;
 import com.tlcsdm.game.daliandagunzifx.model.Suit;
 import org.junit.jupiter.api.Test;
 
@@ -23,7 +24,10 @@ class EasyAITest {
         GameEngine engine = new GameEngine(players);
         engine.startNewRound();
         engine.declareTrump(0, Suit.SPADE);
-        List<Card> kittyCards = List.copyOf(players[0].getHand().subList(0, 8));
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(10)
+            .toList();
         engine.setKitty(kittyCards);
 
         EasyAI ai = new EasyAI();

@@ -8,56 +8,50 @@ class RoundResultTest {
 
     @Test
     void testDeclarerWins() {
-        RoundResult result = new RoundResult(40, 0);
+        RoundResult result = new RoundResult(100, 0);
         assertTrue(result.isDeclarerWins());
         assertEquals(0, result.getWinningTeam());
+        assertEquals(1, result.getLevelChange());
     }
 
     @Test
     void testDefenderWins() {
-        RoundResult result = new RoundResult(100, 0);
+        RoundResult result = new RoundResult(150, 0);
         assertFalse(result.isDeclarerWins());
         assertEquals(1, result.getWinningTeam());
+        assertEquals(1, result.getLevelChange());
     }
 
     @Test
     void testLevelChange() {
-        // 0 points: declarer wins, +3
+        // <120: declarer wins, +1
         RoundResult r0 = new RoundResult(0, 0);
         assertTrue(r0.isDeclarerWins());
-        assertEquals(3, r0.getLevelChange());
+        assertEquals(1, r0.getLevelChange());
         assertEquals(0, r0.getWinningTeam());
 
-        // <40: declarer wins, +2
-        RoundResult r35 = new RoundResult(35, 0);
-        assertTrue(r35.isDeclarerWins());
-        assertEquals(2, r35.getLevelChange());
+        RoundResult r119 = new RoundResult(119, 0);
+        assertTrue(r119.isDeclarerWins());
+        assertEquals(1, r119.getLevelChange());
 
-        // <80: declarer wins, +1
-        RoundResult r79 = new RoundResult(79, 0);
-        assertTrue(r79.isDeclarerWins());
-        assertEquals(1, r79.getLevelChange());
+        // >=120: defender wins, +1
+        RoundResult r120 = new RoundResult(120, 0);
+        assertFalse(r120.isDeclarerWins());
+        assertEquals(1, r120.getLevelChange());
+        assertEquals(1, r120.getWinningTeam());
 
-        // <120: defender wins, +1
-        RoundResult r100 = new RoundResult(100, 0);
-        assertFalse(r100.isDeclarerWins());
-        assertEquals(1, r100.getLevelChange());
-        assertEquals(1, r100.getWinningTeam());
-
-        // <160: defender wins, +2
-        RoundResult r150 = new RoundResult(150, 0);
-        assertEquals(2, r150.getLevelChange());
-
-        // >=160: defender wins, +3
         RoundResult r200 = new RoundResult(200, 0);
-        assertEquals(3, r200.getLevelChange());
+        assertFalse(r200.isDeclarerWins());
+        assertEquals(1, r200.getLevelChange());
+        assertEquals(1, r200.getWinningTeam());
     }
 
     @Test
-    void testTie() {
-        RoundResult result = new RoundResult(80, 0);
+    void testBoundary() {
+        // Exactly at 120: defender wins
+        RoundResult result = new RoundResult(120, 0);
         assertFalse(result.isDeclarerWins());
-        assertEquals(0, result.getLevelChange());
-        assertEquals(-1, result.getWinningTeam());
+        assertEquals(1, result.getLevelChange());
+        assertEquals(1, result.getWinningTeam());
     }
 }

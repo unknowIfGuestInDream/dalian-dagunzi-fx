@@ -64,23 +64,25 @@ public class EasyAI implements AIStrategy {
         List<Card> hand = new ArrayList<>(player.getHand());
         // Prefer discarding non-trump, non-point cards
         List<Card> candidates = hand.stream()
-            .filter(c -> !trumpInfo.isTrump(c) && c.getPoints() == 0)
+            .filter(c -> !trumpInfo.isTrump(c) && c.getPoints() == 0
+                && c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
             .collect(Collectors.toList());
         Collections.shuffle(candidates, random);
 
         List<Card> result = new ArrayList<>();
         for (Card card : candidates) {
-            if (result.size() >= 8) break;
+            if (result.size() >= 10) break;
             result.add(card);
         }
-        // If not enough, add remaining cards
-        if (result.size() < 8) {
+        // If not enough, add remaining cards (excluding jokers)
+        if (result.size() < 10) {
             List<Card> remaining = hand.stream()
-                .filter(c -> !result.contains(c))
+                .filter(c -> !result.contains(c)
+                    && c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
                 .collect(Collectors.toList());
             Collections.shuffle(remaining, random);
             for (Card card : remaining) {
-                if (result.size() >= 8) break;
+                if (result.size() >= 10) break;
                 result.add(card);
             }
         }

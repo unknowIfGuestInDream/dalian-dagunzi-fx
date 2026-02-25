@@ -40,28 +40,13 @@ public class RoundResult {
         this.defenderPoints = defenderPoints;
         this.declarerTeam = declarerTeam;
         this.defenderTeam = 1 - declarerTeam;
-        this.declarerWins = defenderPoints < 80;
+        this.declarerWins = defenderPoints < 120;
 
-        if (defenderPoints == 0) {
-            this.levelChange = 3;
-            this.winningTeam = declarerTeam;
-        } else if (defenderPoints < 40) {
-            this.levelChange = 2;
-            this.winningTeam = declarerTeam;
-        } else if (defenderPoints < 80) {
+        if (defenderPoints < 120) {
             this.levelChange = 1;
             this.winningTeam = declarerTeam;
-        } else if (defenderPoints == 80) {
-            this.levelChange = 0;
-            this.winningTeam = -1;
-        } else if (defenderPoints < 120) {
-            this.levelChange = 1;
-            this.winningTeam = defenderTeam;
-        } else if (defenderPoints < 160) {
-            this.levelChange = 2;
-            this.winningTeam = defenderTeam;
         } else {
-            this.levelChange = 3;
+            this.levelChange = 1;
             this.winningTeam = defenderTeam;
         }
     }

@@ -37,11 +37,11 @@ public class Deck {
     private int dealIndex;
 
     public Deck() {
-        cards = new ArrayList<>(108);
+        cards = new ArrayList<>(162);
         int id = 0;
 
-        // Two copies of each standard card (4 suits × 13 ranks × 2)
-        for (int copy = 0; copy < 2; copy++) {
+        // Three copies of each standard card (4 suits × 13 ranks × 3)
+        for (int copy = 0; copy < 3; copy++) {
             for (Suit suit : Suit.values()) {
                 for (Rank rank : Rank.values()) {
                     if (rank == Rank.SMALL_JOKER || rank == Rank.BIG_JOKER) {
@@ -52,11 +52,11 @@ public class Deck {
             }
         }
 
-        // 4 jokers (2 small, 2 big)
-        for (int i = 0; i < 2; i++) {
+        // 6 jokers (3 small, 3 big)
+        for (int i = 0; i < 3; i++) {
             cards.add(new Card(null, Rank.SMALL_JOKER, id++));
         }
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < 3; i++) {
             cards.add(new Card(null, Rank.BIG_JOKER, id++));
         }
 

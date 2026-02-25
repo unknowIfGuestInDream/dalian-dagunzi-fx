@@ -30,6 +30,7 @@ package com.tlcsdm.game.daliandagunzifx.engine;
 public enum GamePhase {
 
     DEALING,
+    TRIBUTE,
     DECLARING_TRUMP,
     PREPARING_KITTY,
     PLAYING,
