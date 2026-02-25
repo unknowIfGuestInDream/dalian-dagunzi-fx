@@ -16,7 +16,7 @@ on:
       skip_tests:
         description: '跳过测试'
         required: false
-        default: false
+        default: true
         type: boolean
 
 permissions:
@@ -79,4 +79,4 @@ jobs:
         with:
           name: dalian-dagunzi-${{ matrix.platform_name }}
           path: dist/
-          retention-days: 30
+          retention-days: 1
