@@ -705,11 +705,17 @@ public class DaGunZiApp extends Application {
         }
 
         actionPane.getChildren().clear();
+        boolean finalGameWon = gameWon;
         Button nextBtn = new Button(gameWon ? "新游戏" : "下一局");
         nextBtn.setStyle("-fx-font-size: 18px; -fx-padding: 10 30; "
             + "-fx-background-color: #d4af37; -fx-text-fill: black; -fx-font-weight: bold; -fx-cursor: hand;");
         nextBtn.setOnAction(e -> {
             actionPane.getChildren().clear();
+            if (finalGameWon) {
+                Rank[] lvls = engine.getTeamLevels();
+                lvls[0] = Rank.THREE;
+                lvls[1] = Rank.THREE;
+            }
             startNewRound();
         });
         actionPane.getChildren().add(nextBtn);
