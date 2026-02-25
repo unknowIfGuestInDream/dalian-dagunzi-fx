@@ -3,11 +3,7 @@ module com.tlcsdm.game.daliandagunzifx {
     requires javafx.fxml;
     requires javafx.graphics;
     requires javafx.base;
-    requires com.almasb.fxgl.core;
-    requires com.almasb.fxgl.entity;
-    requires com.almasb.fxgl.io;
-    requires com.almasb.fxgl.gameplay;
-    requires com.almasb.fxgl.scene;
+    requires org.slf4j;
 
     opens com.tlcsdm.game.daliandagunzifx to javafx.fxml;
     exports com.tlcsdm.game.daliandagunzifx;
