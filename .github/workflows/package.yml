@@ -1,0 +1,82 @@
+name: Package Application
+
+on:
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: '打包平台'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - linux
+          - windows
+          - mac
+      skip_tests:
+        description: '跳过测试'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            platform_name: Linux
+          - os: windows-latest
+            platform: windows
+            platform_name: Windows
+          - os: macos-latest
+            platform: mac
+            platform_name: MacOS
+    runs-on: ${{ matrix.os }}
+    if: >-
+      github.event.inputs.platforms == 'all' ||
+      github.event.inputs.platforms == matrix.platform
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build with Maven (MacOS)
+        if: runner.os == 'Macos'
+        run: |
+          mvn -B clean package --file pom.xml \
+            ${{ github.event.inputs.skip_tests == 'true' && '-DskipTests' || '' }} \
+            '-Dmaven.javadoc.skip=true' '-Djavafx.platform=mac'
+
+      - name: Build with Maven
+        if: runner.os != 'Macos'
+        run: |
+          mvn -B clean package --file pom.xml \
+            ${{ github.event.inputs.skip_tests == 'true' && '-DskipTests' || '' }} \
+            '-Dmaven.javadoc.skip=true'
+
+      - name: Prepare distribution
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp target/dalian-dagunzi.jar dist/
+          cp -r target/lib dist/
+          cp LICENSE dist/
+          cp README.md dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dalian-dagunzi-${{ matrix.platform_name }}
+          path: dist/
+          retention-days: 30
