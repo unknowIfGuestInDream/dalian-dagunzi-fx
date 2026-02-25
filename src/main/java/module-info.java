@@ -12,4 +12,5 @@ module com.tlcsdm.game.daliandagunzifx {
     opens com.tlcsdm.game.daliandagunzifx to javafx.fxml;
     exports com.tlcsdm.game.daliandagunzifx;
     exports com.tlcsdm.game.daliandagunzifx.model;
+    exports com.tlcsdm.game.daliandagunzifx.engine;
 }
