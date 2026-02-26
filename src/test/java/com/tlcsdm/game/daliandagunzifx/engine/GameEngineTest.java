@@ -240,4 +240,35 @@ class GameEngineTest {
         }
         return result;
     }
+
+    @Test
+    void testIsFirstRound() {
+        engine.startNewRound();
+        assertTrue(engine.isFirstRound());
+    }
+
+    @Test
+    void testPlayerHasBigJoker() {
+        engine.startNewRound();
+        // At least one player should have a Big Joker (there are 3 Big Jokers in the deck)
+        boolean anyHas = false;
+        for (int i = 0; i < 4; i++) {
+            if (engine.playerHasBigJoker(i)) {
+                anyHas = true;
+            }
+        }
+        assertTrue(anyHas, "At least one player should have a Big Joker");
+    }
+
+    @Test
+    void testDeclareTrumpFromKitty() {
+        engine.startNewRound();
+        int dealerIdx = engine.declareTrumpFromKitty();
+        assertNotNull(engine.getTrumpInfo());
+        assertNotNull(engine.getTrumpInfo().getTrumpSuit());
+        assertTrue(dealerIdx >= 0 && dealerIdx < 4);
+        assertEquals(dealerIdx, engine.getDealerIndex());
+        // Dealer should have 48 cards (38 + 10 kitty)
+        assertEquals(48, players[dealerIdx].getHand().size());
+    }
 }
