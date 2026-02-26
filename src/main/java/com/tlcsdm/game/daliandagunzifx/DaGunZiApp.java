@@ -57,16 +57,12 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
-import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.Separator;
-import javafx.scene.control.SeparatorMenuItem;
-import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -78,6 +74,8 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import javafx.util.StringConverter;
+import org.kordamp.ikonli.javafx.FontIcon;
+import org.kordamp.ikonli.material.Material;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -106,9 +104,6 @@ public class DaGunZiApp extends Application {
     private AIStrategy aiStrategy;
     private CardTracker cardTracker;
     private Player[] players;
-    private AILevel selectedDifficulty = AILevel.MEDIUM;
-    private boolean trackerEnabled;
-    private boolean darkTheme;
 
     // UI interaction state
     private boolean waitingForHumanPlay;
@@ -183,55 +178,62 @@ public class DaGunZiApp extends Application {
         // --- Settings menu ---
         Menu settingsMenu = new Menu("设置");
 
-        // Theme toggle
-        CheckMenuItem darkThemeItem = new CheckMenuItem("深色主题");
-        darkThemeItem.setSelected(darkTheme);
-        darkThemeItem.setOnAction(e -> {
-            darkTheme = darkThemeItem.isSelected();
-            if (engine == null) {
-                showWelcomeScreen();
-            } else {
-                initGameBoard();
-                updateInfoPanel();
-                updateHumanHand();
-                updateAIPlayerPanes();
-            }
-        });
+        MenuItem preferencesItem = new MenuItem("偏好设置");
+        preferencesItem.setGraphic(new FontIcon(Material.SETTINGS));
+        preferencesItem.setOnAction(e ->
+            AppSettings.getInstance().getPreferencesFx().show(true));
 
-        // Tracker toggle
-        CheckMenuItem trackerItem = new CheckMenuItem("开启记牌器");
-        trackerItem.setSelected(trackerEnabled);
-        trackerItem.setOnAction(e -> trackerEnabled = trackerItem.isSelected());
-
-        // AI difficulty sub-menu
-        Menu aiMenu = new Menu("AI难度");
-        ToggleGroup aiGroup = new ToggleGroup();
-        for (AILevel level : AILevel.values()) {
-            RadioMenuItem item = new RadioMenuItem(level.getDisplayName());
-            item.setToggleGroup(aiGroup);
-            item.setSelected(selectedDifficulty == level);
-            item.setOnAction(e -> selectedDifficulty = level);
-            aiMenu.getItems().add(item);
-        }
-
-        settingsMenu.getItems().addAll(darkThemeItem, trackerItem, new SeparatorMenuItem(), aiMenu);
+        settingsMenu.getItems().add(preferencesItem);
 
         // --- Rules menu ---
         Menu rulesMenu = new Menu("规则");
 
         MenuItem terminologyItem = new MenuItem("名词解释");
+        terminologyItem.setGraphic(new FontIcon(Material.DESCRIPTION));
         terminologyItem.setOnAction(e -> RulesDialog.showTerminology(primaryStage));
 
         MenuItem cardTypesItem = new MenuItem("牌型");
+        cardTypesItem.setGraphic(new FontIcon(Material.STYLE));
         cardTypesItem.setOnAction(e -> RulesDialog.showCardTypes(primaryStage));
 
         MenuItem gameFlowItem = new MenuItem("游戏流程");
+        gameFlowItem.setGraphic(new FontIcon(Material.LIST));
         gameFlowItem.setOnAction(e -> RulesDialog.showGameFlow(primaryStage));
 
         rulesMenu.getItems().addAll(terminologyItem, cardTypesItem, gameFlowItem);
 
-        menuBar.getMenus().addAll(settingsMenu, rulesMenu);
+        // --- About menu ---
+        Menu helpMenu = new Menu("帮助");
+
+        MenuItem aboutItem = new MenuItem("关于");
+        aboutItem.setGraphic(new FontIcon(Material.INFO_OUTLINE));
+        aboutItem.setOnAction(e -> showAboutDialog());
+
+        helpMenu.getItems().add(aboutItem);
+
+        menuBar.getMenus().addAll(settingsMenu, rulesMenu, helpMenu);
         return menuBar;
+    }
+
+    private void showAboutDialog() {
+        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+            javafx.scene.control.Alert.AlertType.INFORMATION);
+        alert.setTitle("关于");
+        alert.setHeaderText("大连打滚子 Da Gunzi");
+
+        FontIcon icon = new FontIcon(Material.VIDEOGAME_ASSET);
+        icon.setIconSize(48);
+        alert.setGraphic(icon);
+
+        VBox content = new VBox(8);
+        content.setPadding(new Insets(10, 0, 0, 0));
+        Label versionLabel = new Label("版本：1.0.0");
+        Label descLabel = new Label("大连打滚子单机版 - 基于 JavaFX 的单机卡牌游戏");
+        descLabel.setWrapText(true);
+        content.getChildren().addAll(versionLabel, descLabel);
+        alert.getDialogPane().setContent(content);
+        alert.getDialogPane().setPrefWidth(400);
+        alert.showAndWait();
     }
 
     // ======================== Welcome Screen ========================
@@ -239,7 +241,8 @@ public class DaGunZiApp extends Application {
     private void showWelcomeScreen() {
         rootPane.getChildren().clear();
 
-        String bgColor = darkTheme ? DARK_TABLE_COLOR : TABLE_COLOR;
+        AppSettings settings = AppSettings.getInstance();
+        String bgColor = settings.isDarkTheme() ? DARK_TABLE_COLOR : TABLE_COLOR;
 
         VBox welcomeBox = new VBox(20);
         welcomeBox.setAlignment(Pos.CENTER);
@@ -259,7 +262,7 @@ public class DaGunZiApp extends Application {
         diffLabel.setStyle("-fx-text-fill: white; -fx-font-size: 16px;");
         ComboBox<AILevel> diffCombo = new ComboBox<>();
         diffCombo.getItems().addAll(AILevel.values());
-        diffCombo.setValue(selectedDifficulty);
+        diffCombo.setValue(settings.getAiLevel());
         diffCombo.setConverter(new StringConverter<>() {
             @Override
             public String toString(AILevel level) {
@@ -271,14 +274,14 @@ public class DaGunZiApp extends Application {
                 return null;
             }
         });
-        diffCombo.setOnAction(e -> selectedDifficulty = diffCombo.getValue());
+        diffCombo.setOnAction(e -> settings.aiLevelProperty().set(diffCombo.getValue()));
         diffBox.getChildren().addAll(diffLabel, diffCombo);
 
         // Card tracker toggle
         CheckBox trackerCheck = new CheckBox("开启记牌器");
         trackerCheck.setStyle("-fx-text-fill: white; -fx-font-size: 16px;");
-        trackerCheck.setSelected(trackerEnabled);
-        trackerCheck.setOnAction(e -> trackerEnabled = trackerCheck.isSelected());
+        trackerCheck.setSelected(settings.isTrackerEnabled());
+        trackerCheck.setOnAction(e -> settings.trackerEnabledProperty().set(trackerCheck.isSelected()));
 
         // Start button
         Button startBtn = new Button("开始游戏");
@@ -309,7 +312,7 @@ public class DaGunZiApp extends Application {
         };
 
         cardTracker = new CardTracker();
-        aiStrategy = switch (selectedDifficulty) {
+        aiStrategy = switch (AppSettings.getInstance().getAiLevel()) {
             case EASY -> new EasyAI();
             case MEDIUM -> new MediumAI();
             case HARD -> new HardAI(cardTracker);
@@ -323,7 +326,7 @@ public class DaGunZiApp extends Application {
     private void initGameBoard() {
         rootPane.getChildren().clear();
 
-        String bgColor = darkTheme ? DARK_TABLE_COLOR : TABLE_COLOR;
+        String bgColor = AppSettings.getInstance().isDarkTheme() ? DARK_TABLE_COLOR : TABLE_COLOR;
 
         BorderPane gameBoard = new BorderPane();
         gameBoard.setStyle("-fx-background-color: " + bgColor + ";");
@@ -410,7 +413,7 @@ public class DaGunZiApp extends Application {
 
         infoPanel.getChildren().addAll(roundLabel, trumpLabel, dealerLabel, scoreLabel, teamLevelLabel);
 
-        if (trackerEnabled) {
+        if (AppSettings.getInstance().isTrackerEnabled()) {
             trackerGrid = new GridPane();
             trackerGrid.setHgap(3);
             trackerGrid.setVgap(2);
@@ -801,7 +804,7 @@ public class DaGunZiApp extends Application {
         int winner = engine.evaluateTrick();
         updateInfoPanel();
 
-        if (trackerEnabled) {
+        if (AppSettings.getInstance().isTrackerEnabled()) {
             updateTrackerPanel();
         }
 

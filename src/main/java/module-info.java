@@ -3,7 +3,12 @@ module com.tlcsdm.game.daliandagunzifx {
     requires javafx.fxml;
     requires javafx.graphics;
     requires javafx.base;
+    requires java.prefs;
     requires org.slf4j;
+    requires com.dlsc.preferencesfx;
+    requires org.kordamp.ikonli.javafx;
+    requires org.kordamp.ikonli.material;
+    requires com.google.gson;
 
     opens com.tlcsdm.game.daliandagunzifx to javafx.fxml;
     exports com.tlcsdm.game.daliandagunzifx;
