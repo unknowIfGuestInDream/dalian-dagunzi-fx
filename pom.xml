@@ -182,7 +182,7 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
-                            <mainClass>com.tlcsdm.game.daliandagunzifx.DaGunZiApp</mainClass>
+                            <mainClass>com.tlcsdm.game.daliandagunzifx.DaGunZiAppLauncher</mainClass>
                             <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
                         </manifest>
                     </archive>
