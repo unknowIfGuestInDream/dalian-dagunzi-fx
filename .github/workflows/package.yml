@@ -38,7 +38,7 @@ jobs:
             platform: mac
             platform_name: MacOS
     runs-on: ${{ matrix.os }}
-    if: ${{ github.event.inputs.platforms == 'all' || github.event.inputs.platforms == matrix.platform }}
+    if: github.event.inputs.platforms == 'all' || github.event.inputs.platforms == matrix.platform
     steps:
       - uses: actions/checkout@v5
 
