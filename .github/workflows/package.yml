@@ -52,14 +52,14 @@ jobs:
           cache: maven
 
       - name: Build with Maven (MacOS)
-        if: runner.os == 'Macos'
+        if: runner.os == 'macOS'
         run: |
           mvn -B clean package --file pom.xml \
             ${{ github.event.inputs.skip_tests == 'true' && '-DskipTests' || '' }} \
             '-Dmaven.javadoc.skip=true' '-Djavafx.platform=mac'
 
       - name: Build with Maven
-        if: runner.os != 'Macos'
+        if: runner.os != 'macOS'
         run: |
           mvn -B clean package --file pom.xml \
             ${{ github.event.inputs.skip_tests == 'true' && '-DskipTests' || '' }} \
