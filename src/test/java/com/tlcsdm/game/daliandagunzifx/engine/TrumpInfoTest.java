@@ -66,4 +66,36 @@ class TrumpInfoTest {
         assertNull(trumpInfo.getEffectiveSuit(trumpRankCard));
         assertEquals(Suit.SPADE, trumpInfo.getEffectiveSuit(nonTrumpCard));
     }
+
+    @Test
+    void testTwoRanksAboveAceForNonTrump() {
+        // Use a trump rank other than TWO so TWO is treated as a normal card
+        TrumpInfo threesTrump = new TrumpInfo(Suit.HEART, Rank.THREE);
+
+        Card nonTrumpTwo = new Card(Suit.SPADE, Rank.TWO, 300);
+        Card nonTrumpAce = new Card(Suit.SPADE, Rank.ACE, 301);
+        Card nonTrumpKing = new Card(Suit.SPADE, Rank.KING, 302);
+
+        // Da Gunzi: 2 > A > K
+        assertTrue(threesTrump.getCardStrength(nonTrumpTwo)
+            > threesTrump.getCardStrength(nonTrumpAce));
+        assertTrue(threesTrump.getCardStrength(nonTrumpAce)
+            > threesTrump.getCardStrength(nonTrumpKing));
+    }
+
+    @Test
+    void testTwoRanksAboveAceInTrumpSuit() {
+        // Trump suit HEART, trump rank THREE
+        TrumpInfo threesTrump = new TrumpInfo(Suit.HEART, Rank.THREE);
+
+        Card trumpSuitTwo = new Card(Suit.HEART, Rank.TWO, 310);
+        Card trumpSuitAce = new Card(Suit.HEART, Rank.ACE, 311);
+        Card trumpSuitKing = new Card(Suit.HEART, Rank.KING, 312);
+
+        // In trump suit, 2 should still be above A and K
+        assertTrue(threesTrump.getCardStrength(trumpSuitTwo)
+            > threesTrump.getCardStrength(trumpSuitAce));
+        assertTrue(threesTrump.getCardStrength(trumpSuitAce)
+            > threesTrump.getCardStrength(trumpSuitKing));
+    }
 }

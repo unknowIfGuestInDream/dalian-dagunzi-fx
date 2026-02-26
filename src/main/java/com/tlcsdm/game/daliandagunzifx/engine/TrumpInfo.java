@@ -80,9 +80,20 @@ public class TrumpInfo {
         }
         // Trump suit cards (excluding trump rank, already handled)
         if (trumpSuit != null && suit == trumpSuit) {
-            return 900 + rank.getValue();
+            return 900 + effectiveRankStrength(rank);
         }
-        // Non-trump cards
+        // Non-trump cards: 2 > A > K > Q > J > 10 > ... > 3
+        return effectiveRankStrength(rank);
+    }
+
+    /**
+     * Returns the effective strength for a rank, where TWO is ranked above ACE.
+     * Da Gunzi ranking: 2 > A > K > Q > J > 10 > 9 > ... > 3
+     */
+    private int effectiveRankStrength(Rank rank) {
+        if (rank == Rank.TWO) {
+            return Rank.ACE.getValue() + 1;
+        }
         return rank.getValue();
     }
 

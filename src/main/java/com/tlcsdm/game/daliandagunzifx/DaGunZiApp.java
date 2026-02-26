@@ -117,6 +117,7 @@ public class DaGunZiApp extends Application {
     private Label scoreLabel;
     private Label teamLevelLabel;
     private Label roundLabel;
+    private Label dealerLabel;
     private final StackPane[] trickCardNodes = new StackPane[4];
     private final Label[] playerNameLabels = new Label[4];
     private final Label[] playerCountLabels = new Label[4];
@@ -134,7 +135,32 @@ public class DaGunZiApp extends Application {
         stage.setScene(scene);
         stage.setTitle("大连打滚子");
         stage.setResizable(false);
+        stage.getIcons().add(createAppIcon());
         stage.show();
+    }
+
+    /**
+     * Creates a simple application icon programmatically.
+     */
+    private javafx.scene.image.Image createAppIcon() {
+        int size = 64;
+        javafx.scene.canvas.Canvas canvas = new javafx.scene.canvas.Canvas(size, size);
+        javafx.scene.canvas.GraphicsContext gc = canvas.getGraphicsContext2D();
+
+        // Background circle
+        gc.setFill(javafx.scene.paint.Color.web("#1a6631"));
+        gc.fillRoundRect(0, 0, size, size, 12, 12);
+
+        // Card symbol
+        gc.setFill(javafx.scene.paint.Color.GOLD);
+        gc.setFont(javafx.scene.text.Font.font("System", javafx.scene.text.FontWeight.BOLD, 36));
+        gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
+        gc.setTextBaseline(javafx.geometry.VPos.CENTER);
+        gc.fillText("滚", size / 2.0, size / 2.0);
+
+        javafx.scene.SnapshotParameters params = new javafx.scene.SnapshotParameters();
+        params.setFill(javafx.scene.paint.Color.TRANSPARENT);
+        return canvas.snapshot(params, null);
     }
 
     // ======================== Welcome Screen ========================
@@ -296,10 +322,11 @@ public class DaGunZiApp extends Application {
 
         roundLabel = createInfoLabel("第 0 局");
         trumpLabel = createInfoLabel("主牌：未定");
+        dealerLabel = createInfoLabel("庄家：未定");
         scoreLabel = createInfoLabel("防守方得分：0");
         teamLevelLabel = createInfoLabel("队伍级别：3 / 3");
 
-        infoPanel.getChildren().addAll(roundLabel, trumpLabel, scoreLabel, teamLevelLabel);
+        infoPanel.getChildren().addAll(roundLabel, trumpLabel, dealerLabel, scoreLabel, teamLevelLabel);
 
         if (trackerEnabled) {
             trackerGrid = new GridPane();
@@ -439,8 +466,24 @@ public class DaGunZiApp extends Application {
     // ======================== Trump Declaration ========================
 
     private void beginTrumpDeclaration() {
-        statusLabel.setText("请选择主牌花色或不叫");
         updateHumanHand();
+
+        boolean isFirstRound = engine.isFirstRound();
+        boolean humanHasBigJoker = engine.playerHasBigJoker(0);
+
+        if (isFirstRound && !humanHasBigJoker) {
+            // First round: human has no Big Joker, skip to AI declaration
+            statusLabel.setText("第一局需要大王叫主，你没有大王，电脑正在考虑...");
+            actionPane.getChildren().clear();
+            humanPassTrump();
+            return;
+        }
+
+        if (isFirstRound) {
+            statusLabel.setText("第一局：你有大王，请选择主牌花色或不叫");
+        } else {
+            statusLabel.setText("请选择主牌花色或不叫");
+        }
 
         Rank humanTrumpRank = engine.getTeamLevels()[players[0].getTeam()];
         Map<Suit, Integer> suitCounts = new EnumMap<>(Suit.class);
@@ -457,7 +500,8 @@ public class DaGunZiApp extends Application {
             String suitColor = suit.getColor().equals("red") ? "#cc0000" : "#333333";
             btn.setStyle("-fx-font-size: 14px; -fx-padding: 8 16; "
                 + "-fx-background-color: white; -fx-text-fill: " + suitColor + "; -fx-font-weight: bold;");
-            btn.setDisable(count < 2);
+            // First round: need Big Joker to declare; other rounds: need >= 2 trump rank cards
+            btn.setDisable(isFirstRound ? !humanHasBigJoker : count < 2);
             final Suit s = suit;
             btn.setOnAction(e -> humanDeclareTrump(s));
             actionPane.getChildren().add(btn);
@@ -481,6 +525,7 @@ public class DaGunZiApp extends Application {
     private void humanPassTrump() {
         actionPane.getChildren().clear();
         statusLabel.setText("你选择了不叫，电脑正在考虑...");
+        boolean isFirstRound = engine.isFirstRound();
 
         Timeline timeline = new Timeline();
         boolean[] declared = {false};
@@ -490,6 +535,15 @@ public class DaGunZiApp extends Application {
             KeyFrame kf = new KeyFrame(Duration.millis(500.0 * i), e -> {
                 if (declared[0]) return;
                 Player p = players[idx];
+
+                if (isFirstRound) {
+                    // First round: only players with Big Joker can declare
+                    if (!engine.playerHasBigJoker(idx)) {
+                        statusLabel.setText(p.getName() + " 没有大王，不叫");
+                        return;
+                    }
+                }
+
                 Rank trumpRank = engine.getTeamLevels()[p.getTeam()];
                 Suit chosenSuit = aiStrategy.chooseTrumpSuit(p, trumpRank);
                 if (chosenSuit != null) {
@@ -507,12 +561,31 @@ public class DaGunZiApp extends Application {
             timeline.getKeyFrames().add(kf);
         }
 
-        // If nobody declared after all AIs tried, re-deal
+        // If nobody declared after all AIs tried
         KeyFrame finalKf = new KeyFrame(Duration.millis(2000), e -> {
             if (!declared[0]) {
-                statusLabel.setText("无人叫牌，重新发牌...");
-                Timeline redeal = new Timeline(new KeyFrame(Duration.millis(1500), ev -> startNewRound()));
-                redeal.play();
+                if (isFirstRound) {
+                    // First round fallback: determine trump from kitty
+                    statusLabel.setText("无人叫牌，从底牌确定主牌花色...");
+                    Timeline kittyDelay = new Timeline(new KeyFrame(Duration.millis(1000), ev -> {
+                        int newDealer = engine.declareTrumpFromKitty();
+                        TrumpInfo ti = engine.getTrumpInfo();
+                        statusLabel.setText("底牌确定主牌：" + ti.getTrumpSuit().getSymbol()
+                            + ti.getTrumpSuit().getDisplayName() + "，庄家：" + players[newDealer].getName());
+                        updateInfoPanel();
+                        updateHumanHand();
+                        if (newDealer == 0) {
+                            beginKittySelection();
+                        } else {
+                            handleAIKitty(newDealer);
+                        }
+                    }));
+                    kittyDelay.play();
+                } else {
+                    statusLabel.setText("无人叫牌，重新发牌...");
+                    Timeline redeal = new Timeline(new KeyFrame(Duration.millis(1500), ev -> startNewRound()));
+                    redeal.play();
+                }
             }
         });
         timeline.getKeyFrames().add(finalKf);
@@ -846,11 +919,13 @@ public class DaGunZiApp extends Application {
     private void updateTrickArea() {
         Card[] trick = engine.getCurrentTrick();
         for (int i = 0; i < 4; i++) {
-            trickCardNodes[i].getChildren().clear();
-            if (trick[i] != null) {
+            if (trick[i] != null && trickCardNodes[i].getChildren().isEmpty()) {
+                // Only add card if the slot is empty (newly played card)
                 StackPane cardFace = createCardFace(trick[i]);
                 trickCardNodes[i].getChildren().add(cardFace);
                 animateCardPlay(cardFace, i);
+            } else if (trick[i] == null) {
+                trickCardNodes[i].getChildren().clear();
             }
         }
     }
@@ -956,6 +1031,15 @@ public class DaGunZiApp extends Application {
 
         scoreLabel.setText("防守方得分：" + engine.getDefenderPoints());
 
+        // Update dealer label and player name labels with dealer indicator
+        if (engine.getTrumpInfo() != null) {
+            int di = engine.getDealerIndex();
+            dealerLabel.setText("庄家：" + players[di].getName());
+            updateDealerIndicator(di);
+        } else {
+            dealerLabel.setText("庄家：未定");
+        }
+
         Rank[] levels = engine.getTeamLevels();
         teamLevelLabel.setText("你的队伍：" + levels[0].getDisplayName()
             + " | 对方队伍：" + levels[1].getDisplayName());
@@ -971,6 +1055,14 @@ public class DaGunZiApp extends Application {
                 playerNameLabels[i].setStyle("-fx-text-fill: white; -fx-font-size: 14px; "
                     + "-fx-font-weight: bold;");
             }
+        }
+    }
+
+    private void updateDealerIndicator(int dealerIdx) {
+        for (int i = 0; i < 4; i++) {
+            if (playerNameLabels[i] == null) continue;
+            String baseName = players[i].getName();
+            playerNameLabels[i].setText(i == dealerIdx ? baseName + " [庄]" : baseName);
         }
     }
 

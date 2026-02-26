@@ -205,6 +205,8 @@ public class GameEngine {
     private int cardSortValue(Card card) {
         if (card.getRank() == Rank.BIG_JOKER) return 1000;
         if (card.getRank() == Rank.SMALL_JOKER) return 999;
+        // Da Gunzi ranking: 2 > A > K > Q > J > 10 > ... > 3
+        if (card.getRank() == Rank.TWO) return Rank.ACE.getValue() + 1;
         return card.getRank().getValue();
     }
 
@@ -223,6 +225,67 @@ public class GameEngine {
         for (Player player : players) {
             player.sortHand(trumpInfo);
         }
+    }
+
+    /**
+     * Check if a player has at least one Big Joker card.
+     */
+    public boolean playerHasBigJoker(int playerIndex) {
+        return players[playerIndex].getHand().stream()
+            .anyMatch(c -> c.getRank() == Rank.BIG_JOKER);
+    }
+
+    /**
+     * For the first round, when no one declares trump, determine trump from the kitty.
+     * The suit with the fewest non-joker cards in the kitty becomes trump.
+     * A random player is assigned as dealer.
+     *
+     * @return the index of the player chosen as dealer
+     */
+    public int declareTrumpFromKitty() {
+        if (phase != GamePhase.DEALING && phase != GamePhase.DECLARING_TRUMP) {
+            throw new IllegalStateException("Cannot declare trump from kitty in phase: " + phase);
+        }
+
+        // Count suits in kitty (non-joker cards only)
+        java.util.Map<Suit, Integer> suitCounts = new java.util.EnumMap<>(Suit.class);
+        for (Suit s : Suit.values()) {
+            suitCounts.put(s, 0);
+        }
+        for (Card card : kitty) {
+            if (card.getSuit() != null) {
+                suitCounts.merge(card.getSuit(), 1, Integer::sum);
+            }
+        }
+
+        // Find the suit with the minimum count (smallest suit)
+        Suit minSuit = Suit.SPADE;
+        int minCount = Integer.MAX_VALUE;
+        for (Suit s : Suit.values()) {
+            if (suitCounts.get(s) < minCount) {
+                minCount = suitCounts.get(s);
+                minSuit = s;
+            }
+        }
+
+        // Pick a random dealer
+        dealerIndex = new java.util.Random().nextInt(4);
+        Rank currentLevel = teamLevels[players[dealerIndex].getTeam()];
+        trumpInfo = new TrumpInfo(minSuit, currentLevel);
+        phase = GamePhase.PREPARING_KITTY;
+
+        // Dealer picks up the kitty
+        players[dealerIndex].addCards(new ArrayList<>(kitty));
+        // Sort all hands
+        for (Player player : players) {
+            player.sortHand(trumpInfo);
+        }
+
+        return dealerIndex;
+    }
+
+    public boolean isFirstRound() {
+        return roundNumber == 1;
     }
 
     public void setKitty(List<Card> kittyCards) {
