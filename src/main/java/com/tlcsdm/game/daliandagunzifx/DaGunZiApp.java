@@ -98,6 +98,7 @@ public class DaGunZiApp extends Application {
     private static final int CARD_OVERLAP = 25;
     private static final String TABLE_COLOR = "#1a6631";
     private static final String DARK_TABLE_COLOR = "#1a1a2e";
+    private static final String APP_VERSION = "1.0.0";
 
     // Game state
     private GameEngine engine;
@@ -227,7 +228,7 @@ public class DaGunZiApp extends Application {
 
         VBox content = new VBox(8);
         content.setPadding(new Insets(10, 0, 0, 0));
-        Label versionLabel = new Label("版本：1.0.0");
+        Label versionLabel = new Label("版本：" + APP_VERSION);
         Label descLabel = new Label("大连打滚子单机版 - 基于 JavaFX 的单机卡牌游戏");
         descLabel.setWrapText(true);
         content.getChildren().addAll(versionLabel, descLabel);

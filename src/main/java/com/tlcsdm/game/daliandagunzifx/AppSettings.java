@@ -48,7 +48,7 @@ import java.util.prefs.Preferences;
  */
 public final class AppSettings {
 
-    private static AppSettings instance;
+    private static final AppSettings INSTANCE = new AppSettings();
 
     private static final Preferences PREFS = Preferences.userNodeForPackage(AppSettings.class);
     private static final String PREF_DARK_THEME = "darkTheme";
@@ -85,10 +85,7 @@ public final class AppSettings {
     }
 
     public static AppSettings getInstance() {
-        if (instance == null) {
-            instance = new AppSettings();
-        }
-        return instance;
+        return INSTANCE;
     }
 
     public BooleanProperty darkThemeProperty() {
