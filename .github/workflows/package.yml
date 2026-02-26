@@ -1,67 +1,47 @@
-name: Package Application
+name: Package
 
 on:
   workflow_dispatch:
-    inputs:
-      platforms:
-        description: '打包平台'
-        required: true
-        default: 'all'
-        type: choice
-        options:
-          - all
-          - linux
-          - windows
-          - mac
-      skip_tests:
-        description: '跳过测试'
-        required: false
-        default: true
-        type: boolean
 
 permissions:
   contents: read
 
 jobs:
   package:
+    name: Package on ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            platform: linux
-            platform_name: Linux
-          - os: windows-latest
-            platform: windows
-            platform_name: Windows
-          - os: macos-latest
-            platform: mac
-            platform_name: MacOS
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
     runs-on: ${{ matrix.os }}
-    if: github.event.inputs.platforms == 'all' || github.event.inputs.platforms == matrix.platform
-    steps:
-      - uses: actions/checkout@v5
 
-      - name: Set up JDK 21
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup JDK
         uses: actions/setup-java@v5
         with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: maven
+          distribution: temurin
+          java-version: 21
 
-      - name: Build with Maven (MacOS)
+      - name: Cache Maven packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build with Maven (macOS)
         if: runner.os == 'macOS'
-        run: |
-          mvn -B clean package --file pom.xml \
-            ${{ github.event.inputs.skip_tests == 'true' && '-DskipTests' || '' }} \
-            '-Dmaven.javadoc.skip=true' '-Djavafx.platform=mac'
+        shell: bash
+        run: mvn -B clean package --no-transfer-progress -DskipTests -Dmaven.javadoc.skip=true -Djavafx.platform=mac
 
       - name: Build with Maven
         if: runner.os != 'macOS'
-        run: |
-          mvn -B clean package --file pom.xml \
-            ${{ github.event.inputs.skip_tests == 'true' && '-DskipTests' || '' }} \
-            '-Dmaven.javadoc.skip=true'
+        shell: bash
+        run: mvn -B clean package --no-transfer-progress -DskipTests -Dmaven.javadoc.skip=true
 
       - name: Prepare distribution
         shell: bash
@@ -75,6 +55,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dalian-dagunzi-${{ matrix.platform_name }}
+          name: dalian-dagunzi-${{ matrix.os }}
           path: dist/
           retention-days: 1
