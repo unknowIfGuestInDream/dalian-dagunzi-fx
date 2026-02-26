@@ -35,35 +35,36 @@ public class RoundResult {
     private final boolean declarerWins;
     private final int levelChange;
     private final int winningTeam;
+    private final int tributeCount;
+    private final int kittyBloods;
 
     public RoundResult(int defenderPoints, int declarerTeam) {
+        this(defenderPoints, declarerTeam, 0);
+    }
+
+    public RoundResult(int defenderPoints, int declarerTeam, int kittyBloods) {
         this.defenderPoints = defenderPoints;
         this.declarerTeam = declarerTeam;
         this.defenderTeam = 1 - declarerTeam;
-        this.declarerWins = defenderPoints < 80;
+        this.declarerWins = defenderPoints < 120;
+        this.kittyBloods = kittyBloods;
 
-        if (defenderPoints == 0) {
-            this.levelChange = 3;
-            this.winningTeam = declarerTeam;
-        } else if (defenderPoints < 40) {
-            this.levelChange = 2;
-            this.winningTeam = declarerTeam;
-        } else if (defenderPoints < 80) {
+        if (defenderPoints < 120) {
             this.levelChange = 1;
             this.winningTeam = declarerTeam;
-        } else if (defenderPoints == 80) {
-            this.levelChange = 0;
-            this.winningTeam = -1;
-        } else if (defenderPoints < 120) {
-            this.levelChange = 1;
-            this.winningTeam = defenderTeam;
-        } else if (defenderPoints < 160) {
-            this.levelChange = 2;
-            this.winningTeam = defenderTeam;
         } else {
-            this.levelChange = 3;
+            this.levelChange = 1;
             this.winningTeam = defenderTeam;
         }
+
+        // Calculate tribute count based on score thresholds + kitty joker bloods
+        int scoreTribute = 0;
+        if (defenderPoints < 80) {
+            scoreTribute = (80 - defenderPoints) / 10;
+        } else if (defenderPoints >= 160) {
+            scoreTribute = (defenderPoints - 160) / 10;
+        }
+        this.tributeCount = scoreTribute + kittyBloods;
     }
 
     public int getDefenderPoints() {
@@ -88,5 +89,13 @@ public class RoundResult {
 
     public int getWinningTeam() {
         return winningTeam;
+    }
+
+    public int getTributeCount() {
+        return tributeCount;
+    }
+
+    public int getKittyBloods() {
+        return kittyBloods;
     }
 }

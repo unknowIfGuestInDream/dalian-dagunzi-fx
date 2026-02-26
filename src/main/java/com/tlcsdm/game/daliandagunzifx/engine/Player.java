@@ -50,7 +50,7 @@ public class Player {
         this.hand = new ArrayList<>();
         this.team = id % 2;
         this.isHuman = isHuman;
-        this.level = Rank.TWO;
+        this.level = Rank.THREE;
     }
 
     public int getId() {

@@ -33,6 +33,7 @@ import com.tlcsdm.game.daliandagunzifx.model.Rank;
 import com.tlcsdm.game.daliandagunzifx.model.Suit;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 public class GameEngine {
@@ -50,6 +51,8 @@ public class GameEngine {
     private final Rank[] teamLevels;
     private int roundNumber;
     private int tricksCompleted;
+    private int previousWinningTeam;
+    private int previousTributeCount;
 
     public GameEngine(Player[] players) {
         if (players.length != 4) {
@@ -57,10 +60,12 @@ public class GameEngine {
         }
         this.players = players;
         this.currentTrick = new Card[4];
-        this.teamLevels = new Rank[]{Rank.TWO, Rank.TWO};
+        this.teamLevels = new Rank[]{Rank.THREE, Rank.THREE};
         this.kitty = new ArrayList<>();
         this.roundNumber = 0;
         this.phase = GamePhase.ROUND_END;
+        this.previousWinningTeam = -1;
+        this.previousTributeCount = 0;
     }
 
     public void startNewRound() {
@@ -77,14 +82,130 @@ public class GameEngine {
         Deck deck = new Deck();
         deck.shuffle();
 
-        // Deal 25 cards to each player
+        // Deal 38 cards to each player
         for (int i = 0; i < 4; i++) {
-            players[i].addCards(deck.deal(25));
+            players[i].addCards(deck.deal(38));
         }
-        // Remaining 8 cards go to kitty
-        kitty = deck.deal(8);
+        // Remaining 10 cards go to kitty
+        kitty = deck.deal(10);
 
         phase = GamePhase.DEALING;
+    }
+
+    public boolean isTributeRequired() {
+        return previousTributeCount > 0;
+    }
+
+    public void performTribute(int giverIndex, Card tributeCard, Card returnCard) {
+        if (!isTributeRequired()) {
+            throw new IllegalStateException("Tribute is not required");
+        }
+        Player giver = players[giverIndex];
+        if (giver.getTeam() == previousWinningTeam) {
+            throw new IllegalArgumentException("Winning team cannot give tribute");
+        }
+        if (!giver.hasCards(List.of(tributeCard))) {
+            throw new IllegalArgumentException("Giver does not have the tribute card");
+        }
+
+        // Find a player on the winning team to receive tribute
+        int receiverIndex = -1;
+        for (int i = 0; i < 4; i++) {
+            if (players[i].getTeam() == previousWinningTeam) {
+                receiverIndex = i;
+                break;
+            }
+        }
+        Player receiver = players[receiverIndex];
+        if (!receiver.hasCards(List.of(returnCard))) {
+            throw new IllegalArgumentException("Receiver does not have the return card");
+        }
+
+        giver.removeCards(List.of(tributeCard));
+        receiver.addCards(List.of(tributeCard));
+        receiver.removeCards(List.of(returnCard));
+        giver.addCards(List.of(returnCard));
+    }
+
+    public void finishTribute() {
+        phase = GamePhase.DEALING;
+    }
+
+    public int getPreviousWinningTeam() {
+        return previousWinningTeam;
+    }
+
+    public int getPreviousTributeCount() {
+        return previousTributeCount;
+    }
+
+    public String performAutoTribute() {
+        if (!isTributeRequired()) {
+            return null;
+        }
+        int losingTeam = 1 - previousWinningTeam;
+        StringBuilder messages = new StringBuilder();
+
+        for (int t = 0; t < previousTributeCount; t++) {
+            // Find the losing team player with the highest card
+            Player giver = null;
+            Card bestCard = null;
+            for (Player p : players) {
+                if (p.getTeam() == losingTeam) {
+                    for (Card c : p.getHand()) {
+                        if (bestCard == null || cardSortValue(c) > cardSortValue(bestCard)) {
+                            bestCard = c;
+                            giver = p;
+                        }
+                    }
+                }
+            }
+            if (giver == null || bestCard == null) break;
+
+            // Find a winning team player to receive
+            Player receiver = null;
+            for (Player p : players) {
+                if (p.getTeam() == previousWinningTeam) {
+                    receiver = p;
+                    break;
+                }
+            }
+            if (receiver == null) break;
+
+            // Receiver returns their lowest non-joker card
+            Card returnCard = null;
+            for (Card c : receiver.getHand()) {
+                if (c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER) {
+                    if (returnCard == null || cardSortValue(c) < cardSortValue(returnCard)) {
+                        returnCard = c;
+                    }
+                }
+            }
+            if (returnCard == null) {
+                returnCard = receiver.getHand().stream()
+                    .min(Comparator.comparingInt(this::cardSortValue))
+                    .orElse(null);
+            }
+            if (returnCard == null) break;
+
+            giver.removeCards(List.of(bestCard));
+            receiver.addCards(List.of(bestCard));
+            receiver.removeCards(List.of(returnCard));
+            giver.addCards(List.of(returnCard));
+
+            if (!messages.isEmpty()) messages.append("；");
+            messages.append(giver.getName()).append(" 进贡 ").append(bestCard.getDisplayName())
+                .append("，").append(receiver.getName()).append(" 还 ").append(returnCard.getDisplayName());
+        }
+
+        phase = GamePhase.DEALING;
+        return messages.isEmpty() ? null : messages.toString();
+    }
+
+    private int cardSortValue(Card card) {
+        if (card.getRank() == Rank.BIG_JOKER) return 1000;
+        if (card.getRank() == Rank.SMALL_JOKER) return 999;
+        return card.getRank().getValue();
     }
 
     public void declareTrump(int playerIndex, Suit suit) {
@@ -108,8 +229,8 @@ public class GameEngine {
         if (phase != GamePhase.PREPARING_KITTY) {
             throw new IllegalStateException("Cannot set kitty in phase: " + phase);
         }
-        if (kittyCards.size() != 8) {
-            throw new IllegalArgumentException("Kitty must contain exactly 8 cards");
+        if (kittyCards.size() != 10) {
+            throw new IllegalArgumentException("Kitty must contain exactly 10 cards");
         }
         if (!players[dealerIndex].hasCards(kittyCards)) {
             throw new IllegalArgumentException("Dealer does not have all specified kitty cards");
@@ -214,7 +335,7 @@ public class GameEngine {
         }
 
         tricksCompleted++;
-        boolean isLastTrick = tricksCompleted == 25;
+        boolean isLastTrick = tricksCompleted == 38;
 
         // Last trick: kitty points go to winner doubled
         if (isLastTrick) {
@@ -257,7 +378,20 @@ public class GameEngine {
             throw new IllegalStateException("Round is not over");
         }
         int declarerTeam = players[dealerIndex].getTeam();
-        return new RoundResult(defenderPoints, declarerTeam);
+        int bloods = getKittyBloods();
+        RoundResult result = new RoundResult(defenderPoints, declarerTeam, bloods);
+        previousWinningTeam = result.getWinningTeam();
+        previousTributeCount = result.getTributeCount();
+        return result;
+    }
+
+    public int getKittyBloods() {
+        int bloods = 0;
+        for (Card card : kitty) {
+            if (card.getRank() == Rank.BIG_JOKER) bloods += 2;
+            else if (card.getRank() == Rank.SMALL_JOKER) bloods += 1;
+        }
+        return bloods;
     }
 
     public int getCurrentPlayerIndex() {

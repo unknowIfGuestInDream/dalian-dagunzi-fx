@@ -73,8 +73,10 @@ public class MediumAI implements AIStrategy {
 
         List<Card> result = new ArrayList<>();
         for (Card card : hand) {
-            if (result.size() >= 8) break;
-            result.add(card);
+            if (result.size() >= 10) break;
+            if (card.getRank() != Rank.SMALL_JOKER && card.getRank() != Rank.BIG_JOKER) {
+                result.add(card);
+            }
         }
         return result;
     }

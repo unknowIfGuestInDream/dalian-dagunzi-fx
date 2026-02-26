@@ -50,9 +50,9 @@ public class CardTracker {
     }
 
     private List<Card> buildFullDeck() {
-        List<Card> cards = new ArrayList<>(108);
+        List<Card> cards = new ArrayList<>(162);
         int id = 0;
-        for (int copy = 0; copy < 2; copy++) {
+        for (int copy = 0; copy < 3; copy++) {
             for (Suit suit : Suit.values()) {
                 for (Rank rank : Rank.values()) {
                     if (rank == Rank.SMALL_JOKER || rank == Rank.BIG_JOKER) continue;
@@ -60,10 +60,10 @@ public class CardTracker {
                 }
             }
         }
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < 3; i++) {
             cards.add(new Card(null, Rank.SMALL_JOKER, id++));
         }
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < 3; i++) {
             cards.add(new Card(null, Rank.BIG_JOKER, id++));
         }
         return cards;

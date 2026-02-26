@@ -12,7 +12,7 @@ class CardTrackerTest {
     @Test
     void testInitialState() {
         CardTracker tracker = new CardTracker();
-        assertEquals(108, tracker.getRemainingCardCount());
+        assertEquals(162, tracker.getRemainingCardCount());
         assertEquals(0, tracker.getPlayedCards().size());
     }
 
@@ -21,7 +21,7 @@ class CardTrackerTest {
         CardTracker tracker = new CardTracker();
         Card card = new Card(Suit.HEART, Rank.ACE, 0);
         tracker.cardPlayed(card, 0);
-        assertEquals(107, tracker.getRemainingCardCount());
+        assertEquals(161, tracker.getRemainingCardCount());
     }
 
     @Test
@@ -40,7 +40,7 @@ class CardTrackerTest {
         tracker.markVoidSuit(1, Suit.DIAMOND);
 
         tracker.reset();
-        assertEquals(108, tracker.getRemainingCardCount());
+        assertEquals(162, tracker.getRemainingCardCount());
         assertEquals(0, tracker.getPlayedCards().size());
         assertFalse(tracker.isVoid(1, Suit.DIAMOND));
     }

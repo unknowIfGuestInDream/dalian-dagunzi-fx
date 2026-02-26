@@ -280,7 +280,7 @@ public class DaGunZiApp extends Application {
         nameLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold;");
         playerNameLabels[playerIndex] = nameLabel;
 
-        Label countLabel = new Label("牌数：25");
+        Label countLabel = new Label("牌数：38");
         countLabel.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 12px;");
         playerCountLabels[playerIndex] = countLabel;
 
@@ -297,7 +297,7 @@ public class DaGunZiApp extends Application {
         roundLabel = createInfoLabel("第 0 局");
         trumpLabel = createInfoLabel("主牌：未定");
         scoreLabel = createInfoLabel("防守方得分：0");
-        teamLevelLabel = createInfoLabel("队伍级别：2 / 2");
+        teamLevelLabel = createInfoLabel("队伍级别：3 / 3");
 
         infoPanel.getChildren().addAll(roundLabel, trumpLabel, scoreLabel, teamLevelLabel);
 
@@ -339,7 +339,7 @@ public class DaGunZiApp extends Application {
         humanNameLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold;");
         playerNameLabels[0] = humanNameLabel;
 
-        Label humanCountLabel = new Label("牌数：25");
+        Label humanCountLabel = new Label("牌数：38");
         humanCountLabel.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 12px;");
         playerCountLabels[0] = humanCountLabel;
 
@@ -374,6 +374,15 @@ public class DaGunZiApp extends Application {
         waitingForKitty = false;
 
         engine.startNewRound();
+
+        // Handle tribute if applicable
+        if (engine.isTributeRequired()) {
+            String tributeMsg = engine.performAutoTribute();
+            if (tributeMsg != null) {
+                statusLabel.setText("进贡：" + tributeMsg);
+            }
+        }
+
         updateInfoPanel();
         updateAIPlayerPanes();
         clearTrickArea();
@@ -515,7 +524,7 @@ public class DaGunZiApp extends Application {
     private void beginKittySelection() {
         waitingForKitty = true;
         selectedKittyCards.clear();
-        statusLabel.setText("请选择8张牌作为底牌（已选：0/8）");
+        statusLabel.setText("请选择10张牌作为底牌（已选：0/10）（扣王：大王=2血，小王=1血）");
 
         Button confirmBtn = new Button("确认");
         confirmBtn.setStyle("-fx-font-size: 16px; -fx-padding: 8 20; "
@@ -532,14 +541,14 @@ public class DaGunZiApp extends Application {
     private void toggleKittyCard(Card card) {
         if (selectedKittyCards.contains(card)) {
             selectedKittyCards.remove(card);
-        } else if (selectedKittyCards.size() < 8) {
+        } else if (selectedKittyCards.size() < 10) {
             selectedKittyCards.add(card);
         }
-        statusLabel.setText("请选择8张牌作为底牌（已选：" + selectedKittyCards.size() + "/8）");
+        statusLabel.setText("请选择10张牌作为底牌（已选：" + selectedKittyCards.size() + "/10）（扣王：大王=2血，小王=1血）");
 
         if (!actionPane.getChildren().isEmpty()
             && actionPane.getChildren().get(0) instanceof Button btn) {
-            btn.setDisable(selectedKittyCards.size() != 8);
+            btn.setDisable(selectedKittyCards.size() != 10);
         }
         updateHumanHand();
     }
@@ -663,34 +672,56 @@ public class DaGunZiApp extends Application {
         clearTrickArea();
 
         String resultText;
-        if (result.getWinningTeam() == -1) {
-            resultText = "平局！无人升级。";
-        } else {
-            String winner = (result.getWinningTeam() == players[0].getTeam()) ? "你的队伍" : "对方队伍";
-            resultText = winner + "获胜！升 " + result.getLevelChange() + " 级";
-        }
+        String winner = (result.getWinningTeam() == players[0].getTeam()) ? "你的队伍" : "对方队伍";
+        resultText = winner + "获胜！升 " + result.getLevelChange() + " 级";
 
-        // Advance team levels
+        // Advance team levels and check win condition
+        boolean gameWon = false;
         if (result.getWinningTeam() >= 0 && result.getLevelChange() > 0) {
             Rank[] levels = engine.getTeamLevels();
             int team = result.getWinningTeam();
-            int newVal = Math.min(levels[team].getValue() + result.getLevelChange(), Rank.ACE.getValue());
-            for (Rank r : Rank.values()) {
-                if (r.getValue() == newVal && r != Rank.SMALL_JOKER && r != Rank.BIG_JOKER) {
-                    levels[team] = r;
-                    break;
+            int newVal = levels[team].getValue() + result.getLevelChange();
+            if (newVal > Rank.TEN.getValue()) {
+                gameWon = true;
+                levels[team] = Rank.TEN;
+            } else {
+                for (Rank r : Rank.values()) {
+                    if (r.getValue() == newVal && r != Rank.SMALL_JOKER && r != Rank.BIG_JOKER) {
+                        levels[team] = r;
+                        break;
+                    }
                 }
             }
         }
 
-        statusLabel.setText("本局结束！防守方得分：" + result.getDefenderPoints() + " — " + resultText);
+        StringBuilder statusMsg = new StringBuilder();
+        if (gameWon) {
+            String gameWinner = (result.getWinningTeam() == players[0].getTeam()) ? "你的队伍" : "对方队伍";
+            statusMsg.append("游戏结束！").append(gameWinner).append("打碎10获胜！");
+        } else {
+            statusMsg.append("本局结束！").append(resultText);
+        }
+        statusMsg.append(" 防守方得分：").append(result.getDefenderPoints());
+        if (result.getKittyBloods() > 0) {
+            statusMsg.append(" 扣王血：").append(result.getKittyBloods());
+        }
+        if (result.getTributeCount() > 0) {
+            statusMsg.append(" 下轮进贡：").append(result.getTributeCount()).append("个");
+        }
+        statusLabel.setText(statusMsg.toString());
 
         actionPane.getChildren().clear();
-        Button nextBtn = new Button("下一局");
+        boolean finalGameWon = gameWon;
+        Button nextBtn = new Button(gameWon ? "新游戏" : "下一局");
         nextBtn.setStyle("-fx-font-size: 18px; -fx-padding: 10 30; "
             + "-fx-background-color: #d4af37; -fx-text-fill: black; -fx-font-weight: bold; -fx-cursor: hand;");
         nextBtn.setOnAction(e -> {
             actionPane.getChildren().clear();
+            if (finalGameWon) {
+                Rank[] lvls = engine.getTeamLevels();
+                lvls[0] = Rank.THREE;
+                lvls[1] = Rank.THREE;
+            }
             startNewRound();
         });
         actionPane.getChildren().add(nextBtn);
