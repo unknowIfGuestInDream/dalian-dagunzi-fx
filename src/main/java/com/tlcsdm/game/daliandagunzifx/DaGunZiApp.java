@@ -57,9 +57,16 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.Separator;
+import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -91,6 +98,7 @@ public class DaGunZiApp extends Application {
     private static final int CARD_HEIGHT = 86;
     private static final int CARD_OVERLAP = 25;
     private static final String TABLE_COLOR = "#1a6631";
+    private static final String DARK_TABLE_COLOR = "#1a1a2e";
 
     // Game state
     private GameEngine engine;
@@ -99,6 +107,7 @@ public class DaGunZiApp extends Application {
     private Player[] players;
     private AILevel selectedDifficulty = AILevel.MEDIUM;
     private boolean trackerEnabled;
+    private boolean darkTheme;
 
     // UI interaction state
     private boolean waitingForHumanPlay;
@@ -106,6 +115,7 @@ public class DaGunZiApp extends Application {
     private final List<Card> selectedKittyCards = new ArrayList<>();
 
     // UI components
+    private Stage primaryStage;
     private StackPane rootPane;
     private Pane humanHandPane;
     private GridPane trickArea;
@@ -128,6 +138,7 @@ public class DaGunZiApp extends Application {
 
     @Override
     public void start(Stage stage) {
+        primaryStage = stage;
         rootPane = new StackPane();
         showWelcomeScreen();
 
@@ -163,14 +174,76 @@ public class DaGunZiApp extends Application {
         return canvas.snapshot(params, null);
     }
 
+    // ======================== Menu Bar ========================
+
+    private MenuBar createMenuBar() {
+        MenuBar menuBar = new MenuBar();
+
+        // --- Settings menu ---
+        Menu settingsMenu = new Menu("设置");
+
+        // Theme toggle
+        CheckMenuItem darkThemeItem = new CheckMenuItem("深色主题");
+        darkThemeItem.setSelected(darkTheme);
+        darkThemeItem.setOnAction(e -> {
+            darkTheme = darkThemeItem.isSelected();
+            if (engine == null) {
+                showWelcomeScreen();
+            } else {
+                initGameBoard();
+                updateInfoPanel();
+                updateHumanHand();
+                updateAIPlayerPanes();
+            }
+        });
+
+        // Tracker toggle
+        CheckMenuItem trackerItem = new CheckMenuItem("开启记牌器");
+        trackerItem.setSelected(trackerEnabled);
+        trackerItem.setOnAction(e -> trackerEnabled = trackerItem.isSelected());
+
+        // AI difficulty sub-menu
+        Menu aiMenu = new Menu("AI难度");
+        ToggleGroup aiGroup = new ToggleGroup();
+        for (AILevel level : AILevel.values()) {
+            RadioMenuItem item = new RadioMenuItem(level.getDisplayName());
+            item.setToggleGroup(aiGroup);
+            item.setSelected(selectedDifficulty == level);
+            item.setOnAction(e -> selectedDifficulty = level);
+            aiMenu.getItems().add(item);
+        }
+
+        settingsMenu.getItems().addAll(darkThemeItem, trackerItem, new SeparatorMenuItem(), aiMenu);
+
+        // --- Rules menu ---
+        Menu rulesMenu = new Menu("规则");
+
+        MenuItem terminologyItem = new MenuItem("名词解释");
+        terminologyItem.setOnAction(e -> RulesDialog.showTerminology(primaryStage));
+
+        MenuItem cardTypesItem = new MenuItem("牌型");
+        cardTypesItem.setOnAction(e -> RulesDialog.showCardTypes(primaryStage));
+
+        MenuItem gameFlowItem = new MenuItem("游戏流程");
+        gameFlowItem.setOnAction(e -> RulesDialog.showGameFlow(primaryStage));
+
+        rulesMenu.getItems().addAll(terminologyItem, cardTypesItem, gameFlowItem);
+
+        menuBar.getMenus().addAll(settingsMenu, rulesMenu);
+        return menuBar;
+    }
+
     // ======================== Welcome Screen ========================
 
     private void showWelcomeScreen() {
         rootPane.getChildren().clear();
 
+        String bgColor = darkTheme ? DARK_TABLE_COLOR : TABLE_COLOR;
+
         VBox welcomeBox = new VBox(20);
         welcomeBox.setAlignment(Pos.CENTER);
-        welcomeBox.setStyle("-fx-background-color: " + TABLE_COLOR + ";");
+        welcomeBox.setStyle("-fx-background-color: " + bgColor + ";");
+        VBox.setVgrow(welcomeBox, javafx.scene.layout.Priority.ALWAYS);
 
         Label title = new Label("大连打滚子");
         title.setStyle("-fx-font-size: 48px; -fx-text-fill: gold; -fx-font-weight: bold;");
@@ -218,7 +291,10 @@ public class DaGunZiApp extends Application {
         spacer2.setPrefHeight(10);
 
         welcomeBox.getChildren().addAll(title, subtitle, spacer1, diffBox, trackerCheck, spacer2, startBtn);
-        rootPane.getChildren().add(welcomeBox);
+
+        VBox wrapper = new VBox();
+        wrapper.getChildren().addAll(createMenuBar(), welcomeBox);
+        rootPane.getChildren().add(wrapper);
     }
 
     // ======================== Game Initialization ========================
@@ -246,8 +322,10 @@ public class DaGunZiApp extends Application {
     private void initGameBoard() {
         rootPane.getChildren().clear();
 
+        String bgColor = darkTheme ? DARK_TABLE_COLOR : TABLE_COLOR;
+
         BorderPane gameBoard = new BorderPane();
-        gameBoard.setStyle("-fx-background-color: " + TABLE_COLOR + ";");
+        gameBoard.setStyle("-fx-background-color: " + bgColor + ";");
 
         statusLabel = new Label();
         statusLabel.setStyle("-fx-text-fill: #ffdd57; -fx-font-size: 16px; -fx-font-weight: bold;");
@@ -256,9 +334,12 @@ public class DaGunZiApp extends Application {
         actionPane.setAlignment(Pos.CENTER);
         actionPane.setPadding(new Insets(5));
 
-        // Top: Player 2 (partner)
+        // Top: menu bar + Player 2 (partner)
         VBox topPlayerPane = createAIPlayerPane("电脑2(搭档)", 2);
         topPlayerPane.setPadding(new Insets(8));
+
+        VBox topArea = new VBox();
+        topArea.getChildren().addAll(createMenuBar(), topPlayerPane);
 
         // Left: Player 1
         VBox leftPlayerPane = createAIPlayerPane("电脑1", 1);
@@ -284,13 +365,13 @@ public class DaGunZiApp extends Application {
         // Bottom: human player
         VBox bottomArea = buildHumanArea();
 
-        gameBoard.setTop(topPlayerPane);
+        gameBoard.setTop(topArea);
         gameBoard.setLeft(leftPlayerPane);
         gameBoard.setRight(rightSide);
         gameBoard.setCenter(centerBox);
         gameBoard.setBottom(bottomArea);
 
-        BorderPane.setAlignment(topPlayerPane, Pos.CENTER);
+        BorderPane.setAlignment(topArea, Pos.CENTER);
         BorderPane.setAlignment(leftPlayerPane, Pos.CENTER_LEFT);
         BorderPane.setMargin(leftPlayerPane, new Insets(0, 0, 0, 10));
 
