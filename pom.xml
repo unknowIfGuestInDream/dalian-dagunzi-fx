@@ -180,6 +180,9 @@
                             <Bundle-Vendor>${project.organization.name}</Bundle-Vendor>
                         </manifestEntries>
                         <manifest>
+                            <addClasspath>true</addClasspath>
+                            <classpathPrefix>lib/</classpathPrefix>
+                            <mainClass>com.tlcsdm.game.daliandagunzifx.DaGunZiApp</mainClass>
                             <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
                         </manifest>
                     </archive>
