@@ -35,12 +35,19 @@ public class RoundResult {
     private final boolean declarerWins;
     private final int levelChange;
     private final int winningTeam;
+    private final int tributeCount;
+    private final int kittyBloods;
 
     public RoundResult(int defenderPoints, int declarerTeam) {
+        this(defenderPoints, declarerTeam, 0);
+    }
+
+    public RoundResult(int defenderPoints, int declarerTeam, int kittyBloods) {
         this.defenderPoints = defenderPoints;
         this.declarerTeam = declarerTeam;
         this.defenderTeam = 1 - declarerTeam;
         this.declarerWins = defenderPoints < 120;
+        this.kittyBloods = kittyBloods;
 
         if (defenderPoints < 120) {
             this.levelChange = 1;
@@ -49,6 +56,15 @@ public class RoundResult {
             this.levelChange = 1;
             this.winningTeam = defenderTeam;
         }
+
+        // Calculate tribute count based on score thresholds + kitty joker bloods
+        int scoreTribute = 0;
+        if (defenderPoints < 80) {
+            scoreTribute = (80 - defenderPoints) / 10;
+        } else if (defenderPoints >= 160) {
+            scoreTribute = (defenderPoints - 160) / 10;
+        }
+        this.tributeCount = scoreTribute + kittyBloods;
     }
 
     public int getDefenderPoints() {
@@ -73,5 +89,13 @@ public class RoundResult {
 
     public int getWinningTeam() {
         return winningTeam;
+    }
+
+    public int getTributeCount() {
+        return tributeCount;
+    }
+
+    public int getKittyBloods() {
+        return kittyBloods;
     }
 }

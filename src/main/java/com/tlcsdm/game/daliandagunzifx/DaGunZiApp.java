@@ -524,7 +524,7 @@ public class DaGunZiApp extends Application {
     private void beginKittySelection() {
         waitingForKitty = true;
         selectedKittyCards.clear();
-        statusLabel.setText("请选择10张牌作为底牌（已选：0/10）（不可选王牌）");
+        statusLabel.setText("请选择10张牌作为底牌（已选：0/10）（扣王：大王=2血，小王=1血）");
 
         Button confirmBtn = new Button("确认");
         confirmBtn.setStyle("-fx-font-size: 16px; -fx-padding: 8 20; "
@@ -539,15 +539,12 @@ public class DaGunZiApp extends Application {
     }
 
     private void toggleKittyCard(Card card) {
-        if (card.getRank() == Rank.SMALL_JOKER || card.getRank() == Rank.BIG_JOKER) {
-            return;
-        }
         if (selectedKittyCards.contains(card)) {
             selectedKittyCards.remove(card);
         } else if (selectedKittyCards.size() < 10) {
             selectedKittyCards.add(card);
         }
-        statusLabel.setText("请选择10张牌作为底牌（已选：" + selectedKittyCards.size() + "/10）（不可选王牌）");
+        statusLabel.setText("请选择10张牌作为底牌（已选：" + selectedKittyCards.size() + "/10）（扣王：大王=2血，小王=1血）");
 
         if (!actionPane.getChildren().isEmpty()
             && actionPane.getChildren().get(0) instanceof Button btn) {
@@ -697,12 +694,21 @@ public class DaGunZiApp extends Application {
             }
         }
 
+        StringBuilder statusMsg = new StringBuilder();
         if (gameWon) {
             String gameWinner = (result.getWinningTeam() == players[0].getTeam()) ? "你的队伍" : "对方队伍";
-            statusLabel.setText("游戏结束！" + gameWinner + "打碎10获胜！防守方得分：" + result.getDefenderPoints());
+            statusMsg.append("游戏结束！").append(gameWinner).append("打碎10获胜！");
         } else {
-            statusLabel.setText("本局结束！防守方得分：" + result.getDefenderPoints() + " — " + resultText);
+            statusMsg.append("本局结束！").append(resultText);
         }
+        statusMsg.append(" 防守方得分：").append(result.getDefenderPoints());
+        if (result.getKittyBloods() > 0) {
+            statusMsg.append(" 扣王血：").append(result.getKittyBloods());
+        }
+        if (result.getTributeCount() > 0) {
+            statusMsg.append(" 下轮进贡：").append(result.getTributeCount()).append("个");
+        }
+        statusLabel.setText(statusMsg.toString());
 
         actionPane.getChildren().clear();
         boolean finalGameWon = gameWon;

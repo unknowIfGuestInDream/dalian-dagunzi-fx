@@ -63,24 +63,27 @@ class GameEngineTest {
     }
 
     @Test
-    void testSetKittyRejectsJokers() {
+    void testSetKittyAllowsJokersWithBloodPenalty() {
         engine.startNewRound();
         engine.declareTrump(0, Suit.SPADE);
 
-        // Try to put a joker in the kitty
+        // Find jokers in hand
         List<Card> hand = players[0].getHand();
-        Card joker = hand.stream()
+        List<Card> jokers = hand.stream()
             .filter(c -> c.getRank() == Rank.SMALL_JOKER || c.getRank() == Rank.BIG_JOKER)
-            .findFirst()
-            .orElse(null);
-        if (joker != null) {
+            .toList();
+
+        if (!jokers.isEmpty()) {
+            // Build a kitty with one joker + 9 regular cards
             List<Card> kittyWithJoker = new ArrayList<>();
-            kittyWithJoker.add(joker);
+            kittyWithJoker.add(jokers.get(0));
             hand.stream()
                 .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
                 .limit(9)
                 .forEach(kittyWithJoker::add);
-            assertThrows(IllegalArgumentException.class, () -> engine.setKitty(kittyWithJoker));
+            // Should not throw - jokers are allowed but incur blood penalty
+            assertDoesNotThrow(() -> engine.setKitty(kittyWithJoker));
+            assertTrue(engine.getKittyBloods() > 0);
         }
     }
 

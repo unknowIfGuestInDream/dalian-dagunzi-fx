@@ -54,4 +54,59 @@ class RoundResultTest {
         assertEquals(1, result.getLevelChange());
         assertEquals(1, result.getWinningTeam());
     }
+
+    @Test
+    void testTributeCountScoreLow() {
+        // Score < 80: tribute = (80 - score) / 10
+        RoundResult r0 = new RoundResult(0, 0);
+        assertEquals(8, r0.getTributeCount());
+
+        RoundResult r70 = new RoundResult(70, 0);
+        assertEquals(1, r70.getTributeCount());
+
+        RoundResult r50 = new RoundResult(50, 0);
+        assertEquals(3, r50.getTributeCount());
+    }
+
+    @Test
+    void testTributeCountScoreHigh() {
+        // Score >= 160: tribute = (score - 160) / 10
+        RoundResult r170 = new RoundResult(170, 0);
+        assertEquals(1, r170.getTributeCount());
+
+        RoundResult r200 = new RoundResult(200, 0);
+        assertEquals(4, r200.getTributeCount());
+    }
+
+    @Test
+    void testTributeCountNormalRange() {
+        // 80-119: no score-based tribute
+        RoundResult r80 = new RoundResult(80, 0);
+        assertEquals(0, r80.getTributeCount());
+
+        RoundResult r119 = new RoundResult(119, 0);
+        assertEquals(0, r119.getTributeCount());
+
+        // 120-159: no score-based tribute
+        RoundResult r120 = new RoundResult(120, 0);
+        assertEquals(0, r120.getTributeCount());
+
+        RoundResult r159 = new RoundResult(159, 0);
+        assertEquals(0, r159.getTributeCount());
+    }
+
+    @Test
+    void testKittyBloods() {
+        // Kitty bloods add to tribute count
+        RoundResult r100_2bloods = new RoundResult(100, 0, 2);
+        assertEquals(2, r100_2bloods.getTributeCount());
+        assertEquals(2, r100_2bloods.getKittyBloods());
+
+        // Score-based + kitty bloods
+        RoundResult r50_3bloods = new RoundResult(50, 0, 3);
+        assertEquals(6, r50_3bloods.getTributeCount()); // (80-50)/10 + 3 = 3 + 3
+
+        RoundResult r170_1blood = new RoundResult(170, 0, 1);
+        assertEquals(2, r170_1blood.getTributeCount()); // (170-160)/10 + 1 = 1 + 1
+    }
 }
