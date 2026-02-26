@@ -88,9 +88,9 @@ public class TrumpInfo {
 
     /**
      * Returns the effective strength for a rank, where TWO is ranked above ACE.
-     * Da Gunzi ranking: 2 > A > K > Q > J > 10 > 9 > ... > 3
+     * Da Gunzi ranking: 2 &gt; A &gt; K &gt; Q &gt; J &gt; 10 &gt; 9 &gt; ... &gt; 3
      */
-    private int effectiveRankStrength(Rank rank) {
+    static int effectiveRankStrength(Rank rank) {
         if (rank == Rank.TWO) {
             return Rank.ACE.getValue() + 1;
         }

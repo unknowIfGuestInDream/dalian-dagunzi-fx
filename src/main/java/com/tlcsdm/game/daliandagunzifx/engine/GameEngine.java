@@ -205,9 +205,7 @@ public class GameEngine {
     private int cardSortValue(Card card) {
         if (card.getRank() == Rank.BIG_JOKER) return 1000;
         if (card.getRank() == Rank.SMALL_JOKER) return 999;
-        // Da Gunzi ranking: 2 > A > K > Q > J > 10 > ... > 3
-        if (card.getRank() == Rank.TWO) return Rank.ACE.getValue() + 1;
-        return card.getRank().getValue();
+        return TrumpInfo.effectiveRankStrength(card.getRank());
     }
 
     public void declareTrump(int playerIndex, Suit suit) {
