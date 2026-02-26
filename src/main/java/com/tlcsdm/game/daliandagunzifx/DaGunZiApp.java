@@ -71,6 +71,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -243,7 +244,7 @@ public class DaGunZiApp extends Application {
         VBox welcomeBox = new VBox(20);
         welcomeBox.setAlignment(Pos.CENTER);
         welcomeBox.setStyle("-fx-background-color: " + bgColor + ";");
-        VBox.setVgrow(welcomeBox, javafx.scene.layout.Priority.ALWAYS);
+        VBox.setVgrow(welcomeBox, Priority.ALWAYS);
 
         Label title = new Label("大连打滚子");
         title.setStyle("-fx-font-size: 48px; -fx-text-fill: gold; -fx-font-weight: bold;");

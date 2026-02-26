@@ -44,6 +44,10 @@ import javafx.stage.Window;
  */
 public final class RulesDialog {
 
+    private static final int FIRST_COL_WIDTH = 80;
+    private static final String CELL_STYLE = "-fx-background-color: white; -fx-font-size: 13px;";
+    private static final String CELL_BOLD_STYLE = "-fx-background-color: white; -fx-font-size: 13px; -fx-font-weight: bold;";
+
     private RulesDialog() {
     }
 
@@ -109,6 +113,7 @@ public final class RulesDialog {
         grid.setStyle("-fx-background-color: #cccccc;");
 
         // Header row
+        int contentColWidth = width - FIRST_COL_WIDTH - 20;
         for (int c = 0; c < headers.length; c++) {
             Label header = new Label(headers[c]);
             header.setWrapText(true);
@@ -116,11 +121,11 @@ public final class RulesDialog {
             header.setMaxWidth(Double.MAX_VALUE);
             header.setStyle("-fx-background-color: #e0e0e0; -fx-font-weight: bold; -fx-font-size: 14px;");
             if (c == 0) {
-                header.setMinWidth(80);
-                header.setPrefWidth(80);
+                header.setMinWidth(FIRST_COL_WIDTH);
+                header.setPrefWidth(FIRST_COL_WIDTH);
             } else {
-                header.setMinWidth(width - 100);
-                header.setPrefWidth(width - 100);
+                header.setMinWidth(contentColWidth);
+                header.setPrefWidth(contentColWidth);
             }
             grid.add(header, c, 0);
         }
@@ -132,14 +137,14 @@ public final class RulesDialog {
                 cell.setWrapText(true);
                 cell.setPadding(new Insets(8));
                 cell.setMaxWidth(Double.MAX_VALUE);
-                cell.setStyle("-fx-background-color: white; -fx-font-size: 13px;");
                 if (c == 0) {
-                    cell.setMinWidth(80);
-                    cell.setPrefWidth(80);
-                    cell.setStyle(cell.getStyle() + " -fx-font-weight: bold;");
+                    cell.setMinWidth(FIRST_COL_WIDTH);
+                    cell.setPrefWidth(FIRST_COL_WIDTH);
+                    cell.setStyle(CELL_BOLD_STYLE);
                 } else {
-                    cell.setMinWidth(width - 100);
-                    cell.setPrefWidth(width - 100);
+                    cell.setMinWidth(contentColWidth);
+                    cell.setPrefWidth(contentColWidth);
+                    cell.setStyle(CELL_STYLE);
                 }
                 grid.add(cell, c, r + 1);
             }
