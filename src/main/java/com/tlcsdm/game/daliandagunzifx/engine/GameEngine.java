@@ -347,23 +347,20 @@ public class GameEngine {
 
         // Determine play type
         PlayType playType = determinePlayType(cards);
-        if (playType == null) {
-            return false;
-        }
 
-        // Leader can play any valid type
+        // Leader must play a valid type
         if (trickCardsPlayed == 0) {
-            return true;
+            return playType != null;
         }
 
-        // Follower must match the lead play type (same number of cards)
-        if (currentTrickPlayType != null && playType != currentTrickPlayType) {
-            // Check if player has enough cards to form the required play type
-            // If not, they can play any cards of the required count
+        // Follower must match the lead play type card count
+        if (currentTrickPlayType != null) {
             int requiredCount = getPlayTypeCardCount(currentTrickPlayType);
             if (cards.size() != requiredCount) {
                 return false;
             }
+        } else if (playType == null) {
+            return false;
         }
 
         // Must follow the lead suit if possible
@@ -371,12 +368,21 @@ public class GameEngine {
         Card leadCard = leadCards.get(0);
         Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
 
-        // Check if all cards follow suit
-        for (Card card : cards) {
-            Suit cardSuit = trumpInfo.getEffectiveSuit(card);
-            List<Card> suitCards = players[playerIndex].getCardsOfSuit(leadSuit, trumpInfo);
-            if (!suitCards.isEmpty()) {
-                if (cardSuit != leadSuit) {
+        List<Card> suitCardsInHand = players[playerIndex].getCardsOfSuit(leadSuit, trumpInfo);
+        int requiredCount = cards.size();
+
+        if (suitCardsInHand.size() >= requiredCount) {
+            // Has enough suit cards — all played cards must be of lead suit
+            for (Card card : cards) {
+                Suit cardSuit = trumpInfo.getEffectiveSuit(card);
+                if (!java.util.Objects.equals(cardSuit, leadSuit)) {
+                    return false;
+                }
+            }
+        } else if (!suitCardsInHand.isEmpty()) {
+            // Has some suit cards but not enough — must play all suit cards
+            for (Card suitCard : suitCardsInHand) {
+                if (!cards.contains(suitCard)) {
                     return false;
                 }
             }

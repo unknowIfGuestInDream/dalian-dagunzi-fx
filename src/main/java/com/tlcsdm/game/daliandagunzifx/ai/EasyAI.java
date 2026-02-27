@@ -111,12 +111,38 @@ public class EasyAI implements AIStrategy {
         if (requiredCount == 1) {
             return List.of(chooseCard(player, engine));
         }
-        // Need to play a pair - find valid cards of the lead suit
-        List<Card> validCards = getValidCards(player, engine);
+        return chooseMultiCards(player, engine, requiredCount);
+    }
+
+    protected List<Card> chooseMultiCards(Player player, GameEngine engine, int requiredCount) {
+        TrumpInfo trumpInfo = engine.getTrumpInfo();
+        Card leadCard = engine.getCurrentTrick()[engine.getCurrentTrickLeader()];
+        Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
+
+        List<Card> suitCards = new ArrayList<>();
+        List<Card> otherCards = new ArrayList<>();
+        for (Card card : player.getHand()) {
+            if (java.util.Objects.equals(trumpInfo.getEffectiveSuit(card), leadSuit)) {
+                suitCards.add(card);
+            } else {
+                otherCards.add(card);
+            }
+        }
+
+        // Sort by strength ascending (play weakest first)
+        suitCards.sort(Comparator.comparingInt(trumpInfo::getCardStrength));
+        otherCards.sort(Comparator.comparingInt(trumpInfo::getCardStrength));
+
         List<Card> result = new ArrayList<>();
-        for (Card card : validCards) {
-            result.add(card);
+        // Play suit cards first (required by rules)
+        for (Card card : suitCards) {
             if (result.size() >= requiredCount) break;
+            result.add(card);
+        }
+        // Fill with other cards if not enough suit cards
+        for (Card card : otherCards) {
+            if (result.size() >= requiredCount) break;
+            result.add(card);
         }
         return result;
     }

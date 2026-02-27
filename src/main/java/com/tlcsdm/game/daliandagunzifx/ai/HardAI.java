@@ -146,11 +146,78 @@ public class HardAI implements AIStrategy {
         if (requiredCount == 1) {
             return List.of(chooseCard(player, engine));
         }
-        List<Card> validCards = mediumAI.getValidCards(player, engine);
+        return chooseMultiFollowCards(player, engine, requiredCount);
+    }
+
+    private List<Card> chooseMultiFollowCards(Player player, GameEngine engine, int requiredCount) {
+        TrumpInfo trumpInfo = engine.getTrumpInfo();
+        Card leadCard = engine.getCurrentTrick()[engine.getCurrentTrickLeader()];
+        Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
+
+        List<Card> suitCards = new ArrayList<>();
+        List<Card> trumpCards = new ArrayList<>();
+        List<Card> otherCards = new ArrayList<>();
+        for (Card card : player.getHand()) {
+            Suit effective = trumpInfo.getEffectiveSuit(card);
+            if (java.util.Objects.equals(effective, leadSuit)) {
+                suitCards.add(card);
+            } else if (trumpInfo.isTrump(card)) {
+                trumpCards.add(card);
+            } else {
+                otherCards.add(card);
+            }
+        }
+
+        boolean partnerWinning = mediumAI.isPartnerWinning(player, engine);
+
+        // Sort suit cards by strength ascending (weakest first)
+        suitCards.sort(Comparator.comparingInt(trumpInfo::getCardStrength));
+        // Sort other cards: non-point weakest first
+        otherCards.sort(Comparator.comparingInt(c -> {
+            int base = trumpInfo.getCardStrength(c);
+            if (c.getPoints() > 0) return base + 10000;
+            return base;
+        }));
+        trumpCards.sort(Comparator.comparingInt(trumpInfo::getCardStrength));
+
         List<Card> result = new ArrayList<>();
-        for (Card card : validCards) {
-            result.add(card);
+        // Must play suit cards first
+        for (Card card : suitCards) {
             if (result.size() >= requiredCount) break;
+            result.add(card);
+        }
+        // Fill with other cards if not enough suit cards
+        if (result.size() < requiredCount) {
+            if (partnerWinning) {
+                // Dump point cards when partner is winning
+                otherCards.sort(Comparator.comparingInt((Card c) -> c.getPoints()).reversed()
+                    .thenComparingInt(trumpInfo::getCardStrength));
+                for (Card card : otherCards) {
+                    if (result.size() >= requiredCount) break;
+                    result.add(card);
+                }
+            } else {
+                // Use low trump if available and worth it
+                int trickPoints = calculateCurrentTrickPoints(engine);
+                if (!trumpCards.isEmpty() && trickPoints >= 10) {
+                    for (Card card : trumpCards) {
+                        if (result.size() >= requiredCount) break;
+                        result.add(card);
+                    }
+                }
+                // Fill remaining with weakest non-trump non-point cards
+                for (Card card : otherCards) {
+                    if (result.size() >= requiredCount) break;
+                    result.add(card);
+                }
+                // If still not enough, use trump
+                for (Card card : trumpCards) {
+                    if (result.size() >= requiredCount) break;
+                    if (!result.contains(card)) {
+                        result.add(card);
+                    }
+                }
+            }
         }
         return result;
     }
@@ -236,8 +303,21 @@ public class HardAI implements AIStrategy {
         if (!trumpCards.isEmpty() && !partnerWinning) {
             int trickPoints = calculateCurrentTrickPoints(engine);
             if (trickPoints >= 10 || engine.getTrickCardsPlayed() == 3) {
+                // Play minimum trump that can win
+                int currentWinStrength = getCurrentWinningStrength(engine);
+                Card bestTrump = null;
+                for (Card card : trumpCards) {
+                    int strength = trumpInfo.getCardStrength(card);
+                    if (strength > currentWinStrength) {
+                        if (bestTrump == null || strength < trumpInfo.getCardStrength(bestTrump)) {
+                            bestTrump = card;
+                        }
+                    }
+                }
+                if (bestTrump != null) return bestTrump;
+                // Can't beat current winner, play lowest trump
                 return trumpCards.stream()
-                    .max(Comparator.comparingInt(trumpInfo::getCardStrength))
+                    .min(Comparator.comparingInt(trumpInfo::getCardStrength))
                     .orElse(trumpCards.get(0));
             }
         }
