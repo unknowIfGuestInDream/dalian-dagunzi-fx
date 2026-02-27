@@ -96,7 +96,7 @@ public class DaGunZiApp extends Application {
     private static final int CARD_WIDTH = 66;
     private static final int CARD_HEIGHT = 86;
     private static final int CARD_OVERLAP = 25;
-    private static final String TABLE_COLOR = "#1a6631";
+    private static final String TABLE_COLOR = "#2d8a4e";
     private static final String DARK_TABLE_COLOR = "#1a1a2e";
     private static final String APP_VERSION = "1.0.0";
 
@@ -201,9 +201,13 @@ public class DaGunZiApp extends Application {
         alert.setTitle("关于");
         alert.setHeaderText("大连打滚子 Da Gunzi");
 
-        FontIcon icon = new FontIcon(Material.VIDEOGAME_ASSET);
-        icon.setIconSize(48);
-        alert.setGraphic(icon);
+        javafx.scene.image.ImageView logoView = new javafx.scene.image.ImageView(createAppIcon());
+        logoView.setFitWidth(64);
+        logoView.setFitHeight(64);
+        alert.setGraphic(logoView);
+
+        Stage alertStage = (Stage) alert.getDialogPane().getScene().getWindow();
+        alertStage.getIcons().add(createAppIcon());
 
         VBox content = new VBox(8);
         content.setPadding(new Insets(10, 0, 0, 0));
@@ -489,11 +493,12 @@ public class DaGunZiApp extends Application {
 
         List<Card> hand = sortForDisplay(players[0].getHand(), engine.getTrumpInfo());
         Timeline dealTimeline = new Timeline();
+        double dealInterval = engine.isFirstRound() ? 80.0 : 40.0;
 
         for (int i = 0; i < hand.size(); i++) {
             final int index = i;
             final Card card = hand.get(i);
-            KeyFrame kf = new KeyFrame(Duration.millis(40.0 * i), e -> {
+            KeyFrame kf = new KeyFrame(Duration.millis(dealInterval * i), e -> {
                 StackPane cardNode = createCardFace(card);
                 cardNode.setLayoutX(10 + index * CARD_OVERLAP);
                 cardNode.setLayoutY(25);
@@ -519,7 +524,7 @@ public class DaGunZiApp extends Application {
         }
 
         // After all cards dealt, refresh the hand properly and proceed
-        KeyFrame finalKf = new KeyFrame(Duration.millis(40.0 * hand.size() + 300), e -> {
+        KeyFrame finalKf = new KeyFrame(Duration.millis(dealInterval * hand.size() + 300), e -> {
             updateHumanHand();
             playerCountLabels[0].setText("牌数：" + players[0].getHand().size());
             onComplete.run();
@@ -545,10 +550,31 @@ public class DaGunZiApp extends Application {
         }
 
         if (isFirstRound) {
-            statusLabel.setText("第一局：你有大王，亮大王选择主牌花色或不叫");
-        } else {
-            statusLabel.setText("请选择主牌花色或不叫");
+            // First round: show "亮王" button with random suit selection
+            statusLabel.setText("第一局：你有大王，点击亮王按钮要主（花色随机）");
+            actionPane.getChildren().clear();
+
+            Button declareBtn = new Button("亮王");
+            declareBtn.setStyle("-fx-font-size: 16px; -fx-padding: 8 20; "
+                + "-fx-background-color: #d4af37; -fx-text-fill: black; -fx-font-weight: bold;");
+            declareBtn.setOnAction(e -> {
+                actionPane.getChildren().clear();
+                Suit randomSuit = engine.declareTrumpRandomSuit(0);
+                statusLabel.setText("你亮王定庄，随机主牌：" + randomSuit.getSymbol() + randomSuit.getDisplayName());
+                updateInfoPanel();
+                beginKittySelection();
+            });
+            actionPane.getChildren().add(declareBtn);
+
+            Button passBtn = new Button("不叫");
+            passBtn.setStyle("-fx-font-size: 14px; -fx-padding: 8 16; "
+                + "-fx-background-color: #888888; -fx-text-fill: white;");
+            passBtn.setOnAction(e -> humanPassTrump());
+            actionPane.getChildren().add(passBtn);
+            return;
         }
+
+        statusLabel.setText("请选择主牌花色或不叫");
 
         Rank humanTrumpRank = engine.getTeamLevels()[players[0].getTeam()];
         Map<Suit, Integer> suitCounts = new EnumMap<>(Suit.class);
@@ -565,8 +591,7 @@ public class DaGunZiApp extends Application {
             String suitColor = suit.getColor().equals("red") ? "#cc0000" : "#333333";
             btn.setStyle("-fx-font-size: 14px; -fx-padding: 8 16; "
                 + "-fx-background-color: white; -fx-text-fill: " + suitColor + "; -fx-font-weight: bold;");
-            // First round: need Big Joker to declare; other rounds: need >= 2 trump rank cards
-            btn.setDisable(isFirstRound ? !humanHasBigJoker : count < 2);
+            btn.setDisable(count < 2);
             final Suit s = suit;
             btn.setOnAction(e -> humanDeclareTrump(s));
             actionPane.getChildren().add(btn);
@@ -602,11 +627,23 @@ public class DaGunZiApp extends Application {
                 Player p = players[idx];
 
                 if (isFirstRound) {
-                    // First round: only players with Big Joker can declare
+                    // First round: only players with Big Joker can declare with random suit
                     if (!engine.playerHasBigJoker(idx)) {
                         statusLabel.setText(p.getName() + " 没有大王，不叫");
                         return;
                     }
+                }
+
+                if (isFirstRound) {
+                    // First round: declare with random suit
+                    declared[0] = true;
+                    Suit randomSuit = engine.declareTrumpRandomSuit(idx);
+                    statusLabel.setText(p.getName() + " 亮王定庄，随机主牌："
+                        + randomSuit.getSymbol() + randomSuit.getDisplayName());
+                    updateInfoPanel();
+                    updateHumanHand();
+                    handleAIKitty(idx);
+                    return;
                 }
 
                 Rank trumpRank = engine.getTeamLevels()[p.getTeam()];

@@ -226,6 +226,19 @@ public class GameEngine {
     }
 
     /**
+     * Declares trump with a randomly chosen suit for the given player.
+     * Used in the first round where Big Joker holders declare without choosing a suit.
+     *
+     * @return the randomly chosen suit
+     */
+    public Suit declareTrumpRandomSuit(int playerIndex) {
+        Suit[] suits = Suit.values();
+        Suit randomSuit = suits[new java.util.Random().nextInt(suits.length)];
+        declareTrump(playerIndex, randomSuit);
+        return randomSuit;
+    }
+
+    /**
      * Check if a player has at least one Big Joker card.
      */
     public boolean playerHasBigJoker(int playerIndex) {
