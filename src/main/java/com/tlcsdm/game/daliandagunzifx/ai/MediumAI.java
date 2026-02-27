@@ -123,7 +123,7 @@ public class MediumAI implements AIStrategy {
         List<Card> suitCards = new ArrayList<>();
         List<Card> otherCards = new ArrayList<>();
         for (Card card : player.getHand()) {
-            if (java.util.Objects.equals(trumpInfo.getEffectiveSuit(card), leadSuit)) {
+            if (trumpInfo.getEffectiveSuit(card) == leadSuit) {
                 suitCards.add(card);
             } else {
                 otherCards.add(card);

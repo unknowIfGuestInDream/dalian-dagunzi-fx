@@ -375,7 +375,7 @@ public class GameEngine {
             // Has enough suit cards — all played cards must be of lead suit
             for (Card card : cards) {
                 Suit cardSuit = trumpInfo.getEffectiveSuit(card);
-                if (!java.util.Objects.equals(cardSuit, leadSuit)) {
+                if (cardSuit != leadSuit) {
                     return false;
                 }
             }

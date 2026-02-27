@@ -159,7 +159,7 @@ public class HardAI implements AIStrategy {
         List<Card> otherCards = new ArrayList<>();
         for (Card card : player.getHand()) {
             Suit effective = trumpInfo.getEffectiveSuit(card);
-            if (java.util.Objects.equals(effective, leadSuit)) {
+            if (effective == leadSuit) {
                 suitCards.add(card);
             } else if (trumpInfo.isTrump(card)) {
                 trumpCards.add(card);
