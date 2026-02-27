@@ -189,19 +189,11 @@ public class DaGunZiApp extends Application {
         // --- Rules menu ---
         Menu rulesMenu = new Menu("规则");
 
-        MenuItem terminologyItem = new MenuItem("名词解释");
-        terminologyItem.setGraphic(new FontIcon(Material.DESCRIPTION));
-        terminologyItem.setOnAction(e -> RulesDialog.showTerminology(primaryStage));
+        MenuItem rulesItem = new MenuItem("规则说明");
+        rulesItem.setGraphic(new FontIcon(Material.DESCRIPTION));
+        rulesItem.setOnAction(e -> RulesDialog.showAll(primaryStage));
 
-        MenuItem cardTypesItem = new MenuItem("牌型");
-        cardTypesItem.setGraphic(new FontIcon(Material.STYLE));
-        cardTypesItem.setOnAction(e -> RulesDialog.showCardTypes(primaryStage));
-
-        MenuItem gameFlowItem = new MenuItem("游戏流程");
-        gameFlowItem.setGraphic(new FontIcon(Material.LIST));
-        gameFlowItem.setOnAction(e -> RulesDialog.showGameFlow(primaryStage));
-
-        rulesMenu.getItems().addAll(terminologyItem, cardTypesItem, gameFlowItem);
+        rulesMenu.getItems().add(rulesItem);
 
         // --- About menu ---
         Menu helpMenu = new Menu("帮助");
@@ -559,14 +551,14 @@ public class DaGunZiApp extends Application {
 
         if (isFirstRound && !humanHasBigJoker) {
             // First round: human has no Big Joker, skip to AI declaration
-            statusLabel.setText("第一局需要大王叫主，你没有大王，电脑正在考虑...");
+            statusLabel.setText("第一局需要亮大王定庄，你没有大王，电脑正在考虑...");
             actionPane.getChildren().clear();
             humanPassTrump();
             return;
         }
 
         if (isFirstRound) {
-            statusLabel.setText("第一局：你有大王，请选择主牌花色或不叫");
+            statusLabel.setText("第一局：你有大王，亮大王选择主牌花色或不叫");
         } else {
             statusLabel.setText("请选择主牌花色或不叫");
         }
