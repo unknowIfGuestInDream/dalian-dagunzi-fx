@@ -68,16 +68,23 @@ class TrumpInfoTest {
     }
 
     @Test
-    void testTwoRanksAboveAceForNonTrump() {
-        // Use a trump rank other than TWO so TWO is treated as a normal card
+    void testTwoAlwaysTrump() {
+        // TWO is always trump, even when trump rank is not TWO
         TrumpInfo threesTrump = new TrumpInfo(Suit.HEART, Rank.THREE);
 
-        Card nonTrumpTwo = new Card(Suit.SPADE, Rank.TWO, 300);
+        Card twoSpades = new Card(Suit.SPADE, Rank.TWO, 300);
+        Card twoClubs = new Card(Suit.CLUB, Rank.TWO, 303);
+
+        // All 2s should be trump regardless of suit
+        assertTrue(threesTrump.isTrump(twoSpades));
+        assertTrue(threesTrump.isTrump(twoClubs));
+        assertNull(threesTrump.getEffectiveSuit(twoSpades));
+        assertNull(threesTrump.getEffectiveSuit(twoClubs));
+
+        // 2 should still be stronger than non-trump A and K
         Card nonTrumpAce = new Card(Suit.SPADE, Rank.ACE, 301);
         Card nonTrumpKing = new Card(Suit.SPADE, Rank.KING, 302);
-
-        // Da Gunzi: 2 > A > K
-        assertTrue(threesTrump.getCardStrength(nonTrumpTwo)
+        assertTrue(threesTrump.getCardStrength(twoSpades)
             > threesTrump.getCardStrength(nonTrumpAce));
         assertTrue(threesTrump.getCardStrength(nonTrumpAce)
             > threesTrump.getCardStrength(nonTrumpKing));
@@ -85,15 +92,18 @@ class TrumpInfoTest {
 
     @Test
     void testTwoRanksAboveAceInTrumpSuit() {
-        // Trump suit HEART, trump rank THREE
+        // Trump suit HEART, trump rank THREE; 2 of trump suit ranks higher than 2 of other suits
         TrumpInfo threesTrump = new TrumpInfo(Suit.HEART, Rank.THREE);
 
         Card trumpSuitTwo = new Card(Suit.HEART, Rank.TWO, 310);
+        Card otherSuitTwo = new Card(Suit.SPADE, Rank.TWO, 313);
         Card trumpSuitAce = new Card(Suit.HEART, Rank.ACE, 311);
         Card trumpSuitKing = new Card(Suit.HEART, Rank.KING, 312);
 
-        // In trump suit, 2 should still be above A and K
+        // 2 of trump suit > 2 of other suits > trump suit A > trump suit K
         assertTrue(threesTrump.getCardStrength(trumpSuitTwo)
+            > threesTrump.getCardStrength(otherSuitTwo));
+        assertTrue(threesTrump.getCardStrength(otherSuitTwo)
             > threesTrump.getCardStrength(trumpSuitAce));
         assertTrue(threesTrump.getCardStrength(trumpSuitAce)
             > threesTrump.getCardStrength(trumpSuitKing));
