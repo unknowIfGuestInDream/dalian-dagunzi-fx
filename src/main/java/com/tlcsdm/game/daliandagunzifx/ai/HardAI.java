@@ -47,6 +47,9 @@ public class HardAI implements AIStrategy {
 
     private static final int NUM_DETERMINIZATIONS = 30;
     private static final long TIME_LIMIT_MS = 1500;
+    private static final int MAX_SIMULATION_ITERATIONS = 200;
+    private static final int MAX_CANDIDATES = 20;
+    private static final int MAX_COMBINATIONS_PER_GENERATION = 50;
 
     public HardAI(CardTracker cardTracker) {
         this.cardTracker = cardTracker;
@@ -196,7 +199,7 @@ public class HardAI implements AIStrategy {
     }
 
     private double simulateToEnd(GameEngine sim, int aiIndex) {
-        int maxIterations = 200;
+        int maxIterations = MAX_SIMULATION_ITERATIONS;
         int iter = 0;
 
         while (sim.getPhase() == GamePhase.PLAYING && iter++ < maxIterations) {
@@ -281,9 +284,9 @@ public class HardAI implements AIStrategy {
         }
 
         // Limit candidates to avoid combinatorial explosion
-        if (candidates.size() > 20) {
+        if (candidates.size() > MAX_CANDIDATES) {
             Collections.shuffle(candidates);
-            candidates = new ArrayList<>(candidates.subList(0, 20));
+            candidates = new ArrayList<>(candidates.subList(0, MAX_CANDIDATES));
         }
 
         // Validate candidates
@@ -298,7 +301,7 @@ public class HardAI implements AIStrategy {
             result.add(new ArrayList<>(current));
             return;
         }
-        if (result.size() >= 50) return;
+        if (result.size() >= MAX_COMBINATIONS_PER_GENERATION) return;
         for (int i = start; i < cards.size(); i++) {
             current.add(cards.get(i));
             generateCombinations(cards, k, i + 1, current, result);
