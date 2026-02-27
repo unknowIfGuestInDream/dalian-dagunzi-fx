@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest ]
+        os: [ ubuntu-latest, macos-latest ]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -59,4 +59,53 @@ jobs:
         with:
           name: dalian-dagunzi-${{ matrix.os }}
           path: dist/
+          retention-days: 1
+
+  package-windows:
+    name: Package on windows-latest
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Cache Maven packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build with Maven
+        shell: pwsh
+        run: |
+          & scripts\build.ps1
+
+      - name: Resolve version & jar
+        shell: pwsh
+        run: |
+          & scripts\resolve-version.ps1
+
+      - name: Create Custom JRE with jlink
+        shell: pwsh
+        run: |
+          & scripts\jre.ps1 -StagingDir staging
+
+      - name: Package artifact
+        shell: pwsh
+        run: |
+          & scripts\package-artifact.ps1
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dalian-dagunzi-windows-latest
+          path: dist/*
           retention-days: 1

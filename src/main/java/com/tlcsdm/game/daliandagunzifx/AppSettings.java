@@ -50,7 +50,7 @@ public final class AppSettings {
 
     private static final AppSettings INSTANCE = new AppSettings();
 
-    private static final Preferences PREFS = Preferences.userNodeForPackage(AppSettings.class);
+    private static final Preferences PREFS = initPreferences();
     private static final String PREF_DARK_THEME = "darkTheme";
     private static final String PREF_TRACKER_ENABLED = "trackerEnabled";
     private static final String PREF_AI_LEVEL = "aiLevel";
@@ -61,10 +61,20 @@ public final class AppSettings {
 
     private PreferencesFx preferencesFx;
 
+    private static Preferences initPreferences() {
+        try {
+            return Preferences.userNodeForPackage(AppSettings.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private AppSettings() {
-        darkThemeProperty = new SimpleBooleanProperty(PREFS.getBoolean(PREF_DARK_THEME, false));
-        trackerEnabledProperty = new SimpleBooleanProperty(PREFS.getBoolean(PREF_TRACKER_ENABLED, false));
-        String savedLevel = PREFS.get(PREF_AI_LEVEL, AILevel.MEDIUM.name());
+        darkThemeProperty = new SimpleBooleanProperty(
+            PREFS != null ? PREFS.getBoolean(PREF_DARK_THEME, false) : false);
+        trackerEnabledProperty = new SimpleBooleanProperty(
+            PREFS != null ? PREFS.getBoolean(PREF_TRACKER_ENABLED, false) : false);
+        String savedLevel = PREFS != null ? PREFS.get(PREF_AI_LEVEL, AILevel.MEDIUM.name()) : AILevel.MEDIUM.name();
         AILevel level;
         try {
             level = AILevel.valueOf(savedLevel);
@@ -73,12 +83,18 @@ public final class AppSettings {
         }
         aiLevelProperty = new SimpleObjectProperty<>(level);
 
-        darkThemeProperty.addListener((obs, oldVal, newVal) ->
-            PREFS.putBoolean(PREF_DARK_THEME, newVal));
-        trackerEnabledProperty.addListener((obs, oldVal, newVal) ->
-            PREFS.putBoolean(PREF_TRACKER_ENABLED, newVal));
+        darkThemeProperty.addListener((obs, oldVal, newVal) -> {
+            if (PREFS != null) {
+                PREFS.putBoolean(PREF_DARK_THEME, newVal);
+            }
+        });
+        trackerEnabledProperty.addListener((obs, oldVal, newVal) -> {
+            if (PREFS != null) {
+                PREFS.putBoolean(PREF_TRACKER_ENABLED, newVal);
+            }
+        });
         aiLevelProperty.addListener((obs, oldVal, newVal) -> {
-            if (newVal != null) {
+            if (newVal != null && PREFS != null) {
                 PREFS.put(PREF_AI_LEVEL, newVal.name());
             }
         });
