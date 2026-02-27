@@ -141,13 +141,14 @@ public class DaGunZiApp extends Application {
     public void start(Stage stage) {
         primaryStage = stage;
         rootPane = new StackPane();
-        showWelcomeScreen();
 
         Scene scene = new Scene(rootPane, WINDOW_WIDTH, WINDOW_HEIGHT);
         stage.setScene(scene);
         stage.setTitle("大连打滚子");
         stage.setResizable(false);
         stage.getIcons().add(createAppIcon());
+
+        showWelcomeScreen();
         stage.show();
     }
 
@@ -461,6 +462,8 @@ public class DaGunZiApp extends Application {
         BorderPane.setMargin(leftPlayerPane, new Insets(0, 0, 0, 10));
 
         rootPane.getChildren().add(gameBoard);
+        rootPane.applyCss();
+        rootPane.layout();
     }
 
     private VBox createAIPlayerPane(String name, int playerIndex) {
@@ -1333,7 +1336,7 @@ public class DaGunZiApp extends Application {
         if (trumpInfo == null) {
             sorted.sort(Comparator
                 .comparingInt((Card c) -> c.getSuit() == null ? 99 : c.getSuit().ordinal())
-                .thenComparing(Comparator.comparingInt((Card c) -> c.getRank().getValue()).reversed()));
+                .thenComparing(Comparator.comparingInt((Card c) -> TrumpInfo.effectiveRankStrength(c.getRank())).reversed()));
             return sorted;
         }
         sorted.sort((a, b) -> {
@@ -1347,7 +1350,9 @@ public class DaGunZiApp extends Application {
                 a.getSuit() == null ? 99 : a.getSuit().ordinal(),
                 b.getSuit() == null ? 99 : b.getSuit().ordinal());
             if (suitCmp != 0) return suitCmp;
-            return Integer.compare(b.getRank().getValue(), a.getRank().getValue());
+            return Integer.compare(
+                TrumpInfo.effectiveRankStrength(b.getRank()),
+                TrumpInfo.effectiveRankStrength(a.getRank()));
         });
         return sorted;
     }
