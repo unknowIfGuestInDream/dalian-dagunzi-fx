@@ -28,6 +28,7 @@
 package com.tlcsdm.game.daliandagunzifx.ai;
 
 import com.tlcsdm.game.daliandagunzifx.engine.GameEngine;
+import com.tlcsdm.game.daliandagunzifx.engine.GamePhase;
 import com.tlcsdm.game.daliandagunzifx.engine.Player;
 import com.tlcsdm.game.daliandagunzifx.engine.TrumpInfo;
 import com.tlcsdm.game.daliandagunzifx.model.Card;
@@ -37,99 +38,41 @@ import com.tlcsdm.game.daliandagunzifx.model.Suit;
 import com.tlcsdm.game.daliandagunzifx.tracker.CardTracker;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class HardAI implements AIStrategy {
 
     private final CardTracker cardTracker;
-    private final MediumAI mediumAI;
+    private final EasyAI rolloutAI;
+    private final MediumAI fallbackAI;
+
+    private static final int NUM_DETERMINIZATIONS = 30;
+    private static final long TIME_LIMIT_MS = 1500;
 
     public HardAI(CardTracker cardTracker) {
         this.cardTracker = cardTracker;
-        this.mediumAI = new MediumAI();
+        this.rolloutAI = new EasyAI();
+        this.fallbackAI = new MediumAI(cardTracker);
     }
 
     @Override
     public Suit chooseTrumpSuit(Player player, Rank trumpRank) {
-        // Pick strongest suit: most cards of suit + trump rank cards in that suit
-        Map<Suit, Integer> trumpRankCounts = new EnumMap<>(Suit.class);
-        Map<Suit, Integer> suitCounts = new EnumMap<>(Suit.class);
-
-        for (Card card : player.getHand()) {
-            if (card.getSuit() == null) continue;
-            suitCounts.merge(card.getSuit(), 1, Integer::sum);
-            if (card.getRank() == trumpRank) {
-                trumpRankCounts.merge(card.getSuit(), 1, Integer::sum);
-            }
-        }
-
-        Suit bestSuit = null;
-        int bestScore = 0;
-        for (Suit suit : Suit.values()) {
-            int trumpRankCount = trumpRankCounts.getOrDefault(suit, 0);
-            if (trumpRankCount < 2) continue;
-            // Score = total cards in suit + bonus for trump rank cards in suit
-            int score = suitCounts.getOrDefault(suit, 0) + trumpRankCount;
-            if (score > bestScore) {
-                bestScore = score;
-                bestSuit = suit;
-            }
-        }
-        return bestSuit;
+        return fallbackAI.chooseTrumpSuit(player, trumpRank);
     }
 
     @Override
     public List<Card> chooseKittyCards(Player player, List<Card> kitty, TrumpInfo trumpInfo) {
-        List<Card> hand = new ArrayList<>(player.getHand());
-
-        // Count cards per effective suit to identify long/short suits
-        Map<Suit, Integer> suitCounts = new EnumMap<>(Suit.class);
-        for (Card card : hand) {
-            Suit effective = trumpInfo.getEffectiveSuit(card);
-            if (effective != null) {
-                suitCounts.merge(effective, 1, Integer::sum);
-            }
-        }
-
-        // Sort by keep score ascending: lowest score cards are discarded first
-        hand.sort(Comparator.comparingInt(c -> getKeepScore(c, trumpInfo, suitCounts)));
-
-        List<Card> result = new ArrayList<>();
-        for (Card card : hand) {
-            if (result.size() >= 6) break;
-            if (card.getRank() != Rank.SMALL_JOKER && card.getRank() != Rank.BIG_JOKER) {
-                result.add(card);
-            }
-        }
-        return result;
-    }
-
-    private int getKeepScore(Card card, TrumpInfo trumpInfo, Map<Suit, Integer> suitCounts) {
-        // Higher score = keep, lower score = discard first
-        if (trumpInfo.isTrump(card)) {
-            return 1000 + trumpInfo.getCardStrength(card);
-        }
-
-        Suit effective = trumpInfo.getEffectiveSuit(card);
-        int suitLength = effective != null ? suitCounts.getOrDefault(effective, 0) : 0;
-        int points = card.getPoints();
-
-        // Point cards: always keep
-        if (points > 0) return 500 + points + suitLength;
-        // Long suits are worth keeping (>=5 cards)
-        if (suitLength >= 5) return 200 + card.getRank().getValue() + suitLength * 10;
-        // Short weak suits should be discarded
-        return card.getRank().getValue() + suitLength * 10;
+        return fallbackAI.chooseKittyCards(player, kitty, trumpInfo);
     }
 
     @Override
     public Card chooseCard(Player player, GameEngine engine) {
-        List<Card> validCards = mediumAI.getValidCards(player, engine);
-
-        if (engine.getTrickCardsPlayed() == 0) {
-            return chooseLeadCard(player, validCards, engine);
+        List<Card> validCards = rolloutAI.getValidCards(player, engine);
+        if (validCards.size() <= 1) {
+            return validCards.get(0);
         }
-        return chooseFollowCard(player, validCards, engine);
+        return evaluateBestAction(player, engine, validCards.stream()
+            .map(List::of)
+            .toList()).get(0);
     }
 
     @Override
@@ -146,259 +89,221 @@ public class HardAI implements AIStrategy {
         if (requiredCount == 1) {
             return List.of(chooseCard(player, engine));
         }
-        return chooseMultiFollowCards(player, engine, requiredCount);
+
+        List<List<Card>> candidates = generateMultiCardCandidates(player, engine, requiredCount);
+        if (candidates.isEmpty()) {
+            return fallbackAI.chooseCards(player, engine);
+        }
+        if (candidates.size() == 1) {
+            return candidates.get(0);
+        }
+        return evaluateBestAction(player, engine, candidates);
     }
 
-    private List<Card> chooseMultiFollowCards(Player player, GameEngine engine, int requiredCount) {
+    private List<Card> evaluateBestAction(Player player, GameEngine engine,
+                                          List<List<Card>> candidates) {
+        double[] totalScores = new double[candidates.size()];
+        int[] counts = new int[candidates.size()];
+
+        long startTime = System.currentTimeMillis();
+        for (int d = 0; d < NUM_DETERMINIZATIONS; d++) {
+            if (System.currentTimeMillis() - startTime > TIME_LIMIT_MS) break;
+
+            GameEngine simBase = createDeterminization(player, engine);
+
+            for (int i = 0; i < candidates.size(); i++) {
+                GameEngine sim = simBase.copy();
+                double score = simulateWithAction(sim, player.getId(), candidates.get(i));
+                totalScores[i] += score;
+                counts[i]++;
+            }
+        }
+
+        int bestIdx = 0;
+        double bestAvg = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i < candidates.size(); i++) {
+            double avg = counts[i] > 0 ? totalScores[i] / counts[i] : 0;
+            if (avg > bestAvg) {
+                bestAvg = avg;
+                bestIdx = i;
+            }
+        }
+        return candidates.get(bestIdx);
+    }
+
+    private GameEngine createDeterminization(Player aiPlayer, GameEngine engine) {
+        GameEngine sim = engine.copy();
+        int aiIndex = aiPlayer.getId();
+
+        // Collect all cards from opponents' hands (these are the unknown cards)
+        List<Card> unknownCards = new ArrayList<>();
+        int[] handSizes = new int[4];
+        for (int i = 0; i < 4; i++) {
+            if (i == aiIndex) continue;
+            handSizes[i] = engine.getPlayers()[i].getHand().size();
+            unknownCards.addAll(sim.getPlayers()[i].getHand());
+            sim.getPlayers()[i].getHand().clear();
+        }
+
+        // Shuffle unknown cards for random redistribution
+        Collections.shuffle(unknownCards);
+
+        // Distribute to opponents respecting void suit constraints
+        TrumpInfo trumpInfo = engine.getTrumpInfo();
+        for (int i = 0; i < 4; i++) {
+            if (i == aiIndex) continue;
+            List<Card> dealt = dealRespectingVoids(unknownCards, i, handSizes[i], trumpInfo);
+            sim.getPlayers()[i].addCards(dealt);
+        }
+
+        return sim;
+    }
+
+    private List<Card> dealRespectingVoids(List<Card> pool, int playerIndex,
+                                           int handSize, TrumpInfo trumpInfo) {
+        List<Card> dealt = new ArrayList<>();
+        Iterator<Card> it = pool.iterator();
+
+        // First pass: pick cards that don't violate void constraints
+        while (it.hasNext() && dealt.size() < handSize) {
+            Card card = it.next();
+            Suit effectiveSuit = trumpInfo.getEffectiveSuit(card);
+            if (effectiveSuit != null && cardTracker.isVoid(playerIndex, effectiveSuit)) {
+                continue;
+            }
+            dealt.add(card);
+            it.remove();
+        }
+
+        // Second pass: if not enough cards, fill from remaining (ignoring voids)
+        it = pool.iterator();
+        while (it.hasNext() && dealt.size() < handSize) {
+            Card card = it.next();
+            dealt.add(card);
+            it.remove();
+        }
+
+        return dealt;
+    }
+
+    private double simulateWithAction(GameEngine sim, int aiIndex, List<Card> action) {
+        try {
+            sim.playCards(aiIndex, action);
+        } catch (Exception e) {
+            return 0;
+        }
+        return simulateToEnd(sim, aiIndex);
+    }
+
+    private double simulateToEnd(GameEngine sim, int aiIndex) {
+        int maxIterations = 200;
+        int iter = 0;
+
+        while (sim.getPhase() == GamePhase.PLAYING && iter++ < maxIterations) {
+            if (sim.getTrickCardsPlayed() == 4) {
+                sim.evaluateTrick();
+                if (sim.isRoundOver()) break;
+                continue;
+            }
+
+            int currentIndex = sim.getCurrentPlayerIndex();
+            Player currentPlayer = sim.getPlayers()[currentIndex];
+
+            try {
+                List<Card> play = rolloutAI.chooseCards(currentPlayer, sim);
+                sim.playCards(currentIndex, play);
+            } catch (Exception e) {
+                break;
+            }
+        }
+
+        // Handle final trick evaluation
+        if (sim.getTrickCardsPlayed() == 4 && sim.getPhase() == GamePhase.PLAYING) {
+            try {
+                sim.evaluateTrick();
+            } catch (Exception ignored) {
+            }
+        }
+
+        return evaluateScore(sim, aiIndex);
+    }
+
+    private double evaluateScore(GameEngine sim, int aiIndex) {
+        int defenderPoints = sim.getDefenderPoints();
+        int declarerTeam = sim.getPlayers()[sim.getDealerIndex()].getTeam();
+        int aiTeam = aiIndex % 2;
+
+        if (aiTeam == declarerTeam) {
+            // AI is on declarer team, lower defender points is better
+            return -defenderPoints;
+        } else {
+            // AI is on defender team, higher defender points is better
+            return defenderPoints;
+        }
+    }
+
+    private List<List<Card>> generateMultiCardCandidates(Player player, GameEngine engine,
+                                                         int requiredCount) {
         TrumpInfo trumpInfo = engine.getTrumpInfo();
         Card leadCard = engine.getCurrentTrick()[engine.getCurrentTrickLeader()];
         Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
 
         List<Card> suitCards = new ArrayList<>();
-        List<Card> trumpCards = new ArrayList<>();
         List<Card> otherCards = new ArrayList<>();
         for (Card card : player.getHand()) {
-            Suit effective = trumpInfo.getEffectiveSuit(card);
-            if (effective == leadSuit) {
+            if (trumpInfo.getEffectiveSuit(card) == leadSuit) {
                 suitCards.add(card);
-            } else if (trumpInfo.isTrump(card)) {
-                trumpCards.add(card);
             } else {
                 otherCards.add(card);
             }
         }
 
-        boolean partnerWinning = mediumAI.isPartnerWinning(player, engine);
+        List<List<Card>> candidates = new ArrayList<>();
 
-        // Sort suit cards by strength ascending (weakest first)
-        suitCards.sort(Comparator.comparingInt(trumpInfo::getCardStrength));
-        // Sort other cards: non-point weakest first
-        otherCards.sort(Comparator.comparingInt(c -> {
-            int base = trumpInfo.getCardStrength(c);
-            if (c.getPoints() > 0) return base + 10000;
-            return base;
-        }));
-        trumpCards.sort(Comparator.comparingInt(trumpInfo::getCardStrength));
-
-        List<Card> result = new ArrayList<>();
-        // Must play suit cards first
-        for (Card card : suitCards) {
-            if (result.size() >= requiredCount) break;
-            result.add(card);
-        }
-        // Fill with other cards if not enough suit cards
-        if (result.size() < requiredCount) {
-            if (partnerWinning) {
-                // Dump point cards when partner is winning
-                otherCards.sort(Comparator.comparingInt((Card c) -> c.getPoints()).reversed()
-                    .thenComparingInt(trumpInfo::getCardStrength));
-                for (Card card : otherCards) {
-                    if (result.size() >= requiredCount) break;
-                    result.add(card);
+        if (suitCards.size() >= requiredCount) {
+            // All cards must be from suit, generate combinations
+            generateCombinations(suitCards, requiredCount, 0, new ArrayList<>(), candidates);
+        } else {
+            // Must play all suit cards + fill from others
+            List<Card> forced = new ArrayList<>(suitCards);
+            int remaining = requiredCount - forced.size();
+            if (remaining > 0) {
+                List<List<Card>> otherCombos = new ArrayList<>();
+                generateCombinations(otherCards, remaining, 0, new ArrayList<>(), otherCombos);
+                for (List<Card> combo : otherCombos) {
+                    List<Card> full = new ArrayList<>(forced);
+                    full.addAll(combo);
+                    candidates.add(full);
                 }
             } else {
-                // Use low trump if available and worth it
-                int trickPoints = calculateCurrentTrickPoints(engine);
-                if (!trumpCards.isEmpty() && trickPoints >= 10) {
-                    for (Card card : trumpCards) {
-                        if (result.size() >= requiredCount) break;
-                        result.add(card);
-                    }
-                }
-                // Fill remaining with weakest non-trump non-point cards
-                for (Card card : otherCards) {
-                    if (result.size() >= requiredCount) break;
-                    result.add(card);
-                }
-                // If still not enough, use trump
-                for (Card card : trumpCards) {
-                    if (result.size() >= requiredCount) break;
-                    if (!result.contains(card)) {
-                        result.add(card);
-                    }
-                }
+                candidates.add(forced);
             }
         }
-        return result;
+
+        // Limit candidates to avoid combinatorial explosion
+        if (candidates.size() > 20) {
+            Collections.shuffle(candidates);
+            candidates = new ArrayList<>(candidates.subList(0, 20));
+        }
+
+        // Validate candidates
+        candidates.removeIf(c -> !engine.isValidPlay(player.getId(), c));
+
+        return candidates;
     }
 
-    private Card chooseLeadCard(Player player, List<Card> validCards, GameEngine engine) {
-        TrumpInfo trumpInfo = engine.getTrumpInfo();
-        int partnerIndex = (player.getId() + 2) % 4;
-        int opp1 = (player.getId() + 1) % 4;
-        int opp3 = (player.getId() + 3) % 4;
-
-        // Partition cards by effective suit
-        Map<Suit, List<Card>> suitCards = new EnumMap<>(Suit.class);
-        for (Card card : validCards) {
-            Suit effective = trumpInfo.getEffectiveSuit(card);
-            if (effective != null) {
-                suitCards.computeIfAbsent(effective, k -> new ArrayList<>()).add(card);
-            }
+    private void generateCombinations(List<Card> cards, int k, int start,
+                                      List<Card> current, List<List<Card>> result) {
+        if (current.size() == k) {
+            result.add(new ArrayList<>(current));
+            return;
         }
-
-        // Score each suit considering tracked void information
-        Suit bestSuit = null;
-        int bestScore = -1;
-        for (Map.Entry<Suit, List<Card>> entry : suitCards.entrySet()) {
-            Suit suit = entry.getKey();
-            int score = entry.getValue().size() * 10;
-            // Bonus if opponents are void (they can't follow suit)
-            if (cardTracker.isVoid(opp1, suit)) score += 20;
-            if (cardTracker.isVoid(opp3, suit)) score += 20;
-            // Penalty if partner is void
-            if (cardTracker.isVoid(partnerIndex, suit)) score -= 30;
-            // Prefer suits with fewer remaining cards (easier to exhaust)
-            score += Math.max(0, 26 - cardTracker.getRemainingCount(suit));
-            if (score > bestScore) {
-                bestScore = score;
-                bestSuit = suit;
-            }
+        if (result.size() >= 50) return;
+        for (int i = start; i < cards.size(); i++) {
+            current.add(cards.get(i));
+            generateCombinations(cards, k, i + 1, current, result);
+            current.remove(current.size() - 1);
         }
-
-        if (bestSuit != null) {
-            List<Card> cards = suitCards.get(bestSuit);
-            // Play A or K first
-            for (Card card : cards) {
-                if (card.getRank() == Rank.ACE) return card;
-            }
-            for (Card card : cards) {
-                if (card.getRank() == Rank.KING) return card;
-            }
-            return cards.stream()
-                .max(Comparator.comparingInt(trumpInfo::getCardStrength))
-                .orElse(validCards.get(0));
-        }
-
-        // Only trump cards remain, play lowest
-        return validCards.stream()
-            .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-            .orElse(validCards.get(0));
-    }
-
-    private Card chooseFollowCard(Player player, List<Card> validCards, GameEngine engine) {
-        TrumpInfo trumpInfo = engine.getTrumpInfo();
-        Card leadCard = engine.getCurrentTrick()[engine.getCurrentTrickLeader()];
-        Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
-
-        List<Card> suitCards = new ArrayList<>();
-        List<Card> trumpCards = new ArrayList<>();
-
-        for (Card card : validCards) {
-            Suit effective = trumpInfo.getEffectiveSuit(card);
-            if (effective == leadSuit) {
-                suitCards.add(card);
-            } else if (trumpInfo.isTrump(card)) {
-                trumpCards.add(card);
-            }
-        }
-
-        if (!suitCards.isEmpty()) {
-            return chooseSuitFollow(player, suitCards, engine);
-        }
-
-        boolean partnerWinning = mediumAI.isPartnerWinning(player, engine);
-
-        // Consider if it's worth using trump based on trick points
-        if (!trumpCards.isEmpty() && !partnerWinning) {
-            int trickPoints = calculateCurrentTrickPoints(engine);
-            if (trickPoints >= 10 || engine.getTrickCardsPlayed() == 3) {
-                // Play minimum trump that can win
-                int currentWinStrength = getCurrentWinningStrength(engine);
-                Card bestTrump = null;
-                for (Card card : trumpCards) {
-                    int strength = trumpInfo.getCardStrength(card);
-                    if (strength > currentWinStrength) {
-                        if (bestTrump == null || strength < trumpInfo.getCardStrength(bestTrump)) {
-                            bestTrump = card;
-                        }
-                    }
-                }
-                if (bestTrump != null) return bestTrump;
-                // Can't beat current winner, play lowest trump
-                return trumpCards.stream()
-                    .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-                    .orElse(trumpCards.get(0));
-            }
-        }
-
-        // Partner winning: dump point cards when safe
-        if (partnerWinning) {
-            return playPointsIfSafe(validCards, trumpInfo);
-        }
-
-        return mediumAI.playLow(validCards, trumpInfo);
-    }
-
-    private Card chooseSuitFollow(Player player, List<Card> suitCards, GameEngine engine) {
-        TrumpInfo trumpInfo = engine.getTrumpInfo();
-        boolean partnerWinning = mediumAI.isPartnerWinning(player, engine);
-
-        if (partnerWinning) {
-            return suitCards.stream()
-                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-                .orElse(suitCards.get(0));
-        }
-
-        // Try to win with the minimum card that beats the current winner
-        int currentWinStrength = getCurrentWinningStrength(engine);
-        Card bestWinner = null;
-        for (Card card : suitCards) {
-            int strength = trumpInfo.getCardStrength(card);
-            if (strength > currentWinStrength) {
-                if (bestWinner == null || strength < trumpInfo.getCardStrength(bestWinner)) {
-                    bestWinner = card;
-                }
-            }
-        }
-        if (bestWinner != null) return bestWinner;
-
-        // Can't win, play lowest
-        return suitCards.stream()
-            .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-            .orElse(suitCards.get(0));
-    }
-
-    private int getCurrentWinningStrength(GameEngine engine) {
-        TrumpInfo trumpInfo = engine.getTrumpInfo();
-        Card[] trick = engine.getCurrentTrick();
-        int leader = engine.getCurrentTrickLeader();
-        Card leadCard = trick[leader];
-        Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
-
-        int highestStrength = -1;
-        for (int i = 0; i < 4; i++) {
-            Card card = trick[i];
-            if (card == null) continue;
-            Suit cardSuit = trumpInfo.getEffectiveSuit(card);
-            int strength = trumpInfo.getCardStrength(card);
-            boolean canCompete = trumpInfo.isTrump(card) || cardSuit == leadSuit;
-            if (canCompete && strength > highestStrength) {
-                highestStrength = strength;
-            }
-        }
-        return highestStrength;
-    }
-
-    private int calculateCurrentTrickPoints(GameEngine engine) {
-        int points = 0;
-        for (Card card : engine.getCurrentTrick()) {
-            if (card != null) {
-                points += card.getPoints();
-            }
-        }
-        return points;
-    }
-
-    private Card playPointsIfSafe(List<Card> cards, TrumpInfo trumpInfo) {
-        // When partner is winning, dump point cards (5s first, then 10/K)
-        for (Card card : cards) {
-            if (card.getRank() == Rank.FIVE) return card;
-        }
-        for (Card card : cards) {
-            if (card.getPoints() > 0) return card;
-        }
-        return mediumAI.playLow(cards, trumpInfo);
     }
 
     public CardTracker getCardTracker() {

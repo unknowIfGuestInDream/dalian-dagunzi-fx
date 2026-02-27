@@ -645,4 +645,36 @@ public class GameEngine {
     public int getRoundNumber() {
         return roundNumber;
     }
+
+    public int getTotalCardsPlayed() {
+        return totalCardsPlayed;
+    }
+
+    public GameEngine copy() {
+        Player[] newPlayers = new Player[4];
+        for (int i = 0; i < 4; i++) {
+            newPlayers[i] = players[i].copy();
+        }
+        GameEngine copy = new GameEngine(newPlayers);
+        copy.trumpInfo = this.trumpInfo;
+        copy.phase = this.phase;
+        copy.currentPlayerIndex = this.currentPlayerIndex;
+        copy.dealerIndex = this.dealerIndex;
+        copy.kitty = new ArrayList<>(this.kitty);
+        for (int i = 0; i < 4; i++) {
+            copy.currentTrickCards[i] = this.currentTrickCards[i] != null
+                ? new ArrayList<>(this.currentTrickCards[i]) : null;
+        }
+        copy.currentTrickPlayType = this.currentTrickPlayType;
+        copy.currentTrickLeader = this.currentTrickLeader;
+        copy.trickCardsPlayed = this.trickCardsPlayed;
+        copy.totalCardsPlayed = this.totalCardsPlayed;
+        copy.defenderPoints = this.defenderPoints;
+        copy.teamLevels[0] = this.teamLevels[0];
+        copy.teamLevels[1] = this.teamLevels[1];
+        copy.roundNumber = this.roundNumber;
+        copy.previousWinningTeam = this.previousWinningTeam;
+        copy.previousTributeCount = this.previousTributeCount;
+        return copy;
+    }
 }
