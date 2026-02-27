@@ -113,6 +113,7 @@ public class DaGunZiApp extends Application {
     private boolean waitingForHumanPlay;
     private boolean waitingForKitty;
     private final List<Card> selectedKittyCards = new ArrayList<>();
+    private final List<Card> selectedPlayCards = new ArrayList<>();
 
     // UI components
     private Stage primaryStage;
@@ -571,6 +572,7 @@ public class DaGunZiApp extends Application {
     private void startNewRound() {
         cardTracker.reset();
         selectedKittyCards.clear();
+        selectedPlayCards.clear();
         waitingForHumanPlay = false;
         waitingForKitty = false;
 
@@ -597,33 +599,43 @@ public class DaGunZiApp extends Application {
         humanHandPane.getChildren().clear();
 
         List<Card> hand = sortForDisplay(players[0].getHand(), engine.getTrumpInfo());
+        List<Card> dealtCards = new ArrayList<>();
         Timeline dealTimeline = new Timeline();
-        double dealInterval = engine.isFirstRound() ? 80.0 : 40.0;
+        double dealInterval = engine.isFirstRound() ? 160.0 : 80.0;
 
         for (int i = 0; i < hand.size(); i++) {
-            final int index = i;
             final Card card = hand.get(i);
             KeyFrame kf = new KeyFrame(Duration.millis(dealInterval * i), e -> {
-                StackPane cardNode = createCardFace(card);
-                cardNode.setLayoutX(10 + index * CARD_OVERLAP);
-                cardNode.setLayoutY(25);
-                cardNode.setOpacity(0);
-                cardNode.setScaleX(0.3);
-                cardNode.setScaleY(0.3);
-                humanHandPane.getChildren().add(cardNode);
+                dealtCards.add(card);
+                List<Card> sorted = sortForDisplay(dealtCards, engine.getTrumpInfo());
 
-                // Card fade+scale in animation
-                FadeTransition fade = new FadeTransition(Duration.millis(200), cardNode);
-                fade.setFromValue(0);
-                fade.setToValue(1);
-                ScaleTransition scale = new ScaleTransition(Duration.millis(200), cardNode);
-                scale.setFromX(0.3);
-                scale.setFromY(0.3);
-                scale.setToX(1.0);
-                scale.setToY(1.0);
-                scale.setInterpolator(Interpolator.EASE_OUT);
-                ParallelTransition pt = new ParallelTransition(fade, scale);
-                pt.play();
+                humanHandPane.getChildren().clear();
+                for (int j = 0; j < sorted.size(); j++) {
+                    Card c = sorted.get(j);
+                    StackPane cardNode = createCardFace(c);
+                    cardNode.setLayoutX(10 + j * CARD_OVERLAP);
+                    cardNode.setLayoutY(25);
+
+                    if (c == card) {
+                        // Newly dealt card: animate fade+scale in
+                        cardNode.setOpacity(0);
+                        cardNode.setScaleX(0.3);
+                        cardNode.setScaleY(0.3);
+                        FadeTransition fade = new FadeTransition(Duration.millis(200), cardNode);
+                        fade.setFromValue(0);
+                        fade.setToValue(1);
+                        ScaleTransition scale = new ScaleTransition(Duration.millis(200), cardNode);
+                        scale.setFromX(0.3);
+                        scale.setFromY(0.3);
+                        scale.setToX(1.0);
+                        scale.setToY(1.0);
+                        scale.setInterpolator(Interpolator.EASE_OUT);
+                        ParallelTransition pt = new ParallelTransition(fade, scale);
+                        pt.play();
+                    }
+
+                    humanHandPane.getChildren().add(cardNode);
+                }
             });
             dealTimeline.getKeyFrames().add(kf);
         }
@@ -870,8 +882,10 @@ public class DaGunZiApp extends Application {
 
         if (currentPlayer.isHuman()) {
             waitingForHumanPlay = true;
+            selectedPlayCards.clear();
+            showPlayButton();
             updateHumanHand();
-            statusLabel.setText("轮到你出牌");
+            statusLabel.setText("轮到你出牌（选中牌后点击出牌按钮或右击出牌）");
         } else {
             waitingForHumanPlay = false;
             updateHumanHand();
@@ -886,10 +900,49 @@ public class DaGunZiApp extends Application {
 
     private void handleHumanCardClick(Card card) {
         if (!waitingForHumanPlay) return;
-        if (!engine.isValidPlay(0, card)) return;
+
+        if (selectedPlayCards.contains(card)) {
+            selectedPlayCards.remove(card);
+        } else {
+            selectedPlayCards.add(card);
+        }
+        updateHumanHand();
+        updatePlayButtonState();
+    }
+
+    private void showPlayButton() {
+        actionPane.getChildren().clear();
+
+        Button playBtn = new Button("出牌");
+        playBtn.setId("playBtn");
+        playBtn.setStyle("-fx-font-size: 16px; -fx-padding: 8 20; "
+            + "-fx-background-color: #d4af37; -fx-text-fill: black; -fx-font-weight: bold;");
+        playBtn.setDisable(true);
+        playBtn.setOnAction(e -> confirmPlay());
+        actionPane.getChildren().add(playBtn);
+    }
+
+    private void updatePlayButtonState() {
+        if (actionPane.getChildren().isEmpty()) return;
+        Node first = actionPane.getChildren().stream()
+            .filter(n -> "playBtn".equals(n.getId()))
+            .findFirst().orElse(null);
+        if (first instanceof Button playBtn) {
+            boolean valid = !selectedPlayCards.isEmpty()
+                && engine.isValidPlay(0, selectedPlayCards);
+            playBtn.setDisable(!valid);
+        }
+    }
+
+    private void confirmPlay() {
+        if (!waitingForHumanPlay || selectedPlayCards.isEmpty()) return;
+        if (!engine.isValidPlay(0, selectedPlayCards)) return;
 
         waitingForHumanPlay = false;
-        executePlay(0, card);
+        actionPane.getChildren().clear();
+        List<Card> cardsToPlay = new ArrayList<>(selectedPlayCards);
+        selectedPlayCards.clear();
+        executePlayMulti(0, cardsToPlay);
     }
 
     private void executePlay(int playerIndex, Card card) {
@@ -912,6 +965,37 @@ public class DaGunZiApp extends Application {
 
         if (engine.getTrickCardsPlayed() == 4) {
             // Trick complete — pause to let player see the cards, then evaluate
+            Timeline pause = new Timeline(new KeyFrame(Duration.millis(1000), e -> completeTrick()));
+            pause.play();
+        } else {
+            processCurrentPlayer();
+        }
+    }
+
+    private void executePlayMulti(int playerIndex, List<Card> cards) {
+        // Track void suit before the engine updates state
+        if (engine.getTrickCardsPlayed() > 0) {
+            Card leadCard = engine.getCurrentTrick()[engine.getCurrentTrickLeader()];
+            Suit leadSuit = engine.getTrumpInfo().getEffectiveSuit(leadCard);
+            for (Card card : cards) {
+                Suit cardSuit = engine.getTrumpInfo().getEffectiveSuit(card);
+                if (leadSuit != null && leadSuit != cardSuit) {
+                    cardTracker.markVoidSuit(playerIndex, leadSuit);
+                    break;
+                }
+            }
+        }
+
+        engine.playCards(playerIndex, cards);
+        for (Card card : cards) {
+            cardTracker.cardPlayed(card, playerIndex);
+        }
+
+        updateTrickArea();
+        updateHumanHand();
+        updateAIPlayerPanes();
+
+        if (engine.getTrickCardsPlayed() == 4) {
             Timeline pause = new Timeline(new KeyFrame(Duration.millis(1000), e -> completeTrick()));
             pause.play();
         } else {
@@ -1081,13 +1165,15 @@ public class DaGunZiApp extends Application {
             Card card = hand.get(i);
             StackPane cardNode = createCardFace(card);
 
-            boolean isSelected = selectedKittyCards.contains(card);
-            boolean isValid = waitingForHumanPlay && engine.isValidPlay(0, card);
-            boolean isInvalid = waitingForHumanPlay && !engine.isValidPlay(0, card);
+            boolean isKittySelected = selectedKittyCards.contains(card);
+            boolean isPlaySelected = selectedPlayCards.contains(card);
+            boolean isSelected = isKittySelected || isPlaySelected;
 
             double baseY = isSelected ? 5.0 : 25.0;
-            if (isInvalid) {
-                cardNode.setOpacity(0.5);
+
+            if (isPlaySelected) {
+                cardNode.setStyle(cardNode.getStyle()
+                    + " -fx-border-color: #ffdd57; -fx-border-width: 2;");
             }
 
             cardNode.setLayoutX(startX + i * CARD_OVERLAP);
@@ -1096,7 +1182,7 @@ public class DaGunZiApp extends Application {
             final Card c = card;
             final StackPane node = cardNode;
             cardNode.setOnMouseEntered(e -> {
-                if ((waitingForHumanPlay && engine.isValidPlay(0, c)) || waitingForKitty) {
+                if (waitingForHumanPlay || waitingForKitty) {
                     node.setTranslateY(-10);
                     node.setCursor(Cursor.HAND);
                 }
@@ -1107,7 +1193,20 @@ public class DaGunZiApp extends Application {
             });
             cardNode.setOnMouseClicked(e -> {
                 if (waitingForHumanPlay) {
-                    handleHumanCardClick(c);
+                    if (e.getButton() == javafx.scene.input.MouseButton.SECONDARY) {
+                        // Right-click: select this card and attempt to play
+                        if (!selectedPlayCards.contains(c)) {
+                            selectedPlayCards.add(c);
+                        }
+                        if (engine.isValidPlay(0, selectedPlayCards)) {
+                            confirmPlay();
+                        } else {
+                            updateHumanHand();
+                            updatePlayButtonState();
+                        }
+                    } else {
+                        handleHumanCardClick(c);
+                    }
                 } else if (waitingForKitty) {
                     toggleKittyCard(c);
                 }
@@ -1121,14 +1220,18 @@ public class DaGunZiApp extends Application {
     }
 
     private void updateTrickArea() {
-        Card[] trick = engine.getCurrentTrick();
+        List<Card>[] trickCards = engine.getCurrentTrickCards();
         for (int i = 0; i < 4; i++) {
-            if (trick[i] != null && trickCardNodes[i].getChildren().isEmpty()) {
-                // Only add card if the slot is empty (newly played card)
-                StackPane cardFace = createCardFace(trick[i]);
-                trickCardNodes[i].getChildren().add(cardFace);
-                animateCardPlay(cardFace, i);
-            } else if (trick[i] == null) {
+            if (trickCards[i] != null && !trickCards[i].isEmpty() && trickCardNodes[i].getChildren().isEmpty()) {
+                // Show all cards played by this player (supports BANG with 2 cards)
+                HBox cardBox = new HBox(-20);
+                cardBox.setAlignment(Pos.CENTER);
+                for (Card card : trickCards[i]) {
+                    cardBox.getChildren().add(createCardFace(card));
+                }
+                trickCardNodes[i].getChildren().add(cardBox);
+                animateCardPlay(cardBox, i);
+            } else if (trickCards[i] == null || trickCards[i].isEmpty()) {
                 trickCardNodes[i].getChildren().clear();
             }
         }
@@ -1238,10 +1341,12 @@ public class DaGunZiApp extends Application {
         // Update dealer label and player name labels with dealer indicator
         if (engine.getTrumpInfo() != null) {
             int di = engine.getDealerIndex();
-            dealerLabel.setText("庄家：" + players[di].getName());
+            dealerLabel.setText("🀄 庄家：" + players[di].getName());
+            dealerLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 14px; -fx-font-weight: bold;");
             updateDealerIndicator(di);
         } else {
             dealerLabel.setText("庄家：未定");
+            dealerLabel.setStyle("-fx-text-fill: white; -fx-font-size: 13px;");
         }
 
         Rank[] levels = engine.getTeamLevels();
@@ -1250,14 +1355,27 @@ public class DaGunZiApp extends Application {
     }
 
     private void updateCurrentPlayerHighlight(int currentIdx) {
+        int dealerIdx = engine.getTrumpInfo() != null ? engine.getDealerIndex() : -1;
         for (int i = 0; i < 4; i++) {
             if (playerNameLabels[i] == null) continue;
             if (i == currentIdx) {
-                playerNameLabels[i].setStyle("-fx-text-fill: #ffdd57; -fx-font-size: 14px; "
-                    + "-fx-font-weight: bold; -fx-underline: true;");
+                if (i == dealerIdx) {
+                    playerNameLabels[i].setStyle("-fx-text-fill: #ffd700; -fx-font-size: 16px; "
+                        + "-fx-font-weight: bold; -fx-underline: true; "
+                        + "-fx-effect: dropshadow(gaussian, #ffd700, 5, 0.5, 0, 0);");
+                } else {
+                    playerNameLabels[i].setStyle("-fx-text-fill: #ffdd57; -fx-font-size: 14px; "
+                        + "-fx-font-weight: bold; -fx-underline: true;");
+                }
             } else {
-                playerNameLabels[i].setStyle("-fx-text-fill: white; -fx-font-size: 14px; "
-                    + "-fx-font-weight: bold;");
+                if (i == dealerIdx) {
+                    playerNameLabels[i].setStyle("-fx-text-fill: #ffd700; -fx-font-size: 16px; "
+                        + "-fx-font-weight: bold; "
+                        + "-fx-effect: dropshadow(gaussian, #ffd700, 5, 0.5, 0, 0);");
+                } else {
+                    playerNameLabels[i].setStyle("-fx-text-fill: white; -fx-font-size: 14px; "
+                        + "-fx-font-weight: bold;");
+                }
             }
         }
     }
@@ -1266,7 +1384,13 @@ public class DaGunZiApp extends Application {
         for (int i = 0; i < 4; i++) {
             if (playerNameLabels[i] == null) continue;
             String baseName = players[i].getName();
-            playerNameLabels[i].setText(i == dealerIdx ? baseName + " [庄]" : baseName);
+            if (i == dealerIdx) {
+                playerNameLabels[i].setText("🀄 " + baseName + " [庄]");
+                playerNameLabels[i].setStyle("-fx-text-fill: #ffd700; -fx-font-size: 16px; "
+                    + "-fx-font-weight: bold; -fx-effect: dropshadow(gaussian, #ffd700, 5, 0.5, 0, 0);");
+            } else {
+                playerNameLabels[i].setText(baseName);
+            }
         }
     }
 
