@@ -168,7 +168,6 @@ public class DaGunZiApp extends Application {
         // --- Game menu (only during gameplay) ---
         if (inGame) {
             Menu gameMenu = new Menu("游戏");
-            gameMenu.setGraphic(new FontIcon(Material.VIDEOGAME_ASSET));
 
             MenuItem restartItem = new MenuItem("重新开始");
             restartItem.setGraphic(new FontIcon(Material.REPLAY));
@@ -184,7 +183,6 @@ public class DaGunZiApp extends Application {
 
         // --- Settings menu ---
         Menu settingsMenu = new Menu("设置");
-        settingsMenu.setGraphic(new FontIcon(Material.SETTINGS));
 
         MenuItem preferencesItem = new MenuItem("偏好设置");
         preferencesItem.setGraphic(new FontIcon(Material.SETTINGS));
@@ -206,7 +204,6 @@ public class DaGunZiApp extends Application {
 
         // --- Rules menu ---
         Menu rulesMenu = new Menu("规则");
-        rulesMenu.setGraphic(new FontIcon(Material.LIBRARY_BOOKS));
 
         MenuItem rulesItem = new MenuItem("规则说明");
         rulesItem.setGraphic(new FontIcon(Material.DESCRIPTION));
@@ -216,7 +213,6 @@ public class DaGunZiApp extends Application {
 
         // --- About menu ---
         Menu helpMenu = new Menu("帮助");
-        helpMenu.setGraphic(new FontIcon(Material.HELP_OUTLINE));
 
         MenuItem aboutItem = new MenuItem("关于");
         aboutItem.setGraphic(new FontIcon(Material.INFO_OUTLINE));
@@ -1335,17 +1331,38 @@ public class DaGunZiApp extends Application {
         List<Card> sorted = new ArrayList<>(hand);
         if (trumpInfo == null) {
             sorted.sort(Comparator
-                .comparingInt((Card c) -> c.getSuit() == null ? 99 : c.getSuit().ordinal())
+                .comparingInt((Card c) -> {
+                    if (c.getRank() == Rank.BIG_JOKER || c.getRank() == Rank.SMALL_JOKER) return -1;
+                    return c.getSuit() == null ? 99 : c.getSuit().ordinal();
+                })
                 .thenComparing(Comparator.comparingInt((Card c) -> TrumpInfo.effectiveRankStrength(c.getRank())).reversed()));
             return sorted;
         }
+        Suit ts = trumpInfo.getTrumpSuit();
         sorted.sort((a, b) -> {
-            boolean aT = trumpInfo.isTrump(a);
-            boolean bT = trumpInfo.isTrump(b);
-            if (aT != bT) return aT ? -1 : 1;
-            if (aT) {
-                return Integer.compare(trumpInfo.getCardStrength(b), trumpInfo.getCardStrength(a));
+            int ga = displayGroup(a, trumpInfo);
+            int gb = displayGroup(b, trumpInfo);
+            if (ga != gb) return Integer.compare(ga, gb);
+            if (ga == 0) {
+                // Jokers - Big Joker first
+                return Integer.compare(b.getRank().getValue(), a.getRank().getValue());
             }
+            if (ga == 1 || ga == 2) {
+                // Trump rank or TWO cards - trump suit first, then by suit ordinal
+                boolean aTS = ts != null && a.getSuit() == ts;
+                boolean bTS = ts != null && b.getSuit() == ts;
+                if (aTS != bTS) return aTS ? -1 : 1;
+                return Integer.compare(
+                    a.getSuit() == null ? 99 : a.getSuit().ordinal(),
+                    b.getSuit() == null ? 99 : b.getSuit().ordinal());
+            }
+            if (ga == 3) {
+                // Trump suit remaining cards - by rank descending
+                return Integer.compare(
+                    TrumpInfo.effectiveRankStrength(b.getRank()),
+                    TrumpInfo.effectiveRankStrength(a.getRank()));
+            }
+            // Non-trump, non-2 cards - by suit then rank descending
             int suitCmp = Integer.compare(
                 a.getSuit() == null ? 99 : a.getSuit().ordinal(),
                 b.getSuit() == null ? 99 : b.getSuit().ordinal());
@@ -1355,6 +1372,15 @@ public class DaGunZiApp extends Application {
                 TrumpInfo.effectiveRankStrength(a.getRank()));
         });
         return sorted;
+    }
+
+    private int displayGroup(Card card, TrumpInfo trumpInfo) {
+        Rank rank = card.getRank();
+        if (rank == Rank.BIG_JOKER || rank == Rank.SMALL_JOKER) return 0;
+        if (rank == trumpInfo.getTrumpRank()) return 1;
+        if (rank == Rank.TWO) return 2;
+        if (trumpInfo.getTrumpSuit() != null && card.getSuit() == trumpInfo.getTrumpSuit()) return 3;
+        return 4;
     }
 
     private int remainingBySuitAndRank(Suit suit, Rank rank) {
