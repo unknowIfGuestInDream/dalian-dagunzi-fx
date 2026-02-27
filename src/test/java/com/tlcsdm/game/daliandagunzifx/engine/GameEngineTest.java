@@ -230,6 +230,56 @@ class GameEngineTest {
         assertEquals(5, engine.getDefenderPoints());
     }
 
+    @Test
+    void testCannotPlayTwoWhenHavingSuitCards() {
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
+        engine.setKitty(kittyCards);
+
+        // Set up player 1 with spade cards AND a 2 (which is trump)
+        players[1].getHand().clear();
+        Card spadeAce = new Card(Suit.SPADE, Rank.ACE, 600);
+        Card twoOfClub = new Card(Suit.CLUB, Rank.TWO, 601);
+        players[1].addCards(List.of(spadeAce, twoOfClub));
+
+        // Player 0 leads with a spade
+        players[0].getHand().clear();
+        Card spadeKing = new Card(Suit.SPADE, Rank.KING, 602);
+        players[0].addCards(List.of(spadeKing));
+        engine.playCard(0, spadeKing);
+
+        // Player 1 has a spade (ace), so must follow suit - cannot play 2 (trump)
+        assertFalse(engine.isValidPlay(1, twoOfClub),
+            "Should not be allowed to play 2 when player has cards of the led suit");
+        assertTrue(engine.isValidPlay(1, spadeAce),
+            "Should be allowed to follow suit with spade ace");
+    }
+
+    @Test
+    void testCanPlayTwoWhenNoSuitCards() {
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
+        engine.setKitty(kittyCards);
+
+        // Set up player 1 with only 2s and clubs (no spades)
+        players[1].getHand().clear();
+        Card twoOfClub = new Card(Suit.CLUB, Rank.TWO, 700);
+        Card clubFour = new Card(Suit.CLUB, Rank.FOUR, 701);
+        players[1].addCards(List.of(twoOfClub, clubFour));
+
+        // Player 0 leads with a spade
+        players[0].getHand().clear();
+        Card spadeKing = new Card(Suit.SPADE, Rank.KING, 702);
+        players[0].addCards(List.of(spadeKing));
+        engine.playCard(0, spadeKing);
+
+        // Player 1 has no spades, so can play any card including 2
+        assertTrue(engine.isValidPlay(1, twoOfClub),
+            "Should be allowed to play 2 when player has no cards of the led suit");
+    }
+
     private List<Card> selectNonJokerKitty(Player player, int count) {
         List<Card> result = new ArrayList<>();
         for (Card card : player.getHand()) {

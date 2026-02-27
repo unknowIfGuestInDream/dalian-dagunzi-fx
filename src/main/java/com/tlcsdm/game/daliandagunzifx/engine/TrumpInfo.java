@@ -54,6 +54,9 @@ public class TrumpInfo {
         if (rank == Rank.BIG_JOKER || rank == Rank.SMALL_JOKER) {
             return true;
         }
+        if (rank == Rank.TWO) {
+            return true;
+        }
         if (rank == trumpRank) {
             return true;
         }
@@ -78,11 +81,18 @@ public class TrumpInfo {
         if (rank == trumpRank) {
             return 997;
         }
-        // Trump suit cards (excluding trump rank, already handled)
+        // TWO is always trump, ranked below trump rank but above other trump suit cards
+        if (rank == Rank.TWO) {
+            if (trumpSuit != null && suit == trumpSuit) {
+                return 996;
+            }
+            return 995;
+        }
+        // Trump suit cards (excluding trump rank and TWO, already handled)
         if (trumpSuit != null && suit == trumpSuit) {
             return 900 + effectiveRankStrength(rank);
         }
-        // Non-trump cards: 2 > A > K > Q > J > 10 > ... > 3
+        // Non-trump cards: A > K > Q > J > 10 > ... > 3
         return effectiveRankStrength(rank);
     }
 
