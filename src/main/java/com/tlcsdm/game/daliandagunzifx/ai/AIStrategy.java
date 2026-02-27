@@ -43,4 +43,8 @@ public interface AIStrategy {
     List<Card> chooseKittyCards(Player player, List<Card> kitty, TrumpInfo trumpInfo);
 
     Card chooseCard(Player player, GameEngine engine);
+
+    default List<Card> chooseCards(Player player, GameEngine engine) {
+        return List.of(chooseCard(player, engine));
+    }
 }

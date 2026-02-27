@@ -31,6 +31,7 @@ import com.tlcsdm.game.daliandagunzifx.engine.GameEngine;
 import com.tlcsdm.game.daliandagunzifx.engine.Player;
 import com.tlcsdm.game.daliandagunzifx.engine.TrumpInfo;
 import com.tlcsdm.game.daliandagunzifx.model.Card;
+import com.tlcsdm.game.daliandagunzifx.model.PlayType;
 import com.tlcsdm.game.daliandagunzifx.model.Rank;
 import com.tlcsdm.game.daliandagunzifx.model.Suit;
 
@@ -93,6 +94,30 @@ public class EasyAI implements AIStrategy {
     public Card chooseCard(Player player, GameEngine engine) {
         List<Card> validCards = getValidCards(player, engine);
         return validCards.get(random.nextInt(validCards.size()));
+    }
+
+    @Override
+    public List<Card> chooseCards(Player player, GameEngine engine) {
+        PlayType trickType = engine.getCurrentTrickPlayType();
+        if (trickType == null) {
+            // Leader: play a single card
+            return List.of(chooseCard(player, engine));
+        }
+        int requiredCount = switch (trickType) {
+            case SINGLE -> 1;
+            case PAIR, BANG -> 2;
+        };
+        if (requiredCount == 1) {
+            return List.of(chooseCard(player, engine));
+        }
+        // Need to play a pair - find valid cards of the lead suit
+        List<Card> validCards = getValidCards(player, engine);
+        List<Card> result = new ArrayList<>();
+        for (Card card : validCards) {
+            result.add(card);
+            if (result.size() >= requiredCount) break;
+        }
+        return result;
     }
 
     protected List<Card> getValidCards(Player player, GameEngine engine) {

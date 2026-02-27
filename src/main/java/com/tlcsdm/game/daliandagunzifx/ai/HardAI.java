@@ -31,6 +31,7 @@ import com.tlcsdm.game.daliandagunzifx.engine.GameEngine;
 import com.tlcsdm.game.daliandagunzifx.engine.Player;
 import com.tlcsdm.game.daliandagunzifx.engine.TrumpInfo;
 import com.tlcsdm.game.daliandagunzifx.model.Card;
+import com.tlcsdm.game.daliandagunzifx.model.PlayType;
 import com.tlcsdm.game.daliandagunzifx.model.Rank;
 import com.tlcsdm.game.daliandagunzifx.model.Suit;
 import com.tlcsdm.game.daliandagunzifx.tracker.CardTracker;
@@ -129,6 +130,28 @@ public class HardAI implements AIStrategy {
             return chooseLeadCard(player, validCards, engine);
         }
         return chooseFollowCard(player, validCards, engine);
+    }
+
+    @Override
+    public List<Card> chooseCards(Player player, GameEngine engine) {
+        PlayType trickType = engine.getCurrentTrickPlayType();
+        if (trickType == null) {
+            return List.of(chooseCard(player, engine));
+        }
+        int requiredCount = switch (trickType) {
+            case SINGLE -> 1;
+            case PAIR, BANG -> 2;
+        };
+        if (requiredCount == 1) {
+            return List.of(chooseCard(player, engine));
+        }
+        List<Card> validCards = mediumAI.getValidCards(player, engine);
+        List<Card> result = new ArrayList<>();
+        for (Card card : validCards) {
+            result.add(card);
+            if (result.size() >= requiredCount) break;
+        }
+        return result;
     }
 
     private Card chooseLeadCard(Player player, List<Card> validCards, GameEngine engine) {

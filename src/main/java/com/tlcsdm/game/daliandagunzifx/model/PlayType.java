@@ -30,5 +30,6 @@ package com.tlcsdm.game.daliandagunzifx.model;
 public enum PlayType {
 
     SINGLE,
-    PAIR
+    PAIR,
+    BANG
 }
