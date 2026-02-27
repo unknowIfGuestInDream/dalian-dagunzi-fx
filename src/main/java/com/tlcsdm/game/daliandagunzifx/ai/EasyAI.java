@@ -287,10 +287,8 @@ public class EasyAI implements AIStrategy {
             // For BANG/GUNZI, only valid matching plays can compete
             if (trickPlayType == PlayType.BANG || trickPlayType == PlayType.GUNZI) {
                 List<Card>[] trickCards = engine.getCurrentTrickCards();
-                if (trickCards[i] != null) {
-                    PlayType playType = engine.determinePlayType(trickCards[i]);
-                    if (playType != trickPlayType) continue;
-                }
+                PlayType playType = engine.determinePlayType(trickCards[i]);
+                if (playType != trickPlayType) continue;
             }
 
             boolean canCompete = trumpInfo.isTrump(card)
@@ -342,10 +340,8 @@ public class EasyAI implements AIStrategy {
             // For BANG/GUNZI, only valid matching plays can compete
             if (trickPlayType == PlayType.BANG || trickPlayType == PlayType.GUNZI) {
                 List<Card>[] trickCards = engine.getCurrentTrickCards();
-                if (trickCards[i] != null) {
-                    PlayType playType = engine.determinePlayType(trickCards[i]);
-                    if (playType != trickPlayType) continue;
-                }
+                PlayType playType = engine.determinePlayType(trickCards[i]);
+                if (playType != trickPlayType) continue;
             }
 
             Suit cardSuit = trumpInfo.getEffectiveSuit(card);
