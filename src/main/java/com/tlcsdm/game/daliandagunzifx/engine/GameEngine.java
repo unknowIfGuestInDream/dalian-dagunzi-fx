@@ -471,6 +471,15 @@ public class GameEngine {
 
         for (int i = 0; i < 4; i++) {
             List<Card> playerCards = currentTrickCards[i];
+
+            // For BANG/GUNZI tricks, only a valid matching play can compete
+            if (currentTrickPlayType == PlayType.BANG || currentTrickPlayType == PlayType.GUNZI) {
+                PlayType followerPlayType = determinePlayType(playerCards);
+                if (followerPlayType != currentTrickPlayType) {
+                    continue;
+                }
+            }
+
             // Use the strongest card from each player's play for comparison
             int bestStrength = -1;
             boolean canCompete = false;

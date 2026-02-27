@@ -194,6 +194,86 @@ class GameEngineTest {
     }
 
     @Test
+    void testBangTrickNonBangCannotWin() {
+        // Issue: K+9 should NOT beat BANG Q when the follower's cards don't form a BANG
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
+        engine.setKitty(kittyCards);
+
+        for (Player p : players) {
+            p.getHand().clear();
+        }
+
+        // Player 0 leads with BANG ♠Q (two ♠Q from different decks)
+        Card spadeQ1 = new Card(Suit.SPADE, Rank.QUEEN, 500);
+        Card spadeQ2 = new Card(Suit.SPADE, Rank.QUEEN, 501);
+        // Player 1 follows with ♠K + ♠9 (NOT a bang - different ranks)
+        Card spadeK = new Card(Suit.SPADE, Rank.KING, 502);
+        Card spade9 = new Card(Suit.SPADE, Rank.NINE, 503);
+        // Player 2 follows with two random cards (♣4 + ♣6)
+        Card club4 = new Card(Suit.CLUB, Rank.FOUR, 504);
+        Card club6 = new Card(Suit.CLUB, Rank.SIX, 505);
+        // Player 3 follows with ♠J + ♠8
+        Card spadeJ = new Card(Suit.SPADE, Rank.JACK, 506);
+        Card spade8 = new Card(Suit.SPADE, Rank.EIGHT, 507);
+
+        players[0].addCards(List.of(spadeQ1, spadeQ2));
+        players[1].addCards(List.of(spadeK, spade9));
+        players[2].addCards(List.of(club4, club6));
+        players[3].addCards(List.of(spadeJ, spade8));
+
+        engine.playCards(0, List.of(spadeQ1, spadeQ2));
+        engine.playCards(1, List.of(spadeK, spade9));
+        engine.playCards(2, List.of(club4, club6));
+        engine.playCards(3, List.of(spadeJ, spade8));
+
+        int winner = engine.evaluateTrick();
+        // Player 0 should win - no other player played a valid BANG
+        assertEquals(0, winner, "BANG Q should win when no other player plays a valid BANG");
+    }
+
+    @Test
+    void testBangTrickValidBangWins() {
+        // A valid BANG K should beat BANG Q
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
+        engine.setKitty(kittyCards);
+
+        for (Player p : players) {
+            p.getHand().clear();
+        }
+
+        // Player 0 leads with BANG ♠Q
+        Card spadeQ1 = new Card(Suit.SPADE, Rank.QUEEN, 600);
+        Card spadeQ2 = new Card(Suit.SPADE, Rank.QUEEN, 601);
+        // Player 1 follows with BANG ♠K (valid BANG, higher rank)
+        Card spadeK1 = new Card(Suit.SPADE, Rank.KING, 602);
+        Card spadeK2 = new Card(Suit.SPADE, Rank.KING, 603);
+        // Player 2 follows with two random cards
+        Card club4 = new Card(Suit.CLUB, Rank.FOUR, 604);
+        Card club6 = new Card(Suit.CLUB, Rank.SIX, 605);
+        // Player 3 follows with two random cards
+        Card diamond7 = new Card(Suit.DIAMOND, Rank.SEVEN, 606);
+        Card diamond8 = new Card(Suit.DIAMOND, Rank.EIGHT, 607);
+
+        players[0].addCards(List.of(spadeQ1, spadeQ2));
+        players[1].addCards(List.of(spadeK1, spadeK2));
+        players[2].addCards(List.of(club4, club6));
+        players[3].addCards(List.of(diamond7, diamond8));
+
+        engine.playCards(0, List.of(spadeQ1, spadeQ2));
+        engine.playCards(1, List.of(spadeK1, spadeK2));
+        engine.playCards(2, List.of(club4, club6));
+        engine.playCards(3, List.of(diamond7, diamond8));
+
+        int winner = engine.evaluateTrick();
+        // Player 1 should win with BANG K > BANG Q
+        assertEquals(1, winner, "Valid BANG K should beat BANG Q");
+    }
+
+    @Test
     void testPointScoring() {
         engine.startNewRound();
         engine.declareTrump(0, Suit.HEART);
