@@ -98,4 +98,15 @@ class TrumpInfoTest {
         assertTrue(threesTrump.getCardStrength(trumpSuitAce)
             > threesTrump.getCardStrength(trumpSuitKing));
     }
+
+    @Test
+    void testEffectiveRankStrengthTwoAboveAce() {
+        // Da Gunzi ranking: 2 > A > K > Q > ...
+        assertTrue(TrumpInfo.effectiveRankStrength(Rank.TWO)
+            > TrumpInfo.effectiveRankStrength(Rank.ACE));
+        assertTrue(TrumpInfo.effectiveRankStrength(Rank.ACE)
+            > TrumpInfo.effectiveRankStrength(Rank.KING));
+        assertTrue(TrumpInfo.effectiveRankStrength(Rank.KING)
+            > TrumpInfo.effectiveRankStrength(Rank.THREE));
+    }
 }
