@@ -51,6 +51,8 @@ jobs:
           cp -r target/lib dist/
           cp LICENSE dist/
           cp README.md dist/
+          mkdir -p dist/docs
+          cp docs/规则.md dist/docs/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
