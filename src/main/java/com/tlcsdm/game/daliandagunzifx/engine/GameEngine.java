@@ -233,7 +233,7 @@ public class GameEngine {
      */
     public Suit declareTrumpRandomSuit(int playerIndex) {
         Suit[] suits = Suit.values();
-        Suit randomSuit = suits[new java.util.Random().nextInt(suits.length)];
+        Suit randomSuit = suits[java.util.concurrent.ThreadLocalRandom.current().nextInt(suits.length)];
         declareTrump(playerIndex, randomSuit);
         return randomSuit;
     }

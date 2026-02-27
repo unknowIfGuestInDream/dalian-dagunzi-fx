@@ -632,10 +632,7 @@ public class DaGunZiApp extends Application {
                         statusLabel.setText(p.getName() + " 没有大王，不叫");
                         return;
                     }
-                }
-
-                if (isFirstRound) {
-                    // First round: declare with random suit
+                    // Declare with random suit
                     declared[0] = true;
                     Suit randomSuit = engine.declareTrumpRandomSuit(idx);
                     statusLabel.setText(p.getName() + " 亮王定庄，随机主牌："
