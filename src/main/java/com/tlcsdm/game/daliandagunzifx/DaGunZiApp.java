@@ -255,7 +255,7 @@ public class DaGunZiApp extends Application {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("确认");
         alert.setHeaderText("重新开始");
-        alert.setContentText("确定要重新开始吗？当前进度将丢失。");
+        alert.setContentText("确定要重新开始吗？本局游戏将丢失。");
 
         Stage alertStage = (Stage) alert.getDialogPane().getScene().getWindow();
         alertStage.getIcons().add(createAppIcon());
@@ -271,7 +271,7 @@ public class DaGunZiApp extends Application {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("确认");
         alert.setHeaderText("返回主界面");
-        alert.setContentText("确定要返回主界面吗？当前游戏将结束。");
+        alert.setContentText("确定要返回主界面吗？本局游戏及进度将丢失。");
 
         Stage alertStage = (Stage) alert.getDialogPane().getScene().getWindow();
         alertStage.getIcons().add(createAppIcon());
@@ -284,6 +284,7 @@ public class DaGunZiApp extends Application {
     }
 
     private void restartCurrentRound() {
+        if (engine == null) return;
         Rank[] oldLevels = engine.getTeamLevels().clone();
 
         players = new Player[]{
