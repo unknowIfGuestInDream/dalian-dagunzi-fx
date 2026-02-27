@@ -95,6 +95,8 @@ public final class RulesDialog {
             dialog.initOwner(owner);
         }
         dialog.setTitle("游戏规则");
+        dialog.getIcons().add(new javafx.scene.image.Image(
+            RulesDialog.class.getResourceAsStream("logo.png")));
 
         TabPane tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
@@ -160,6 +162,8 @@ public final class RulesDialog {
             dialog.initOwner(owner);
         }
         dialog.setTitle(title);
+        dialog.getIcons().add(new javafx.scene.image.Image(
+            RulesDialog.class.getResourceAsStream("logo.png")));
 
         GridPane grid = buildGrid(headers, data, width);
 

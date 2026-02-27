@@ -271,4 +271,16 @@ class GameEngineTest {
         // Dealer should have 48 cards (38 + 10 kitty)
         assertEquals(48, players[dealerIdx].getHand().size());
     }
+
+    @Test
+    void testDeclareTrumpRandomSuit() {
+        engine.startNewRound();
+        Suit randomSuit = engine.declareTrumpRandomSuit(1);
+        assertNotNull(randomSuit);
+        assertNotNull(engine.getTrumpInfo());
+        assertEquals(randomSuit, engine.getTrumpInfo().getTrumpSuit());
+        assertEquals(1, engine.getDealerIndex());
+        // Dealer should have 48 cards (38 + 10 kitty)
+        assertEquals(48, players[1].getHand().size());
+    }
 }

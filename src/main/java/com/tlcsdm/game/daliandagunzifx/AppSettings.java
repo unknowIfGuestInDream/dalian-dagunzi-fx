@@ -155,6 +155,8 @@ public final class AppSettings {
          .saveSettings(true)
          .debugHistoryMode(false)
          .buttonsVisibility(false)
-         .instantPersistent(true);
+         .instantPersistent(true)
+         .dialogIcon(new javafx.scene.image.Image(
+             getClass().getResourceAsStream("logo.png")));
     }
 }
