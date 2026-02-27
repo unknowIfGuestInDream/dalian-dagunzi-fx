@@ -151,7 +151,7 @@ public final class AppSettings {
                         aiLevelProperty)
                 )
             )
-        ).persistWindowState(true)
+        ).persistWindowState(false)
          .saveSettings(true)
          .debugHistoryMode(false)
          .buttonsVisibility(false)
