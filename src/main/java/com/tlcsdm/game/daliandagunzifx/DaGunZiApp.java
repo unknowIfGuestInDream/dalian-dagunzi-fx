@@ -55,8 +55,11 @@ import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
@@ -118,6 +121,7 @@ public class DaGunZiApp extends Application {
     private GridPane trickArea;
     private VBox infoPanel;
     private GridPane trackerGrid;
+    private VBox trackerSection;
     private Label statusLabel;
     private HBox actionPane;
     private Label trumpLabel;
@@ -157,8 +161,25 @@ public class DaGunZiApp extends Application {
 
     // ======================== Menu Bar ========================
 
-    private MenuBar createMenuBar() {
+    private MenuBar createMenuBar(boolean inGame) {
         MenuBar menuBar = new MenuBar();
+
+        // --- Game menu (only during gameplay) ---
+        if (inGame) {
+            Menu gameMenu = new Menu("游戏");
+            gameMenu.setGraphic(new FontIcon(Material.VIDEOGAME_ASSET));
+
+            MenuItem restartItem = new MenuItem("重新开始");
+            restartItem.setGraphic(new FontIcon(Material.REPLAY));
+            restartItem.setOnAction(e -> confirmRestartRound());
+
+            MenuItem returnItem = new MenuItem("返回主界面");
+            returnItem.setGraphic(new FontIcon(Material.HOME));
+            returnItem.setOnAction(e -> confirmReturnToWelcome());
+
+            gameMenu.getItems().addAll(restartItem, returnItem);
+            menuBar.getMenus().add(gameMenu);
+        }
 
         // --- Settings menu ---
         Menu settingsMenu = new Menu("设置");
@@ -170,6 +191,17 @@ public class DaGunZiApp extends Application {
             AppSettings.getInstance().getPreferencesFx().show(true));
 
         settingsMenu.getItems().add(preferencesItem);
+
+        if (inGame) {
+            CheckMenuItem trackerItem = new CheckMenuItem("记牌器");
+            trackerItem.setGraphic(new FontIcon(Material.VISIBILITY));
+            trackerItem.setSelected(AppSettings.getInstance().isTrackerEnabled());
+            trackerItem.setOnAction(e -> {
+                AppSettings.getInstance().trackerEnabledProperty().set(trackerItem.isSelected());
+                toggleTrackerDisplay(trackerItem.isSelected());
+            });
+            settingsMenu.getItems().add(trackerItem);
+        }
 
         // --- Rules menu ---
         Menu rulesMenu = new Menu("规则");
@@ -196,8 +228,7 @@ public class DaGunZiApp extends Application {
     }
 
     private void showAboutDialog() {
-        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-            javafx.scene.control.Alert.AlertType.INFORMATION);
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("关于");
         alert.setHeaderText("大连打滚子 Da Gunzi");
 
@@ -218,6 +249,71 @@ public class DaGunZiApp extends Application {
         alert.getDialogPane().setContent(content);
         alert.getDialogPane().setPrefWidth(400);
         alert.showAndWait();
+    }
+
+    private void confirmRestartRound() {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("确认");
+        alert.setHeaderText("重新开始");
+        alert.setContentText("确定要重新开始吗？当前进度将丢失。");
+
+        Stage alertStage = (Stage) alert.getDialogPane().getScene().getWindow();
+        alertStage.getIcons().add(createAppIcon());
+
+        alert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                restartCurrentRound();
+            }
+        });
+    }
+
+    private void confirmReturnToWelcome() {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("确认");
+        alert.setHeaderText("返回主界面");
+        alert.setContentText("确定要返回主界面吗？当前游戏将结束。");
+
+        Stage alertStage = (Stage) alert.getDialogPane().getScene().getWindow();
+        alertStage.getIcons().add(createAppIcon());
+
+        alert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                showWelcomeScreen();
+            }
+        });
+    }
+
+    private void restartCurrentRound() {
+        Rank[] oldLevels = engine.getTeamLevels().clone();
+
+        players = new Player[]{
+            new Player(0, "你", true),
+            new Player(1, "电脑1", false),
+            new Player(2, "电脑2(搭档)", false),
+            new Player(3, "电脑3", false)
+        };
+        cardTracker = new CardTracker();
+        aiStrategy = switch (AppSettings.getInstance().getAiLevel()) {
+            case EASY -> new EasyAI();
+            case MEDIUM -> new MediumAI();
+            case HARD -> new HardAI(cardTracker);
+        };
+        engine = new GameEngine(players);
+        engine.getTeamLevels()[0] = oldLevels[0];
+        engine.getTeamLevels()[1] = oldLevels[1];
+
+        initGameBoard();
+        startNewRound();
+    }
+
+    private void toggleTrackerDisplay(boolean enabled) {
+        if (trackerSection != null) {
+            trackerSection.setVisible(enabled);
+            trackerSection.setManaged(enabled);
+            if (enabled) {
+                updateTrackerPanel();
+            }
+        }
     }
 
     // ======================== Welcome Screen ========================
@@ -281,7 +377,7 @@ public class DaGunZiApp extends Application {
         welcomeBox.getChildren().addAll(title, subtitle, spacer1, diffBox, trackerCheck, spacer2, startBtn);
 
         VBox wrapper = new VBox();
-        wrapper.getChildren().addAll(createMenuBar(), welcomeBox);
+        wrapper.getChildren().addAll(createMenuBar(false), welcomeBox);
         rootPane.getChildren().add(wrapper);
     }
 
@@ -327,7 +423,7 @@ public class DaGunZiApp extends Application {
         topPlayerPane.setPadding(new Insets(8));
 
         VBox topArea = new VBox();
-        topArea.getChildren().addAll(createMenuBar(), topPlayerPane);
+        topArea.getChildren().addAll(createMenuBar(true), topPlayerPane);
 
         // Left: Player 1
         VBox leftPlayerPane = createAIPlayerPane("电脑1", 1);
@@ -397,14 +493,23 @@ public class DaGunZiApp extends Application {
 
         infoPanel.getChildren().addAll(roundLabel, trumpLabel, dealerLabel, scoreLabel, teamLevelLabel);
 
-        if (AppSettings.getInstance().isTrackerEnabled()) {
-            trackerGrid = new GridPane();
-            trackerGrid.setHgap(3);
-            trackerGrid.setVgap(2);
-            trackerGrid.setPadding(new Insets(5));
-            Label trackerTitle = new Label("记牌器");
-            trackerTitle.setStyle("-fx-text-fill: #ffdd57; -fx-font-size: 14px; -fx-font-weight: bold;");
-            infoPanel.getChildren().addAll(new Separator(), trackerTitle, trackerGrid);
+        trackerGrid = new GridPane();
+        trackerGrid.setHgap(3);
+        trackerGrid.setVgap(2);
+        trackerGrid.setPadding(new Insets(5));
+        Label trackerTitle = new Label("记牌器");
+        trackerTitle.setStyle("-fx-text-fill: #ffdd57; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+        trackerSection = new VBox(5);
+        trackerSection.getChildren().addAll(new Separator(), trackerTitle, trackerGrid);
+
+        boolean trackerEnabled = AppSettings.getInstance().isTrackerEnabled();
+        trackerSection.setVisible(trackerEnabled);
+        trackerSection.setManaged(trackerEnabled);
+
+        infoPanel.getChildren().add(trackerSection);
+
+        if (trackerEnabled) {
             updateTrackerPanel();
         }
     }
@@ -818,7 +923,7 @@ public class DaGunZiApp extends Application {
         int winner = engine.evaluateTrick();
         updateInfoPanel();
 
-        if (AppSettings.getInstance().isTrackerEnabled()) {
+        if (trackerSection != null && trackerSection.isVisible()) {
             updateTrackerPanel();
         }
 
