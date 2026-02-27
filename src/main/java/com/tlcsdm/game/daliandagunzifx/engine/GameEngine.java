@@ -29,6 +29,7 @@ package com.tlcsdm.game.daliandagunzifx.engine;
 
 import com.tlcsdm.game.daliandagunzifx.model.Card;
 import com.tlcsdm.game.daliandagunzifx.model.Deck;
+import com.tlcsdm.game.daliandagunzifx.model.PlayType;
 import com.tlcsdm.game.daliandagunzifx.model.Rank;
 import com.tlcsdm.game.daliandagunzifx.model.Suit;
 
@@ -44,13 +45,15 @@ public class GameEngine {
     private int currentPlayerIndex;
     private int dealerIndex;
     private List<Card> kitty;
-    private final Card[] currentTrick;
+    @SuppressWarnings("unchecked")
+    private final List<Card>[] currentTrickCards = new List[4];
+    private PlayType currentTrickPlayType;
     private int currentTrickLeader;
     private int trickCardsPlayed;
+    private int totalCardsPlayed;
     private int defenderPoints;
     private final Rank[] teamLevels;
     private int roundNumber;
-    private int tricksCompleted;
     private int previousWinningTeam;
     private int previousTributeCount;
 
@@ -59,7 +62,6 @@ public class GameEngine {
             throw new IllegalArgumentException("Exactly 4 players required");
         }
         this.players = players;
-        this.currentTrick = new Card[4];
         this.teamLevels = new Rank[]{Rank.THREE, Rank.THREE};
         this.kitty = new ArrayList<>();
         this.roundNumber = 0;
@@ -71,11 +73,12 @@ public class GameEngine {
     public void startNewRound() {
         roundNumber++;
         defenderPoints = 0;
-        tricksCompleted = 0;
+        totalCardsPlayed = 0;
         trickCardsPlayed = 0;
+        currentTrickPlayType = null;
         kitty = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
-            currentTrick[i] = null;
+            currentTrickCards[i] = null;
             players[i].getHand().clear();
         }
 
@@ -325,43 +328,110 @@ public class GameEngine {
     }
 
     public boolean isValidPlay(int playerIndex, Card card) {
+        return isValidPlay(playerIndex, List.of(card));
+    }
+
+    public boolean isValidPlay(int playerIndex, List<Card> cards) {
         if (phase != GamePhase.PLAYING) {
             return false;
         }
         if (playerIndex != currentPlayerIndex) {
             return false;
         }
-        if (!players[playerIndex].hasCards(List.of(card))) {
+        if (cards == null || cards.isEmpty()) {
+            return false;
+        }
+        if (!players[playerIndex].hasCards(cards)) {
             return false;
         }
 
-        // Leader can play any card
+        // Determine play type
+        PlayType playType = determinePlayType(cards);
+        if (playType == null) {
+            return false;
+        }
+
+        // Leader can play any valid type
         if (trickCardsPlayed == 0) {
             return true;
         }
 
-        // Must follow the lead suit if possible
-        Card leadCard = currentTrick[currentTrickLeader];
-        Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
-        Suit cardSuit = trumpInfo.getEffectiveSuit(card);
-
-        List<Card> suitCards = players[playerIndex].getCardsOfSuit(leadSuit, trumpInfo);
-        if (!suitCards.isEmpty()) {
-            // Player has cards of the lead suit, must play one
-            return cardSuit == leadSuit;
+        // Follower must match the lead play type (same number of cards)
+        if (currentTrickPlayType != null && playType != currentTrickPlayType) {
+            // Check if player has enough cards to form the required play type
+            // If not, they can play any cards of the required count
+            int requiredCount = getPlayTypeCardCount(currentTrickPlayType);
+            if (cards.size() != requiredCount) {
+                return false;
+            }
         }
-        // Cannot follow suit, can play anything
+
+        // Must follow the lead suit if possible
+        List<Card> leadCards = currentTrickCards[currentTrickLeader];
+        Card leadCard = leadCards.get(0);
+        Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
+
+        // Check if all cards follow suit
+        for (Card card : cards) {
+            Suit cardSuit = trumpInfo.getEffectiveSuit(card);
+            List<Card> suitCards = players[playerIndex].getCardsOfSuit(leadSuit, trumpInfo);
+            if (!suitCards.isEmpty()) {
+                if (cardSuit != leadSuit) {
+                    return false;
+                }
+            }
+        }
         return true;
     }
 
+    /**
+     * Determines the PlayType for a given list of cards.
+     * Returns null if the cards don't form a valid play type.
+     */
+    public PlayType determinePlayType(List<Card> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return null;
+        }
+        if (cards.size() == 1) {
+            return PlayType.SINGLE;
+        }
+        if (cards.size() == 2) {
+            Card a = cards.get(0);
+            Card b = cards.get(1);
+            // BANG (棒): two cards of the same rank and same suit (from different decks)
+            if (a.getRank() == b.getRank()
+                && java.util.Objects.equals(a.getSuit(), b.getSuit())
+                && a.getId() != b.getId()) {
+                return PlayType.BANG;
+            }
+        }
+        return null;
+    }
+
+    private int getPlayTypeCardCount(PlayType playType) {
+        return switch (playType) {
+            case SINGLE -> 1;
+            case PAIR, BANG -> 2;
+        };
+    }
+
     public void playCard(int playerIndex, Card card) {
-        if (!isValidPlay(playerIndex, card)) {
+        playCards(playerIndex, List.of(card));
+    }
+
+    public void playCards(int playerIndex, List<Card> cards) {
+        if (!isValidPlay(playerIndex, cards)) {
             throw new IllegalArgumentException("Invalid play by player " + playerIndex);
         }
 
-        currentTrick[playerIndex] = card;
-        players[playerIndex].removeCards(List.of(card));
+        if (trickCardsPlayed == 0) {
+            currentTrickPlayType = determinePlayType(cards);
+        }
+
+        currentTrickCards[playerIndex] = new ArrayList<>(cards);
+        players[playerIndex].removeCards(cards);
         trickCardsPlayed++;
+        totalCardsPlayed += cards.size();
 
         if (trickCardsPlayed < 4) {
             currentPlayerIndex = (currentPlayerIndex + 1) % 4;
@@ -373,31 +443,39 @@ public class GameEngine {
             throw new IllegalStateException("Trick is not complete");
         }
 
-        Card leadCard = currentTrick[currentTrickLeader];
+        List<Card> leadCards = currentTrickCards[currentTrickLeader];
+        Card leadCard = leadCards.get(0);
         Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
 
         int winnerIndex = currentTrickLeader;
         int highestStrength = -1;
 
         for (int i = 0; i < 4; i++) {
-            Card card = currentTrick[i];
-            Suit cardSuit = trumpInfo.getEffectiveSuit(card);
-            int strength = trumpInfo.getCardStrength(card);
+            List<Card> playerCards = currentTrickCards[i];
+            // Use the strongest card from each player's play for comparison
+            int bestStrength = -1;
+            boolean canCompete = false;
+            for (Card card : playerCards) {
+                Suit cardSuit = trumpInfo.getEffectiveSuit(card);
+                int strength = trumpInfo.getCardStrength(card);
 
-            boolean canCompete;
-            if (trumpInfo.isTrump(card)) {
-                // Trump always competes
-                canCompete = true;
-            } else if (cardSuit == leadSuit) {
-                // Same suit as lead competes
-                canCompete = true;
-            } else {
-                // Off-suit non-trump cannot win
-                canCompete = false;
+                boolean cardCanCompete;
+                if (trumpInfo.isTrump(card)) {
+                    cardCanCompete = true;
+                } else if (cardSuit == leadSuit) {
+                    cardCanCompete = true;
+                } else {
+                    cardCanCompete = false;
+                }
+
+                if (cardCanCompete && strength > bestStrength) {
+                    bestStrength = strength;
+                    canCompete = true;
+                }
             }
 
-            if (canCompete && strength > highestStrength) {
-                highestStrength = strength;
+            if (canCompete && bestStrength > highestStrength) {
+                highestStrength = bestStrength;
                 winnerIndex = i;
             }
         }
@@ -405,11 +483,13 @@ public class GameEngine {
         // Calculate points in the trick
         int trickPoints = 0;
         for (int i = 0; i < 4; i++) {
-            trickPoints += currentTrick[i].getPoints();
+            for (Card card : currentTrickCards[i]) {
+                trickPoints += card.getPoints();
+            }
         }
 
-        tricksCompleted++;
-        boolean isLastTrick = tricksCompleted == 38;
+        // Total cards dealt to players = 38 * 4 = 152
+        boolean isLastTrick = totalCardsPlayed >= 152;
 
         // Last trick: kitty points go to winner doubled
         if (isLastTrick) {
@@ -432,8 +512,9 @@ public class GameEngine {
         currentTrickLeader = winnerIndex;
         currentPlayerIndex = winnerIndex;
         trickCardsPlayed = 0;
+        currentTrickPlayType = null;
         for (int i = 0; i < 4; i++) {
-            currentTrick[i] = null;
+            currentTrickCards[i] = null;
         }
 
         if (isLastTrick) {
@@ -441,6 +522,15 @@ public class GameEngine {
         }
 
         return winnerIndex;
+    }
+
+    private boolean allHandsEmpty() {
+        for (Player player : players) {
+            if (!player.getHand().isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public boolean isRoundOver() {
@@ -492,8 +582,29 @@ public class GameEngine {
         return kitty;
     }
 
+    /**
+     * Returns the current trick as a Card array for backward compatibility.
+     * Each element is the first (or only) card played by that player, or null.
+     */
     public Card[] getCurrentTrick() {
-        return currentTrick;
+        Card[] result = new Card[4];
+        for (int i = 0; i < 4; i++) {
+            if (currentTrickCards[i] != null && !currentTrickCards[i].isEmpty()) {
+                result[i] = currentTrickCards[i].get(0);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Returns the full list of cards played by each player in the current trick.
+     */
+    public List<Card>[] getCurrentTrickCards() {
+        return currentTrickCards;
+    }
+
+    public PlayType getCurrentTrickPlayType() {
+        return currentTrickPlayType;
     }
 
     public int getCurrentTrickLeader() {
