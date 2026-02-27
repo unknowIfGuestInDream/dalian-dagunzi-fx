@@ -148,27 +148,11 @@ public class DaGunZiApp extends Application {
     }
 
     /**
-     * Creates a simple application icon programmatically.
+     * Loads the application icon from resources.
      */
     private javafx.scene.image.Image createAppIcon() {
-        int size = 64;
-        javafx.scene.canvas.Canvas canvas = new javafx.scene.canvas.Canvas(size, size);
-        javafx.scene.canvas.GraphicsContext gc = canvas.getGraphicsContext2D();
-
-        // Background circle
-        gc.setFill(javafx.scene.paint.Color.web("#1a6631"));
-        gc.fillRoundRect(0, 0, size, size, 12, 12);
-
-        // Card symbol
-        gc.setFill(javafx.scene.paint.Color.GOLD);
-        gc.setFont(javafx.scene.text.Font.font("System", javafx.scene.text.FontWeight.BOLD, 36));
-        gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
-        gc.setTextBaseline(javafx.geometry.VPos.CENTER);
-        gc.fillText("滚", size / 2.0, size / 2.0);
-
-        javafx.scene.SnapshotParameters params = new javafx.scene.SnapshotParameters();
-        params.setFill(javafx.scene.paint.Color.TRANSPARENT);
-        return canvas.snapshot(params, null);
+        return new javafx.scene.image.Image(
+            getClass().getResourceAsStream("logo.png"));
     }
 
     // ======================== Menu Bar ========================
@@ -178,6 +162,7 @@ public class DaGunZiApp extends Application {
 
         // --- Settings menu ---
         Menu settingsMenu = new Menu("设置");
+        settingsMenu.setGraphic(new FontIcon(Material.SETTINGS));
 
         MenuItem preferencesItem = new MenuItem("偏好设置");
         preferencesItem.setGraphic(new FontIcon(Material.SETTINGS));
@@ -188,6 +173,7 @@ public class DaGunZiApp extends Application {
 
         // --- Rules menu ---
         Menu rulesMenu = new Menu("规则");
+        rulesMenu.setGraphic(new FontIcon(Material.LIBRARY_BOOKS));
 
         MenuItem rulesItem = new MenuItem("规则说明");
         rulesItem.setGraphic(new FontIcon(Material.DESCRIPTION));
@@ -197,6 +183,7 @@ public class DaGunZiApp extends Application {
 
         // --- About menu ---
         Menu helpMenu = new Menu("帮助");
+        helpMenu.setGraphic(new FontIcon(Material.HELP_OUTLINE));
 
         MenuItem aboutItem = new MenuItem("关于");
         aboutItem.setGraphic(new FontIcon(Material.INFO_OUTLINE));
