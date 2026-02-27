@@ -112,11 +112,52 @@ public class MediumAI implements AIStrategy {
         if (requiredCount == 1) {
             return List.of(chooseCard(player, engine));
         }
-        List<Card> validCards = getValidCards(player, engine);
+        return chooseMultiCards(player, engine, requiredCount);
+    }
+
+    protected List<Card> chooseMultiCards(Player player, GameEngine engine, int requiredCount) {
+        TrumpInfo trumpInfo = engine.getTrumpInfo();
+        Card leadCard = engine.getCurrentTrick()[engine.getCurrentTrickLeader()];
+        Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
+
+        List<Card> suitCards = new ArrayList<>();
+        List<Card> otherCards = new ArrayList<>();
+        for (Card card : player.getHand()) {
+            if (trumpInfo.getEffectiveSuit(card) == leadSuit) {
+                suitCards.add(card);
+            } else {
+                otherCards.add(card);
+            }
+        }
+
+        boolean partnerWinning = isPartnerWinning(player, engine);
+
+        // Sort suit cards: play weakest first
+        suitCards.sort(Comparator.comparingInt(trumpInfo::getCardStrength));
+        // Sort other cards: play weakest non-point first
+        otherCards.sort(Comparator.comparingInt(c -> {
+            int base = trumpInfo.getCardStrength(c);
+            if (c.getPoints() > 0) return base + 10000;
+            return base;
+        }));
+
         List<Card> result = new ArrayList<>();
-        for (Card card : validCards) {
-            result.add(card);
+        // Play suit cards first (required by rules)
+        for (Card card : suitCards) {
             if (result.size() >= requiredCount) break;
+            result.add(card);
+        }
+        // Fill with other cards if not enough suit cards
+        if (result.size() < requiredCount) {
+            if (partnerWinning) {
+                // Dump point cards when partner is winning
+                otherCards.sort(Comparator.comparingInt((Card c) -> c.getPoints()).reversed()
+                    .thenComparingInt(trumpInfo::getCardStrength));
+            }
+            for (Card card : otherCards) {
+                if (result.size() >= requiredCount) break;
+                result.add(card);
+            }
         }
         return result;
     }
@@ -207,10 +248,42 @@ public class MediumAI implements AIStrategy {
                 .min(Comparator.comparingInt(trumpInfo::getCardStrength))
                 .orElse(trumpCards.get(0));
         }
-        // Otherwise play high trump
+        // Play the minimum trump that can beat the current winning card
+        int currentWinStrength = getCurrentTrickWinnerStrength(engine);
+        Card bestTrump = null;
+        for (Card card : trumpCards) {
+            int strength = trumpInfo.getCardStrength(card);
+            if (strength > currentWinStrength) {
+                if (bestTrump == null || strength < trumpInfo.getCardStrength(bestTrump)) {
+                    bestTrump = card;
+                }
+            }
+        }
+        if (bestTrump != null) return bestTrump;
+        // Can't beat current winner, play lowest trump
         return trumpCards.stream()
-            .max(Comparator.comparingInt(trumpInfo::getCardStrength))
+            .min(Comparator.comparingInt(trumpInfo::getCardStrength))
             .orElse(trumpCards.get(0));
+    }
+
+    private int getCurrentTrickWinnerStrength(GameEngine engine) {
+        TrumpInfo trumpInfo = engine.getTrumpInfo();
+        Card[] trick = engine.getCurrentTrick();
+        int leader = engine.getCurrentTrickLeader();
+        Card leadCard = trick[leader];
+        Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
+
+        int highestStrength = -1;
+        for (int i = 0; i < 4; i++) {
+            Card card = trick[i];
+            if (card == null) continue;
+            boolean canCompete = trumpInfo.isTrump(card)
+                || trumpInfo.getEffectiveSuit(card) == leadSuit;
+            if (canCompete) {
+                highestStrength = Math.max(highestStrength, trumpInfo.getCardStrength(card));
+            }
+        }
+        return highestStrength;
     }
 
     protected Card playLow(List<Card> cards, TrumpInfo trumpInfo) {

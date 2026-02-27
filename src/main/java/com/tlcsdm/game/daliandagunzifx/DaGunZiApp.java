@@ -896,8 +896,8 @@ public class DaGunZiApp extends Application {
             updateHumanHand();
             statusLabel.setText(currentPlayer.getName() + " 思考中...");
             Timeline timeline = new Timeline(new KeyFrame(Duration.millis(500), e -> {
-                Card card = aiStrategy.chooseCard(currentPlayer, engine);
-                executePlay(currentIdx, card);
+                List<Card> cards = aiStrategy.chooseCards(currentPlayer, engine);
+                executePlayMulti(currentIdx, cards);
             }));
             timeline.play();
         }
