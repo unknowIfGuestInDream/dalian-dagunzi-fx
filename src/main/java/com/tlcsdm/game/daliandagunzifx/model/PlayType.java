@@ -31,5 +31,6 @@ public enum PlayType {
 
     SINGLE,
     PAIR,
-    BANG
+    BANG,
+    GUNZI
 }

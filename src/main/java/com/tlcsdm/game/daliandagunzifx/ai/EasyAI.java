@@ -72,18 +72,18 @@ public class EasyAI implements AIStrategy {
 
         List<Card> result = new ArrayList<>();
         for (Card card : candidates) {
-            if (result.size() >= 10) break;
+            if (result.size() >= 6) break;
             result.add(card);
         }
         // If not enough, add remaining cards (excluding jokers)
-        if (result.size() < 10) {
+        if (result.size() < 6) {
             List<Card> remaining = hand.stream()
                 .filter(c -> !result.contains(c)
                     && c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
                 .collect(Collectors.toList());
             Collections.shuffle(remaining, random);
             for (Card card : remaining) {
-                if (result.size() >= 10) break;
+                if (result.size() >= 6) break;
                 result.add(card);
             }
         }
@@ -106,6 +106,7 @@ public class EasyAI implements AIStrategy {
         int requiredCount = switch (trickType) {
             case SINGLE -> 1;
             case PAIR, BANG -> 2;
+            case GUNZI -> 3;
         };
         if (requiredCount == 1) {
             return List.of(chooseCard(player, engine));

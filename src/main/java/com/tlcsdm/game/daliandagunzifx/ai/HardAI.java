@@ -96,7 +96,7 @@ public class HardAI implements AIStrategy {
 
         List<Card> result = new ArrayList<>();
         for (Card card : hand) {
-            if (result.size() >= 10) break;
+            if (result.size() >= 6) break;
             if (card.getRank() != Rank.SMALL_JOKER && card.getRank() != Rank.BIG_JOKER) {
                 result.add(card);
             }
@@ -141,6 +141,7 @@ public class HardAI implements AIStrategy {
         int requiredCount = switch (trickType) {
             case SINGLE -> 1;
             case PAIR, BANG -> 2;
+            case GUNZI -> 3;
         };
         if (requiredCount == 1) {
             return List.of(chooseCard(player, engine));

@@ -31,8 +31,8 @@ class DeckTest {
     @Test
     void testDeckDealReducesRemaining() {
         Deck deck = new Deck();
-        deck.deal(38);
-        assertEquals(124, deck.remaining());
+        deck.deal(39);
+        assertEquals(123, deck.remaining());
     }
 
     @Test
