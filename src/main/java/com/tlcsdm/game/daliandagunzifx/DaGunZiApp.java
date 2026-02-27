@@ -477,7 +477,7 @@ public class DaGunZiApp extends Application {
         nameLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold;");
         playerNameLabels[playerIndex] = nameLabel;
 
-        Label countLabel = new Label("牌数：38");
+        Label countLabel = new Label("牌数：39");
         countLabel.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 12px;");
         playerCountLabels[playerIndex] = countLabel;
 
@@ -546,7 +546,7 @@ public class DaGunZiApp extends Application {
         humanNameLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold;");
         playerNameLabels[0] = humanNameLabel;
 
-        Label humanCountLabel = new Label("牌数：38");
+        Label humanCountLabel = new Label("牌数：39");
         humanCountLabel.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 12px;");
         playerCountLabels[0] = humanCountLabel;
 
@@ -818,7 +818,7 @@ public class DaGunZiApp extends Application {
     private void beginKittySelection() {
         waitingForKitty = true;
         selectedKittyCards.clear();
-        statusLabel.setText("请选择10张牌作为底牌（已选：0/10）（扣王：大王=2血，小王=1血）");
+        statusLabel.setText("请选择6张牌作为底牌（已选：0/6）（扣王：大王=2血，小王=1血）");
 
         Button confirmBtn = new Button("确认");
         confirmBtn.setStyle("-fx-font-size: 16px; -fx-padding: 8 20; "
@@ -835,14 +835,14 @@ public class DaGunZiApp extends Application {
     private void toggleKittyCard(Card card) {
         if (selectedKittyCards.contains(card)) {
             selectedKittyCards.remove(card);
-        } else if (selectedKittyCards.size() < 10) {
+        } else if (selectedKittyCards.size() < 6) {
             selectedKittyCards.add(card);
         }
-        statusLabel.setText("请选择10张牌作为底牌（已选：" + selectedKittyCards.size() + "/10）（扣王：大王=2血，小王=1血）");
+        statusLabel.setText("请选择6张牌作为底牌（已选：" + selectedKittyCards.size() + "/6）（扣王：大王=2血，小王=1血）");
 
         if (!actionPane.getChildren().isEmpty()
             && actionPane.getChildren().get(0) instanceof Button btn) {
-            btn.setDisable(selectedKittyCards.size() != 10);
+            btn.setDisable(selectedKittyCards.size() != 6);
         }
         updateHumanHand();
     }

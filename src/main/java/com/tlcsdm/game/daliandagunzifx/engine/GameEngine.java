@@ -85,12 +85,12 @@ public class GameEngine {
         Deck deck = new Deck();
         deck.shuffle();
 
-        // Deal 38 cards to each player
+        // Deal 39 cards to each player
         for (int i = 0; i < 4; i++) {
-            players[i].addCards(deck.deal(38));
+            players[i].addCards(deck.deal(39));
         }
-        // Remaining 10 cards go to kitty
-        kitty = deck.deal(10);
+        // Remaining 6 cards go to kitty
+        kitty = deck.deal(6);
 
         phase = GamePhase.DEALING;
     }
@@ -306,8 +306,8 @@ public class GameEngine {
         if (phase != GamePhase.PREPARING_KITTY) {
             throw new IllegalStateException("Cannot set kitty in phase: " + phase);
         }
-        if (kittyCards.size() != 10) {
-            throw new IllegalArgumentException("Kitty must contain exactly 10 cards");
+        if (kittyCards.size() != 6) {
+            throw new IllegalArgumentException("Kitty must contain exactly 6 cards");
         }
         if (!players[dealerIndex].hasCards(kittyCards)) {
             throw new IllegalArgumentException("Dealer does not have all specified kitty cards");
@@ -405,6 +405,18 @@ public class GameEngine {
                 return PlayType.BANG;
             }
         }
+        if (cards.size() == 3) {
+            Card a = cards.get(0);
+            Card b = cards.get(1);
+            Card c = cards.get(2);
+            // GUNZI (滚子): three cards of the same rank and same suit (from different decks)
+            if (a.getRank() == b.getRank() && b.getRank() == c.getRank()
+                && java.util.Objects.equals(a.getSuit(), b.getSuit())
+                && java.util.Objects.equals(b.getSuit(), c.getSuit())
+                && a.getId() != b.getId() && b.getId() != c.getId() && a.getId() != c.getId()) {
+                return PlayType.GUNZI;
+            }
+        }
         return null;
     }
 
@@ -412,6 +424,7 @@ public class GameEngine {
         return switch (playType) {
             case SINGLE -> 1;
             case PAIR, BANG -> 2;
+            case GUNZI -> 3;
         };
     }
 
@@ -488,8 +501,8 @@ public class GameEngine {
             }
         }
 
-        // Total cards dealt to players = 38 * 4 = 152
-        boolean isLastTrick = totalCardsPlayed >= 152;
+        // Total cards dealt to players = 39 * 4 = 156
+        boolean isLastTrick = totalCardsPlayed >= 156;
 
         // Last trick: kitty points go to winner doubled
         if (isLastTrick) {

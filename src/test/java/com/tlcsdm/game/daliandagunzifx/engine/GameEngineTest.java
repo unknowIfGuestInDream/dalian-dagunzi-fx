@@ -31,10 +31,10 @@ class GameEngineTest {
     void testStartNewRound() {
         engine.startNewRound();
         for (int i = 0; i < 4; i++) {
-            assertEquals(38, players[i].getHand().size(),
-                "Player " + i + " should have 38 cards");
+            assertEquals(39, players[i].getHand().size(),
+                "Player " + i + " should have 39 cards");
         }
-        assertEquals(10, engine.getKitty().size());
+        assertEquals(6, engine.getKitty().size());
     }
 
     @Test
@@ -50,16 +50,16 @@ class GameEngineTest {
     void testSetKitty() {
         engine.startNewRound();
         engine.declareTrump(0, Suit.SPADE);
-        // After declareTrump, dealer picks up 10 kitty cards -> 48 cards
-        assertEquals(48, players[0].getHand().size());
+        // After declareTrump, dealer picks up 6 kitty cards -> 45 cards
+        assertEquals(45, players[0].getHand().size());
 
-        // Select 10 non-joker cards for the kitty
+        // Select 6 non-joker cards for the kitty
         List<Card> kittyToSet = players[0].getHand().stream()
             .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
-            .limit(10)
+            .limit(6)
             .toList();
         engine.setKitty(kittyToSet);
-        assertEquals(38, players[0].getHand().size());
+        assertEquals(39, players[0].getHand().size());
     }
 
     @Test
@@ -74,12 +74,12 @@ class GameEngineTest {
             .toList();
 
         if (!jokers.isEmpty()) {
-            // Build a kitty with one joker + 9 regular cards
+            // Build a kitty with one joker + 5 regular cards
             List<Card> kittyWithJoker = new ArrayList<>();
             kittyWithJoker.add(jokers.get(0));
             hand.stream()
                 .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
-                .limit(9)
+                .limit(5)
                 .forEach(kittyWithJoker::add);
             // Should not throw - jokers are allowed but incur blood penalty
             assertDoesNotThrow(() -> engine.setKitty(kittyWithJoker));
@@ -91,7 +91,7 @@ class GameEngineTest {
     void testValidPlayLeader() {
         engine.startNewRound();
         engine.declareTrump(0, Suit.SPADE);
-        List<Card> kittyCards = selectNonJokerKitty(players[0], 10);
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
         engine.setKitty(kittyCards);
 
         // Dealer (player 0) is the leader and can play any card
@@ -103,7 +103,7 @@ class GameEngineTest {
     void testValidPlayFollowSuit() {
         engine.startNewRound();
         engine.declareTrump(0, Suit.SPADE);
-        List<Card> kittyCards = selectNonJokerKitty(players[0], 10);
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
         engine.setKitty(kittyCards);
 
         // Player 0 leads
@@ -131,13 +131,13 @@ class GameEngineTest {
     void testValidPlayCannotFollowSuit() {
         engine.startNewRound();
         engine.declareTrump(0, Suit.HEART);
-        List<Card> kittyCards = selectNonJokerKitty(players[0], 10);
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
         engine.setKitty(kittyCards);
 
         // Manually set up player 1 to have no cards of a specific suit
         players[1].getHand().clear();
         // Give player 1 only club cards (non-trump, non-heart)
-        for (int i = 0; i < 38; i++) {
+        for (int i = 0; i < 39; i++) {
             players[1].addCards(List.of(new Card(Suit.CLUB, Rank.FOUR, 500 + i)));
         }
 
@@ -161,7 +161,7 @@ class GameEngineTest {
     void testEvaluateTrick() {
         engine.startNewRound();
         engine.declareTrump(0, Suit.HEART);
-        List<Card> kittyCards = selectNonJokerKitty(players[0], 10);
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
         engine.setKitty(kittyCards);
 
         // Replace all hands with controlled cards
@@ -197,7 +197,7 @@ class GameEngineTest {
     void testPointScoring() {
         engine.startNewRound();
         engine.declareTrump(0, Suit.HEART);
-        List<Card> kittyCards = selectNonJokerKitty(players[0], 10);
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
         engine.setKitty(kittyCards);
 
         for (Player p : players) {
@@ -268,8 +268,8 @@ class GameEngineTest {
         assertNotNull(engine.getTrumpInfo().getTrumpSuit());
         assertTrue(dealerIdx >= 0 && dealerIdx < 4);
         assertEquals(dealerIdx, engine.getDealerIndex());
-        // Dealer should have 48 cards (38 + 10 kitty)
-        assertEquals(48, players[dealerIdx].getHand().size());
+        // Dealer should have 45 cards (39 + 6 kitty)
+        assertEquals(45, players[dealerIdx].getHand().size());
     }
 
     @Test
@@ -280,7 +280,7 @@ class GameEngineTest {
         assertNotNull(engine.getTrumpInfo());
         assertEquals(randomSuit, engine.getTrumpInfo().getTrumpSuit());
         assertEquals(1, engine.getDealerIndex());
-        // Dealer should have 48 cards (38 + 10 kitty)
-        assertEquals(48, players[1].getHand().size());
+        // Dealer should have 45 cards (39 + 6 kitty)
+        assertEquals(45, players[1].getHand().size());
     }
 }

@@ -70,12 +70,12 @@ class RoundResultTest {
 
     @Test
     void testTributeCountScoreHigh() {
-        // Score >= 160: tribute = (score - 160) / 10
+        // Score > 150: tribute = (score - 150) / 10
         RoundResult r170 = new RoundResult(170, 0);
-        assertEquals(1, r170.getTributeCount());
+        assertEquals(2, r170.getTributeCount());
 
         RoundResult r200 = new RoundResult(200, 0);
-        assertEquals(4, r200.getTributeCount());
+        assertEquals(5, r200.getTributeCount());
     }
 
     @Test
@@ -87,12 +87,12 @@ class RoundResultTest {
         RoundResult r119 = new RoundResult(119, 0);
         assertEquals(0, r119.getTributeCount());
 
-        // 120-159: no score-based tribute
+        // 120-150: no score-based tribute
         RoundResult r120 = new RoundResult(120, 0);
         assertEquals(0, r120.getTributeCount());
 
-        RoundResult r159 = new RoundResult(159, 0);
-        assertEquals(0, r159.getTributeCount());
+        RoundResult r150 = new RoundResult(150, 0);
+        assertEquals(0, r150.getTributeCount());
     }
 
     @Test
@@ -107,6 +107,6 @@ class RoundResultTest {
         assertEquals(6, r50_3bloods.getTributeCount()); // (80-50)/10 + 3 = 3 + 3
 
         RoundResult r170_1blood = new RoundResult(170, 0, 1);
-        assertEquals(2, r170_1blood.getTributeCount()); // (170-160)/10 + 1 = 1 + 1
+        assertEquals(3, r170_1blood.getTributeCount()); // (170-150)/10 + 1 = 2 + 1
     }
 }

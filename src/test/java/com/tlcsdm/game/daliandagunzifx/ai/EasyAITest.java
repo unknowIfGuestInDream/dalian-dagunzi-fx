@@ -26,7 +26,7 @@ class EasyAITest {
         engine.declareTrump(0, Suit.SPADE);
         List<Card> kittyCards = players[0].getHand().stream()
             .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
-            .limit(10)
+            .limit(6)
             .toList();
         engine.setKitty(kittyCards);
 

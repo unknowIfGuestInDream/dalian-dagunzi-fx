@@ -61,8 +61,8 @@ public class RoundResult {
         int scoreTribute = 0;
         if (defenderPoints < 80) {
             scoreTribute = (80 - defenderPoints) / 10;
-        } else if (defenderPoints >= 160) {
-            scoreTribute = (defenderPoints - 160) / 10;
+        } else if (defenderPoints > 150) {
+            scoreTribute = (defenderPoints - 150) / 10;
         }
         this.tributeCount = scoreTribute + kittyBloods;
     }
