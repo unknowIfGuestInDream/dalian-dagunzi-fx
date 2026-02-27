@@ -102,6 +102,11 @@ public class DaGunZiApp extends Application {
     private static final String TABLE_COLOR = "#2d8a4e";
     private static final String DARK_TABLE_COLOR = "#1a1a2e";
     private static final String APP_VERSION = "1.0.0";
+    private static final String DEALER_STYLE = "-fx-text-fill: #ffd700; -fx-font-size: 16px; "
+        + "-fx-font-weight: bold; -fx-effect: dropshadow(gaussian, #ffd700, 5, 0.5, 0, 0);";
+    private static final String DEALER_CURRENT_STYLE = "-fx-text-fill: #ffd700; -fx-font-size: 16px; "
+        + "-fx-font-weight: bold; -fx-underline: true; "
+        + "-fx-effect: dropshadow(gaussian, #ffd700, 5, 0.5, 0, 0);";
 
     // Game state
     private GameEngine engine;
@@ -1173,7 +1178,7 @@ public class DaGunZiApp extends Application {
 
             if (isPlaySelected) {
                 cardNode.setStyle(cardNode.getStyle()
-                    + " -fx-border-color: #ffdd57; -fx-border-width: 2;");
+                    + " -fx-border-color: #ffd700; -fx-border-width: 2;");
             }
 
             cardNode.setLayoutX(startX + i * CARD_OVERLAP);
@@ -1360,18 +1365,14 @@ public class DaGunZiApp extends Application {
             if (playerNameLabels[i] == null) continue;
             if (i == currentIdx) {
                 if (i == dealerIdx) {
-                    playerNameLabels[i].setStyle("-fx-text-fill: #ffd700; -fx-font-size: 16px; "
-                        + "-fx-font-weight: bold; -fx-underline: true; "
-                        + "-fx-effect: dropshadow(gaussian, #ffd700, 5, 0.5, 0, 0);");
+                    playerNameLabels[i].setStyle(DEALER_CURRENT_STYLE);
                 } else {
                     playerNameLabels[i].setStyle("-fx-text-fill: #ffdd57; -fx-font-size: 14px; "
                         + "-fx-font-weight: bold; -fx-underline: true;");
                 }
             } else {
                 if (i == dealerIdx) {
-                    playerNameLabels[i].setStyle("-fx-text-fill: #ffd700; -fx-font-size: 16px; "
-                        + "-fx-font-weight: bold; "
-                        + "-fx-effect: dropshadow(gaussian, #ffd700, 5, 0.5, 0, 0);");
+                    playerNameLabels[i].setStyle(DEALER_STYLE);
                 } else {
                     playerNameLabels[i].setStyle("-fx-text-fill: white; -fx-font-size: 14px; "
                         + "-fx-font-weight: bold;");
@@ -1386,8 +1387,7 @@ public class DaGunZiApp extends Application {
             String baseName = players[i].getName();
             if (i == dealerIdx) {
                 playerNameLabels[i].setText("🀄 " + baseName + " [庄]");
-                playerNameLabels[i].setStyle("-fx-text-fill: #ffd700; -fx-font-size: 16px; "
-                    + "-fx-font-weight: bold; -fx-effect: dropshadow(gaussian, #ffd700, 5, 0.5, 0, 0);");
+                playerNameLabels[i].setStyle(DEALER_STYLE);
             } else {
                 playerNameLabels[i].setText(baseName);
             }
