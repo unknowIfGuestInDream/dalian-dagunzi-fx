@@ -299,7 +299,7 @@ public class DaGunZiApp extends Application {
         cardTracker = new CardTracker();
         aiStrategy = switch (AppSettings.getInstance().getAiLevel()) {
             case EASY -> new EasyAI();
-            case MEDIUM -> new MediumAI();
+            case MEDIUM -> new MediumAI(cardTracker);
             case HARD -> new HardAI(cardTracker);
         };
         engine = new GameEngine(players);
@@ -398,7 +398,7 @@ public class DaGunZiApp extends Application {
         cardTracker = new CardTracker();
         aiStrategy = switch (AppSettings.getInstance().getAiLevel()) {
             case EASY -> new EasyAI();
-            case MEDIUM -> new MediumAI();
+            case MEDIUM -> new MediumAI(cardTracker);
             case HARD -> new HardAI(cardTracker);
         };
         engine = new GameEngine(players);

@@ -124,4 +124,11 @@ public class Player {
     public void sortHand(TrumpInfo trumpInfo) {
         hand.sort(Comparator.comparingInt(trumpInfo::getCardStrength).reversed());
     }
+
+    public Player copy() {
+        Player copy = new Player(this.id, this.name, this.isHuman);
+        copy.hand.addAll(this.hand);
+        copy.level = this.level;
+        return copy;
+    }
 }

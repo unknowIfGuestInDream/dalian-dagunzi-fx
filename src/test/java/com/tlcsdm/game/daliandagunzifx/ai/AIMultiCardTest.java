@@ -73,7 +73,7 @@ class AIMultiCardTest {
         assertEquals(PlayType.BANG, engine.getCurrentTrickPlayType());
 
         Player aiPlayer = engine.getPlayers()[engine.getCurrentPlayerIndex()];
-        MediumAI ai = new MediumAI();
+        MediumAI ai = new MediumAI(new CardTracker());
         List<Card> chosen = ai.chooseCards(aiPlayer, engine);
 
         assertNotNull(chosen);
@@ -206,7 +206,7 @@ class AIMultiCardTest {
                 .filter(c -> trumpInfo.getEffectiveSuit(c) == leadSuit)
                 .count();
 
-            MediumAI ai = new MediumAI();
+            MediumAI ai = new MediumAI(new CardTracker());
             List<Card> chosen = ai.chooseCards(aiPlayer, engine);
 
             assertEquals(2, chosen.size());
