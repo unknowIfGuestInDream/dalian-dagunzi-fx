@@ -57,7 +57,7 @@ class RoundResultTest {
         RoundResult r100_1blood = new RoundResult(100, 0, 1);
         assertEquals(2, r100_1blood.getLevelChange());
 
-        // 庄家赢 + 扣大王小王各一：1 + 3 = 4级
+        // 庄家赢 + 扣大王小王各一（2+1=3血）：1 + 3 = 4级
         RoundResult r100_3bloods = new RoundResult(100, 0, 3);
         assertEquals(4, r100_3bloods.getLevelChange());
     }
