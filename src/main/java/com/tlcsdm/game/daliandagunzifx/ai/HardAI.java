@@ -38,6 +38,7 @@ import com.tlcsdm.game.daliandagunzifx.model.Suit;
 import com.tlcsdm.game.daliandagunzifx.tracker.CardTracker;
 
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class HardAI implements AIStrategy {
 
@@ -45,11 +46,12 @@ public class HardAI implements AIStrategy {
     private final EasyAI rolloutAI;
     private final MediumAI fallbackAI;
 
-    private static final int NUM_DETERMINIZATIONS = 30;
     private static final long TIME_LIMIT_MS = 1500;
     private static final int MAX_SIMULATION_ITERATIONS = 200;
     private static final int MAX_CANDIDATES = 20;
     private static final int MAX_COMBINATIONS_PER_GENERATION = 50;
+    private static final double EPSILON = 0.1;
+    private static final double WIN_THRESHOLD_BONUS = 10000.0;
 
     public HardAI(CardTracker cardTracker) {
         this.cardTracker = cardTracker;
@@ -73,7 +75,11 @@ public class HardAI implements AIStrategy {
         if (validCards.size() <= 1) {
             return validCards.get(0);
         }
-        return evaluateBestAction(player, engine, validCards.stream()
+        List<Card> pruned = pruneEquivalentCards(validCards, engine.getTrumpInfo());
+        if (pruned.size() <= 1) {
+            return pruned.get(0);
+        }
+        return evaluateBestAction(player, engine, pruned.stream()
             .map(List::of)
             .toList()).get(0);
     }
@@ -103,29 +109,55 @@ public class HardAI implements AIStrategy {
         return evaluateBestAction(player, engine, candidates);
     }
 
+    private List<Card> pruneEquivalentCards(List<Card> cards, TrumpInfo trumpInfo) {
+        Map<Suit, List<Card>> suitGroups = new LinkedHashMap<>();
+        List<Card> trumpCards = new ArrayList<>();
+        for (Card card : cards) {
+            if (trumpInfo.isTrump(card)) {
+                trumpCards.add(card);
+            } else {
+                suitGroups.computeIfAbsent(card.getSuit(), k -> new ArrayList<>()).add(card);
+            }
+        }
+
+        List<Card> result = new ArrayList<>(trumpCards);
+        for (List<Card> group : suitGroups.values()) {
+            group.sort(Comparator.comparingInt(c -> c.getRank().getValue()));
+            Card prev = null;
+            for (Card card : group) {
+                if (prev == null || card.getPoints() > 0 || prev.getPoints() > 0
+                    || card.getRank().getValue() - prev.getRank().getValue() > 1) {
+                    result.add(card);
+                }
+                prev = card;
+            }
+        }
+        return result;
+    }
+
     private List<Card> evaluateBestAction(Player player, GameEngine engine,
                                           List<List<Card>> candidates) {
         double[] totalScores = new double[candidates.size()];
         int[] counts = new int[candidates.size()];
 
         long startTime = System.currentTimeMillis();
-        for (int d = 0; d < NUM_DETERMINIZATIONS; d++) {
-            if (System.currentTimeMillis() - startTime > TIME_LIMIT_MS) break;
-
+        while (System.currentTimeMillis() - startTime < TIME_LIMIT_MS) {
             GameEngine simBase = createDeterminization(player, engine);
 
             for (int i = 0; i < candidates.size(); i++) {
                 GameEngine sim = simBase.copy();
                 double score = simulateWithAction(sim, player.getId(), candidates.get(i));
-                totalScores[i] += score;
-                counts[i]++;
+                if (!Double.isNaN(score)) {
+                    totalScores[i] += score;
+                    counts[i]++;
+                }
             }
         }
 
         int bestIdx = 0;
         double bestAvg = Double.NEGATIVE_INFINITY;
         for (int i = 0; i < candidates.size(); i++) {
-            double avg = counts[i] > 0 ? totalScores[i] / counts[i] : 0;
+            double avg = counts[i] > 0 ? totalScores[i] / counts[i] : Double.NEGATIVE_INFINITY;
             if (avg > bestAvg) {
                 bestAvg = avg;
                 bestIdx = i;
@@ -193,7 +225,8 @@ public class HardAI implements AIStrategy {
         try {
             sim.playCards(aiIndex, action);
         } catch (Exception e) {
-            return 0;
+            e.printStackTrace();
+            return Double.NaN;
         }
         return simulateToEnd(sim, aiIndex);
     }
@@ -213,7 +246,39 @@ public class HardAI implements AIStrategy {
             Player currentPlayer = sim.getPlayers()[currentIndex];
 
             try {
-                List<Card> play = rolloutAI.chooseCards(currentPlayer, sim);
+                List<Card> play;
+                if (ThreadLocalRandom.current().nextDouble() < EPSILON) {
+                    // ε-greedy：随机选择合法动作以增加搜索多样性
+                    List<Card> validCards = rolloutAI.getValidCards(currentPlayer, sim);
+                    if (!validCards.isEmpty()) {
+                        PlayType trickType = sim.getCurrentTrickPlayType();
+                        int requiredCount = 1;
+                        if (trickType != null) {
+                            requiredCount = switch (trickType) {
+                                case SINGLE -> 1;
+                                case PAIR, BANG -> 2;
+                                case GUNZI -> 3;
+                            };
+                        }
+                        if (requiredCount == 1) {
+                            play = List.of(validCards.get(ThreadLocalRandom.current().nextInt(validCards.size())));
+                        } else {
+                            // 随机选取所需数量的牌
+                            List<Card> shuffled = new ArrayList<>(currentPlayer.getHand());
+                            Collections.shuffle(shuffled, ThreadLocalRandom.current());
+                            List<Card> candidate = shuffled.subList(0, Math.min(requiredCount, shuffled.size()));
+                            if (sim.isValidPlay(currentIndex, candidate)) {
+                                play = candidate;
+                            } else {
+                                play = rolloutAI.chooseCards(currentPlayer, sim);
+                            }
+                        }
+                    } else {
+                        play = rolloutAI.chooseCards(currentPlayer, sim);
+                    }
+                } else {
+                    play = rolloutAI.chooseCards(currentPlayer, sim);
+                }
                 sim.playCards(currentIndex, play);
             } catch (Exception e) {
                 break;
@@ -236,13 +301,23 @@ public class HardAI implements AIStrategy {
         int declarerTeam = sim.getPlayers()[sim.getDealerIndex()].getTeam();
         int aiTeam = aiIndex % 2;
 
+        double score;
         if (aiTeam == declarerTeam) {
             // AI is on declarer team, lower defender points is better
-            return -defenderPoints;
+            score = -defenderPoints;
+            // 庄家赢的条件：闲家得分 < 120
+            if (defenderPoints < 120) {
+                score += WIN_THRESHOLD_BONUS;
+            }
         } else {
             // AI is on defender team, higher defender points is better
-            return defenderPoints;
+            score = defenderPoints;
+            // 闲家赢的条件：闲家得分 >= 120
+            if (defenderPoints >= 120) {
+                score += WIN_THRESHOLD_BONUS;
+            }
         }
+        return score;
     }
 
     private List<List<Card>> generateMultiCardCandidates(Player player, GameEngine engine,
