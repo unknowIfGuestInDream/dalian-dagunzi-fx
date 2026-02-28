@@ -96,8 +96,8 @@ public class DaGunZiApp extends Application {
 
     private static final int WINDOW_WIDTH = 1200;
     private static final int WINDOW_HEIGHT = 800;
-    private static final int CARD_WIDTH = 66;
-    private static final int CARD_HEIGHT = 86;
+    private static final int CARD_WIDTH = 80;
+    private static final int CARD_HEIGHT = 106;
     private static final int CARD_OVERLAP = 25;
     private static final String TABLE_COLOR = "#2d8a4e";
     private static final String DARK_TABLE_COLOR = "#1a1a2e";
@@ -170,6 +170,9 @@ public class DaGunZiApp extends Application {
 
     private MenuBar createMenuBar(boolean inGame) {
         MenuBar menuBar = new MenuBar();
+        menuBar.setStyle("-fx-background-color: #e8e8e8; -fx-border-color: #cccccc; "
+            + "-fx-border-width: 0 0 1 0;");
+        menuBar.setMinHeight(28);
 
         // --- Game menu (only during gameplay) ---
         if (inGame) {
@@ -555,8 +558,8 @@ public class DaGunZiApp extends Application {
         humanInfoBar.getChildren().addAll(humanNameLabel, humanCountLabel);
 
         humanHandPane = new Pane();
-        humanHandPane.setMinHeight(120);
-        humanHandPane.setPrefHeight(120);
+        humanHandPane.setMinHeight(140);
+        humanHandPane.setPrefHeight(140);
 
         VBox bottomArea = new VBox(5);
         bottomArea.setAlignment(Pos.CENTER);
@@ -1118,7 +1121,7 @@ public class DaGunZiApp extends Application {
             topText = card.getSuit().getSymbol() + "\n" + card.getRank().getDisplayName();
         }
         Label topLeft = new Label(topText);
-        topLeft.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 12px; "
+        topLeft.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 14px; "
             + "-fx-font-weight: bold; -fx-line-spacing: -3;");
         StackPane.setAlignment(topLeft, Pos.TOP_LEFT);
         StackPane.setMargin(topLeft, new Insets(3));
@@ -1127,14 +1130,14 @@ public class DaGunZiApp extends Application {
         // Center suit symbol
         if (card.getSuit() != null) {
             Label centerSymbol = new Label(card.getSuit().getSymbol());
-            centerSymbol.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 22px;");
+            centerSymbol.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 28px;");
             StackPane.setAlignment(centerSymbol, Pos.CENTER);
             cardPane.getChildren().add(centerSymbol);
         } else {
             // Joker center text
             String jokerText = card.getRank() == Rank.BIG_JOKER ? "★" : "☆";
             Label centerSymbol = new Label(jokerText);
-            centerSymbol.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 24px;");
+            centerSymbol.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 30px;");
             StackPane.setAlignment(centerSymbol, Pos.CENTER);
             cardPane.getChildren().add(centerSymbol);
         }
@@ -1156,7 +1159,12 @@ public class DaGunZiApp extends Application {
         if (card.getRank() == Rank.BIG_JOKER) return "#cc0000";
         if (card.getRank() == Rank.SMALL_JOKER) return "#333333";
         if (card.getSuit() == null) return "#333333";
-        return card.getSuit().getColor().equals("red") ? "#cc0000" : "#333333";
+        return switch (card.getSuit()) {
+            case SPADE -> "#1a1a1a";
+            case HEART -> "#cc0000";
+            case DIAMOND -> "#0066bb";
+            case CLUB -> "#228833";
+        };
     }
 
     // ======================== UI Updates ========================
@@ -1457,7 +1465,7 @@ public class DaGunZiApp extends Application {
             sorted.sort(Comparator
                 .comparingInt((Card c) -> {
                     if (c.getRank() == Rank.BIG_JOKER || c.getRank() == Rank.SMALL_JOKER) return -1;
-                    return c.getSuit() == null ? 99 : c.getSuit().ordinal();
+                    return c.getSuit() == null ? 99 : suitDisplayOrder(c.getSuit());
                 })
                 .thenComparing(Comparator.comparingInt((Card c) -> TrumpInfo.effectiveRankStrength(c.getRank())).reversed()));
             return sorted;
@@ -1477,8 +1485,8 @@ public class DaGunZiApp extends Application {
                 boolean bTS = ts != null && b.getSuit() == ts;
                 if (aTS != bTS) return aTS ? -1 : 1;
                 return Integer.compare(
-                    a.getSuit() == null ? 99 : a.getSuit().ordinal(),
-                    b.getSuit() == null ? 99 : b.getSuit().ordinal());
+                    a.getSuit() == null ? 99 : suitDisplayOrder(a.getSuit()),
+                    b.getSuit() == null ? 99 : suitDisplayOrder(b.getSuit()));
             }
             if (ga == 3) {
                 // Trump suit remaining cards - by rank descending
@@ -1488,14 +1496,26 @@ public class DaGunZiApp extends Application {
             }
             // Non-trump, non-2 cards - by suit then rank descending
             int suitCmp = Integer.compare(
-                a.getSuit() == null ? 99 : a.getSuit().ordinal(),
-                b.getSuit() == null ? 99 : b.getSuit().ordinal());
+                a.getSuit() == null ? 99 : suitDisplayOrder(a.getSuit()),
+                b.getSuit() == null ? 99 : suitDisplayOrder(b.getSuit()));
             if (suitCmp != 0) return suitCmp;
             return Integer.compare(
                 TrumpInfo.effectiveRankStrength(b.getRank()),
                 TrumpInfo.effectiveRankStrength(a.getRank()));
         });
         return sorted;
+    }
+
+    /**
+     * 花色显示排序：黑红交替排列（♠♥♣♦），避免相同颜色相邻难以区分。
+     */
+    private int suitDisplayOrder(Suit suit) {
+        return switch (suit) {
+            case SPADE -> 0;
+            case HEART -> 1;
+            case CLUB -> 2;
+            case DIAMOND -> 3;
+        };
     }
 
     private int displayGroup(Card card, TrumpInfo trumpInfo) {
