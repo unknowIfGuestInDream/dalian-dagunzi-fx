@@ -265,6 +265,11 @@ public class MediumAI implements AIStrategy {
             for (Card card : cards) {
                 if (card.getRank() == Rank.KING) return card;
             }
+            // Prefer non-point cards when leading
+            Optional<Card> nonPointLead = cards.stream()
+                .filter(c -> c.getPoints() == 0)
+                .max(Comparator.comparingInt(trumpInfo::getCardStrength));
+            if (nonPointLead.isPresent()) return nonPointLead.get();
             return cards.stream()
                 .max(Comparator.comparingInt(trumpInfo::getCardStrength))
                 .orElse(validCards.get(0));
@@ -365,11 +370,20 @@ public class MediumAI implements AIStrategy {
         int leader = engine.getCurrentTrickLeader();
         Card leadCard = trick[leader];
         Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
+        PlayType trickPlayType = engine.getCurrentTrickPlayType();
 
         int highestStrength = -1;
         for (int i = 0; i < 4; i++) {
             Card card = trick[i];
             if (card == null) continue;
+
+            // For BANG/GUNZI, only valid matching plays can compete
+            if (trickPlayType == PlayType.BANG || trickPlayType == PlayType.GUNZI) {
+                List<Card>[] trickCards = engine.getCurrentTrickCards();
+                PlayType playType = engine.determinePlayType(trickCards[i]);
+                if (playType != trickPlayType) continue;
+            }
+
             Suit cardSuit = trumpInfo.getEffectiveSuit(card);
             int strength = trumpInfo.getCardStrength(card);
             boolean canCompete = trumpInfo.isTrump(card) || cardSuit == leadSuit;
