@@ -101,6 +101,10 @@ public class DaGunZiApp extends Application {
     private static final int CARD_OVERLAP = 25;
     private static final String TABLE_COLOR = "#2d8a4e";
     private static final String DARK_TABLE_COLOR = "#1a1a2e";
+    private static final String SPADE_COLOR = "#1a1a1a";
+    private static final String HEART_COLOR = "#cc0000";
+    private static final String DIAMOND_COLOR = "#0066bb";
+    private static final String CLUB_COLOR = "#228833";
     private static final String APP_VERSION = "1.0.0";
     private static final String DEALER_STYLE = "-fx-text-fill: #ffd700; -fx-font-size: 16px; "
         + "-fx-font-weight: bold; -fx-effect: dropshadow(gaussian, #ffd700, 5, 0.5, 0, 0);";
@@ -1156,14 +1160,14 @@ public class DaGunZiApp extends Application {
     }
 
     private String getCardColor(Card card) {
-        if (card.getRank() == Rank.BIG_JOKER) return "#cc0000";
+        if (card.getRank() == Rank.BIG_JOKER) return HEART_COLOR;
         if (card.getRank() == Rank.SMALL_JOKER) return "#333333";
         if (card.getSuit() == null) return "#333333";
         return switch (card.getSuit()) {
-            case SPADE -> "#1a1a1a";
-            case HEART -> "#cc0000";
-            case DIAMOND -> "#0066bb";
-            case CLUB -> "#228833";
+            case SPADE -> SPADE_COLOR;
+            case HEART -> HEART_COLOR;
+            case DIAMOND -> DIAMOND_COLOR;
+            case CLUB -> CLUB_COLOR;
         };
     }
 
@@ -1508,6 +1512,9 @@ public class DaGunZiApp extends Application {
 
     /**
      * 花色显示排序：黑红交替排列（♠♥♣♦），避免相同颜色相邻难以区分。
+     *
+     * @param suit 花色枚举
+     * @return 花色的显示顺序索引（0-3）
      */
     private int suitDisplayOrder(Suit suit) {
         return switch (suit) {
