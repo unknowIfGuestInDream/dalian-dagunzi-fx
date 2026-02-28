@@ -37,27 +37,35 @@ public class RoundResult {
     private final int winningTeam;
     private final int tributeCount;
     private final int kittyBloods;
+    private final boolean lastTrickCapturedByDefender;
 
     public RoundResult(int defenderPoints, int declarerTeam) {
-        this(defenderPoints, declarerTeam, 0);
+        this(defenderPoints, declarerTeam, 0, false);
     }
 
     public RoundResult(int defenderPoints, int declarerTeam, int kittyBloods) {
+        this(defenderPoints, declarerTeam, kittyBloods, false);
+    }
+
+    public RoundResult(int defenderPoints, int declarerTeam, int kittyBloods, boolean lastTrickCapturedByDefender) {
         this.defenderPoints = defenderPoints;
         this.declarerTeam = declarerTeam;
         this.defenderTeam = 1 - declarerTeam;
         this.declarerWins = defenderPoints < 120;
         this.kittyBloods = kittyBloods;
+        this.lastTrickCapturedByDefender = lastTrickCapturedByDefender;
 
         if (defenderPoints < 120) {
-            this.levelChange = 1;
+            // 庄家赢：基础1级 + 扣王加成（扣王成功，级数叠加给胜利方）
+            this.levelChange = 1 + kittyBloods;
             this.winningTeam = declarerTeam;
         } else {
-            this.levelChange = 1;
+            // 闲家赢：基础1级 + 抠底额外1级（扣王失败，不加级）
+            this.levelChange = 1 + (lastTrickCapturedByDefender ? 1 : 0);
             this.winningTeam = defenderTeam;
         }
 
-        // Calculate tribute count based on score thresholds + kitty joker bloods
+        // 进贡计算：分数惩罚 + 扣王血（无论扣王成功或失败，血都计入进贡）
         int scoreTribute = 0;
         if (defenderPoints < 80) {
             scoreTribute = (80 - defenderPoints) / 10;
@@ -97,5 +105,9 @@ public class RoundResult {
 
     public int getKittyBloods() {
         return kittyBloods;
+    }
+
+    public boolean isLastTrickCapturedByDefender() {
+        return lastTrickCapturedByDefender;
     }
 }

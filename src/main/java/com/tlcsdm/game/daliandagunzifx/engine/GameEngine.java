@@ -56,6 +56,7 @@ public class GameEngine {
     private int roundNumber;
     private int previousWinningTeam;
     private int previousTributeCount;
+    private boolean lastTrickWonByDefender;
 
     public GameEngine(Player[] players) {
         if (players.length != 4) {
@@ -68,6 +69,7 @@ public class GameEngine {
         this.phase = GamePhase.ROUND_END;
         this.previousWinningTeam = -1;
         this.previousTributeCount = 0;
+        this.lastTrickWonByDefender = false;
     }
 
     public void startNewRound() {
@@ -75,6 +77,7 @@ public class GameEngine {
         defenderPoints = 0;
         totalCardsPlayed = 0;
         trickCardsPlayed = 0;
+        lastTrickWonByDefender = false;
         currentTrickPlayType = null;
         kitty = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
@@ -536,6 +539,11 @@ public class GameEngine {
             defenderPoints += trickPoints;
         }
 
+        // Track last trick winner for 抠底 bonus
+        if (isLastTrick) {
+            lastTrickWonByDefender = (winnerTeam != declarerTeam);
+        }
+
         // Prepare for next trick
         currentTrickLeader = winnerIndex;
         currentPlayerIndex = winnerIndex;
@@ -571,7 +579,7 @@ public class GameEngine {
         }
         int declarerTeam = players[dealerIndex].getTeam();
         int bloods = getKittyBloods();
-        RoundResult result = new RoundResult(defenderPoints, declarerTeam, bloods);
+        RoundResult result = new RoundResult(defenderPoints, declarerTeam, bloods, lastTrickWonByDefender);
         previousWinningTeam = result.getWinningTeam();
         previousTributeCount = result.getTributeCount();
         return result;
@@ -647,6 +655,10 @@ public class GameEngine {
         return defenderPoints;
     }
 
+    public boolean isLastTrickWonByDefender() {
+        return lastTrickWonByDefender;
+    }
+
     public Rank[] getTeamLevels() {
         return teamLevels;
     }
@@ -684,6 +696,7 @@ public class GameEngine {
         copy.roundNumber = this.roundNumber;
         copy.previousWinningTeam = this.previousWinningTeam;
         copy.previousTributeCount = this.previousTributeCount;
+        copy.lastTrickWonByDefender = this.lastTrickWonByDefender;
         return copy;
     }
 }
