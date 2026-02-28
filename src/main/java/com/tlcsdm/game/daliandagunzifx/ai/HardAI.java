@@ -38,13 +38,13 @@ import com.tlcsdm.game.daliandagunzifx.model.Suit;
 import com.tlcsdm.game.daliandagunzifx.tracker.CardTracker;
 
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class HardAI implements AIStrategy {
 
     private final CardTracker cardTracker;
     private final EasyAI rolloutAI;
     private final MediumAI fallbackAI;
-    private final Random random = new Random();
 
     private static final long TIME_LIMIT_MS = 1500;
     private static final int MAX_SIMULATION_ITERATIONS = 200;
@@ -247,7 +247,7 @@ public class HardAI implements AIStrategy {
 
             try {
                 List<Card> play;
-                if (random.nextDouble() < EPSILON) {
+                if (ThreadLocalRandom.current().nextDouble() < EPSILON) {
                     // ε-greedy：随机选择合法动作以增加搜索多样性
                     List<Card> validCards = rolloutAI.getValidCards(currentPlayer, sim);
                     if (!validCards.isEmpty()) {
@@ -261,11 +261,11 @@ public class HardAI implements AIStrategy {
                             };
                         }
                         if (requiredCount == 1) {
-                            play = List.of(validCards.get(random.nextInt(validCards.size())));
+                            play = List.of(validCards.get(ThreadLocalRandom.current().nextInt(validCards.size())));
                         } else {
                             // 随机选取所需数量的牌
                             List<Card> shuffled = new ArrayList<>(currentPlayer.getHand());
-                            Collections.shuffle(shuffled, random);
+                            Collections.shuffle(shuffled, ThreadLocalRandom.current());
                             List<Card> candidate = shuffled.subList(0, Math.min(requiredCount, shuffled.size()));
                             if (sim.isValidPlay(currentIndex, candidate)) {
                                 play = candidate;
