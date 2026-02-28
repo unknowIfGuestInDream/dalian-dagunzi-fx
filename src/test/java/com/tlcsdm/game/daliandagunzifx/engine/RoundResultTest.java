@@ -24,7 +24,7 @@ class RoundResultTest {
 
     @Test
     void testLevelChange() {
-        // <120: declarer wins, +1
+        // <120: declarer wins, base +1
         RoundResult r0 = new RoundResult(0, 0);
         assertTrue(r0.isDeclarerWins());
         assertEquals(1, r0.getLevelChange());
@@ -34,7 +34,7 @@ class RoundResultTest {
         assertTrue(r119.isDeclarerWins());
         assertEquals(1, r119.getLevelChange());
 
-        // >=120: defender wins, +1
+        // >=120: defender wins, base +1
         RoundResult r120 = new RoundResult(120, 0);
         assertFalse(r120.isDeclarerWins());
         assertEquals(1, r120.getLevelChange());
@@ -44,6 +44,46 @@ class RoundResultTest {
         assertFalse(r200.isDeclarerWins());
         assertEquals(1, r200.getLevelChange());
         assertEquals(1, r200.getWinningTeam());
+    }
+
+    @Test
+    void testLevelChangeWithJokerBonus() {
+        // 庄家赢 + 扣大王：1 + 2 = 3级
+        RoundResult r100_2bloods = new RoundResult(100, 0, 2);
+        assertTrue(r100_2bloods.isDeclarerWins());
+        assertEquals(3, r100_2bloods.getLevelChange());
+
+        // 庄家赢 + 扣小王：1 + 1 = 2级
+        RoundResult r100_1blood = new RoundResult(100, 0, 1);
+        assertEquals(2, r100_1blood.getLevelChange());
+
+        // 庄家赢 + 扣大王小王各一（2+1=3血）：1 + 3 = 4级
+        RoundResult r100_3bloods = new RoundResult(100, 0, 3);
+        assertEquals(4, r100_3bloods.getLevelChange());
+    }
+
+    @Test
+    void testLevelChangeDefenderWinsNoJokerBonus() {
+        // 闲家赢 + 扣王失败：不加级，只有基础1级
+        RoundResult r120_2bloods = new RoundResult(120, 0, 2);
+        assertFalse(r120_2bloods.isDeclarerWins());
+        assertEquals(1, r120_2bloods.getLevelChange());
+
+        // 闲家赢 + 扣王失败 + 抠底：基础1级 + 抠底1级 = 2级
+        RoundResult r120_2bloods_kouDi = new RoundResult(120, 0, 2, true);
+        assertEquals(2, r120_2bloods_kouDi.getLevelChange());
+    }
+
+    @Test
+    void testLevelChangeWithKouDi() {
+        // 闲家赢 + 抠底：基础1级 + 额外1级 = 2级
+        RoundResult rKouDi = new RoundResult(130, 0, 0, true);
+        assertFalse(rKouDi.isDeclarerWins());
+        assertEquals(2, rKouDi.getLevelChange());
+
+        // 闲家赢 + 无抠底：基础1级
+        RoundResult rNoKouDi = new RoundResult(130, 0, 0, false);
+        assertEquals(1, rNoKouDi.getLevelChange());
     }
 
     @Test
