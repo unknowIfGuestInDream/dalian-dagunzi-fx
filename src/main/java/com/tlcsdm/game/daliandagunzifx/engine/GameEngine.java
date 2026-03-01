@@ -285,8 +285,18 @@ public class GameEngine {
             }
         }
 
-        // Pick a random dealer
-        dealerIndex = new java.util.Random().nextInt(4);
+        // Pick a dealer: prefer winning team from previous round
+        if (previousWinningTeam >= 0) {
+            // 上轮赢家队伍优先当庄
+            for (int i = 0; i < 4; i++) {
+                if (players[i].getTeam() == previousWinningTeam) {
+                    dealerIndex = i;
+                    break;
+                }
+            }
+        } else {
+            dealerIndex = new java.util.Random().nextInt(4);
+        }
         Rank currentLevel = teamLevels[players[dealerIndex].getTeam()];
         trumpInfo = new TrumpInfo(minSuit, currentLevel);
         phase = GamePhase.PREPARING_KITTY;

@@ -141,7 +141,6 @@ public class DaGunZiApp extends Application {
     private Label dealerLabel;
     private final StackPane[] trickCardNodes = new StackPane[4];
     private final Label[] playerNameLabels = new Label[4];
-    private final Label[] playerCountLabels = new Label[4];
 
     public static void main(String[] args) {
         launch(args);
@@ -484,11 +483,7 @@ public class DaGunZiApp extends Application {
         nameLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold;");
         playerNameLabels[playerIndex] = nameLabel;
 
-        Label countLabel = new Label("牌数：39");
-        countLabel.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 12px;");
-        playerCountLabels[playerIndex] = countLabel;
-
-        pane.getChildren().addAll(nameLabel, countLabel);
+        pane.getChildren().addAll(nameLabel);
         return pane;
     }
 
@@ -553,13 +548,9 @@ public class DaGunZiApp extends Application {
         humanNameLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold;");
         playerNameLabels[0] = humanNameLabel;
 
-        Label humanCountLabel = new Label("牌数：39");
-        humanCountLabel.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 12px;");
-        playerCountLabels[0] = humanCountLabel;
-
         HBox humanInfoBar = new HBox(10);
         humanInfoBar.setAlignment(Pos.CENTER);
-        humanInfoBar.getChildren().addAll(humanNameLabel, humanCountLabel);
+        humanInfoBar.getChildren().addAll(humanNameLabel);
 
         humanHandPane = new Pane();
         humanHandPane.setMinHeight(140);
@@ -663,7 +654,6 @@ public class DaGunZiApp extends Application {
         // After all cards dealt, refresh the hand properly and proceed
         KeyFrame finalKf = new KeyFrame(Duration.millis(dealInterval * hand.size() + 300), e -> {
             updateHumanHand();
-            playerCountLabels[0].setText("牌数：" + players[0].getHand().size());
             onComplete.run();
         });
         dealTimeline.getKeyFrames().add(finalKf);
@@ -710,10 +700,28 @@ public class DaGunZiApp extends Application {
         }
 
         // 非首局：所有玩家同时考虑叫主
-        // 先检查AI是否想叫主
+        // 先检查AI是否想叫主，优先检查上轮赢家队伍的AI
         int aiDeclarer = -1;
         Suit aiChosenSuit = null;
-        for (int i = 1; i <= 3; i++) {
+        int prevWinner = engine.getPreviousWinningTeam();
+        int[] aiOrder;
+        if (prevWinner >= 0) {
+            // 优先让上轮赢家队伍的AI叫主
+            List<Integer> winTeamAIs = new ArrayList<>();
+            List<Integer> otherAIs = new ArrayList<>();
+            for (int i = 1; i <= 3; i++) {
+                if (players[i].getTeam() == prevWinner) {
+                    winTeamAIs.add(i);
+                } else {
+                    otherAIs.add(i);
+                }
+            }
+            winTeamAIs.addAll(otherAIs);
+            aiOrder = winTeamAIs.stream().mapToInt(Integer::intValue).toArray();
+        } else {
+            aiOrder = new int[]{1, 2, 3};
+        }
+        for (int i : aiOrder) {
             Player p = players[i];
             Rank trumpRank = engine.getTeamLevels()[p.getTeam()];
             Suit chosen = aiStrategy.chooseTrumpSuit(p, trumpRank);
@@ -1313,7 +1321,6 @@ public class DaGunZiApp extends Application {
         }
 
         humanHandPane.setPrefWidth(startX + hand.size() * CARD_OVERLAP + CARD_WIDTH);
-        playerCountLabels[0].setText("牌数：" + players[0].getHand().size());
     }
 
     private void updateTrickArea() {
@@ -1415,9 +1422,7 @@ public class DaGunZiApp extends Application {
     }
 
     private void updateAIPlayerPanes() {
-        for (int i = 1; i <= 3; i++) {
-            playerCountLabels[i].setText("牌数：" + players[i].getHand().size());
-        }
+        // AI玩家面板更新（牌数标签已移除）
     }
 
     private void updateInfoPanel() {
@@ -1526,11 +1531,6 @@ public class DaGunZiApp extends Application {
         int bigRemaining = jokerRemaining(Rank.BIG_JOKER);
         trackerGrid.add(createTrackerCell("大王", false), 0, row);
         trackerGrid.add(createTrackerCell(String.valueOf(bigRemaining), false), 1, row);
-        row++;
-
-        // Total
-        trackerGrid.add(createTrackerCell("总计", true), 0, row);
-        trackerGrid.add(createTrackerCell(String.valueOf(cardTracker.getRemainingCardCount()), true), 1, row);
     }
 
     private Label createTrackerCell(String text, boolean bold) {
