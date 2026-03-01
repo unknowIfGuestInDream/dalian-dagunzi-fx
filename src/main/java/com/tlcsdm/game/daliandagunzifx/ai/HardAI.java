@@ -75,6 +75,24 @@ public class HardAI implements AIStrategy {
         if (validCards.size() <= 1) {
             return validCards.get(0);
         }
+
+        // 跟牌时：对于明显的情况使用启发式策略，避免浪费PIMC时间
+        if (engine.getTrickCardsPlayed() > 0) {
+            TrumpInfo trumpInfo = engine.getTrumpInfo();
+            boolean partnerWinning = rolloutAI.isPartnerWinning(player, engine);
+
+            if (partnerWinning) {
+                // 队友赢时，直接出最小牌
+                return rolloutAI.playLow(validCards, trumpInfo);
+            }
+
+            int trickPoints = rolloutAI.calculateCurrentTrickPoints(engine);
+            if (trickPoints == 0) {
+                // 无分墩，不浪费高牌，出最小
+                return rolloutAI.playLow(validCards, trumpInfo);
+            }
+        }
+
         List<Card> pruned = pruneEquivalentCards(validCards, engine.getTrumpInfo());
         if (pruned.size() <= 1) {
             return pruned.get(0);
