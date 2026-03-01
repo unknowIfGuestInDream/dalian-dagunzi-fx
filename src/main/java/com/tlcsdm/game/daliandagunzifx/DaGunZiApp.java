@@ -50,6 +50,7 @@ import javafx.animation.ScaleTransition;
 import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
@@ -471,8 +472,10 @@ public class DaGunZiApp extends Application {
         BorderPane.setMargin(leftPlayerPane, new Insets(0, 0, 0, 10));
 
         rootPane.getChildren().add(gameBoard);
-        rootPane.applyCss();
-        rootPane.layout();
+        Platform.runLater(() -> {
+            rootPane.applyCss();
+            rootPane.layout();
+        });
     }
 
     private VBox createAIPlayerPane(String name, int playerIndex) {

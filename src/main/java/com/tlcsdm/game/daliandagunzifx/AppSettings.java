@@ -152,7 +152,7 @@ public final class AppSettings {
                 )
             )
         ).persistWindowState(false)
-         .saveSettings(true)
+         .saveSettings(false)
          .debugHistoryMode(false)
          .buttonsVisibility(false)
          .instantPersistent(true)
