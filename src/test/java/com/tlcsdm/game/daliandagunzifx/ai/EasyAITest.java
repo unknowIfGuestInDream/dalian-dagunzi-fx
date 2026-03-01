@@ -92,7 +92,7 @@ class EasyAITest {
 
         Player leader = players[engine.getCurrentPlayerIndex()];
         leader.getHand().clear();
-        // 给出两张相同花色点数的牌（构成棒子）+ 一张单牌
+        // 给定两张相同花色点数的牌（构成棒子）+ 一张单牌
         Card spadeJ1 = new Card(Suit.SPADE, Rank.JACK, 800);
         Card spadeJ2 = new Card(Suit.SPADE, Rank.JACK, 801);
         Card spadeQ = new Card(Suit.SPADE, Rank.QUEEN, 802);
@@ -126,7 +126,7 @@ class EasyAITest {
 
         Player leader = players[engine.getCurrentPlayerIndex()];
         leader.getHand().clear();
-        // 给出三张相同花色点数的牌（构成滚子）+ 一张单牌
+        // 给定三张相同花色点数的牌（构成滚子）+ 一张单牌
         Card spadeJ1 = new Card(Suit.SPADE, Rank.JACK, 800);
         Card spadeJ2 = new Card(Suit.SPADE, Rank.JACK, 801);
         Card spadeJ3 = new Card(Suit.SPADE, Rank.JACK, 803);

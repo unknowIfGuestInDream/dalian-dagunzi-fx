@@ -228,7 +228,7 @@ public class EasyAI implements AIStrategy {
     }
 
     protected Card chooseLead(Player player, List<Card> validCards, TrumpInfo trumpInfo) {
-        // Lead with strongest non-trump suit (most cards), prefer A (likely to win), avoid point cards
+        // 领出非主最强花色（牌数最多），优先A（可能获胜），避免分牌
         Map<Suit, List<Card>> suitCards = new EnumMap<>(Suit.class);
         for (Card card : validCards) {
             Suit effective = trumpInfo.getEffectiveSuit(card);
@@ -263,7 +263,7 @@ public class EasyAI implements AIStrategy {
                 .orElse(validCards.get(0));
         }
 
-        // Only trump cards left, play lowest
+        // 只剩主牌，出最小的
         return validCards.stream()
             .min(Comparator.comparingInt(trumpInfo::getCardStrength))
             .orElse(validCards.get(0));
@@ -286,7 +286,7 @@ public class EasyAI implements AIStrategy {
             }
         }
 
-        // Must follow suit
+        // 必须跟花色
         if (!suitCards.isEmpty()) {
             boolean partnerWinning = isPartnerWinning(player, engine);
             if (partnerWinning) {
@@ -317,7 +317,7 @@ public class EasyAI implements AIStrategy {
                 .orElse(suitCards.get(0));
         }
 
-        // Cannot follow suit
+        // 没有该花色可跟
         boolean partnerWinning = isPartnerWinning(player, engine);
 
         if (partnerWinning) {
