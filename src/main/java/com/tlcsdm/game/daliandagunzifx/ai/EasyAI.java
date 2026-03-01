@@ -40,6 +40,9 @@ import java.util.stream.Collectors;
 
 public class EasyAI implements AIStrategy {
 
+    // 小掉主策略的强度上限：低于此值的主牌视为"小主"（排除2/主牌级/王牌）
+    private static final int SMALL_TRUMP_THRESHOLD = 950;
+
     @Override
     public Suit chooseTrumpSuit(Player player, Rank trumpRank) {
         Map<Suit, Integer> trumpRankCounts = new EnumMap<>(Suit.class);
@@ -122,7 +125,10 @@ public class EasyAI implements AIStrategy {
 
     /**
      * 领出时检查是否有适合打出的对子(棒子)或滚子。
-     * 优先出强势的非分牌棒子/滚子。
+     * 策略：
+     * 1. 优先出强副牌（A或K）的棒子/滚子，这些牌力大，很可能赢墩
+     * 2. 没有强副牌时，考虑小掉主（出小主牌的棒子/滚子，清理弱主）
+     * 3. 不出弱副牌的棒子/滚子，避免浪费多张牌却赢不了
      */
     protected List<Card> chooseLeadMulti(Player player, GameEngine engine) {
         TrumpInfo trumpInfo = engine.getTrumpInfo();
@@ -135,47 +141,76 @@ public class EasyAI implements AIStrategy {
             groups.computeIfAbsent(key, k -> new ArrayList<>()).add(card);
         }
 
-        List<Card> bestGunzi = null;
-        int bestGunziStrength = -1;
-        List<Card> bestBang = null;
-        int bestBangStrength = -1;
+        // 候选：强副牌棒子/滚子（A或K）
+        List<Card> bestStrongGunzi = null;
+        int bestStrongGunziStrength = -1;
+        List<Card> bestStrongBang = null;
+        int bestStrongBangStrength = -1;
+
+        // 候选：小主棒子/滚子（小掉主策略，越小越好）
+        List<Card> bestSmallTrumpGunzi = null;
+        int bestSmallTrumpGunziStrength = Integer.MAX_VALUE;
+        List<Card> bestSmallTrumpBang = null;
+        int bestSmallTrumpBangStrength = Integer.MAX_VALUE;
 
         for (List<Card> group : groups.values()) {
+            Card sample = group.get(0);
+            int strength = trumpInfo.getCardStrength(sample);
+            boolean isTrump = trumpInfo.isTrump(sample);
+            Rank rank = sample.getRank();
+
             if (group.size() >= 3) {
-                // 滚子候选
                 List<Card> gunzi = group.subList(0, 3);
                 if (engine.determinePlayType(gunzi) == PlayType.GUNZI) {
-                    int strength = trumpInfo.getCardStrength(gunzi.get(0));
-                    // 优先选非分牌的强牌滚子
-                    boolean hasPoints = gunzi.get(0).getPoints() > 0;
-                    int score = strength + (hasPoints ? -5000 : 0);
-                    if (bestGunzi == null || score > bestGunziStrength) {
-                        bestGunzi = new ArrayList<>(gunzi);
-                        bestGunziStrength = score;
+                    if (!isTrump && (rank == Rank.ACE || rank == Rank.KING)) {
+                        // 强副牌滚子（A/K级别很可能赢）
+                        if (bestStrongGunzi == null || strength > bestStrongGunziStrength) {
+                            bestStrongGunzi = new ArrayList<>(gunzi);
+                            bestStrongGunziStrength = strength;
+                        }
+                    } else if (isTrump && strength < SMALL_TRUMP_THRESHOLD) {
+                        // 小主滚子（非2/非主牌级/非王的主牌，用于小掉主）
+                        if (bestSmallTrumpGunzi == null || strength < bestSmallTrumpGunziStrength) {
+                            bestSmallTrumpGunzi = new ArrayList<>(gunzi);
+                            bestSmallTrumpGunziStrength = strength;
+                        }
                     }
                 }
             }
             if (group.size() >= 2) {
-                // 棒子候选
                 List<Card> bang = group.subList(0, 2);
                 if (engine.determinePlayType(bang) == PlayType.BANG) {
-                    int strength = trumpInfo.getCardStrength(bang.get(0));
-                    boolean hasPoints = bang.get(0).getPoints() > 0;
-                    int score = strength + (hasPoints ? -5000 : 0);
-                    if (bestBang == null || score > bestBangStrength) {
-                        bestBang = new ArrayList<>(bang);
-                        bestBangStrength = score;
+                    if (!isTrump && (rank == Rank.ACE || rank == Rank.KING)) {
+                        // 强副牌棒子（A/K级别很可能赢）
+                        if (bestStrongBang == null || strength > bestStrongBangStrength) {
+                            bestStrongBang = new ArrayList<>(bang);
+                            bestStrongBangStrength = strength;
+                        }
+                    } else if (isTrump && strength < SMALL_TRUMP_THRESHOLD) {
+                        // 小主棒子（用于小掉主）
+                        if (bestSmallTrumpBang == null || strength < bestSmallTrumpBangStrength) {
+                            bestSmallTrumpBang = new ArrayList<>(bang);
+                            bestSmallTrumpBangStrength = strength;
+                        }
                     }
                 }
             }
         }
 
-        // 优先出滚子（威力更大）
-        if (bestGunzi != null && engine.isValidPlay(player.getId(), bestGunzi)) {
-            return bestGunzi;
+        // 优先出强副牌滚子（A/K级别很可能赢墩）
+        if (bestStrongGunzi != null && engine.isValidPlay(player.getId(), bestStrongGunzi)) {
+            return bestStrongGunzi;
         }
-        if (bestBang != null && engine.isValidPlay(player.getId(), bestBang)) {
-            return bestBang;
+        // 然后是强副牌棒子
+        if (bestStrongBang != null && engine.isValidPlay(player.getId(), bestStrongBang)) {
+            return bestStrongBang;
+        }
+        // 最后考虑小掉主（清理弱主牌）
+        if (bestSmallTrumpGunzi != null && engine.isValidPlay(player.getId(), bestSmallTrumpGunzi)) {
+            return bestSmallTrumpGunzi;
+        }
+        if (bestSmallTrumpBang != null && engine.isValidPlay(player.getId(), bestSmallTrumpBang)) {
+            return bestSmallTrumpBang;
         }
         return null;
     }
