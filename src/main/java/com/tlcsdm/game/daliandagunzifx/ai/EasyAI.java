@@ -40,6 +40,9 @@ import java.util.stream.Collectors;
 
 public class EasyAI implements AIStrategy {
 
+    // 小掉主策略的强度上限：低于此值的主牌视为"小主"（排除2/主牌级/王牌）
+    private static final int SMALL_TRUMP_THRESHOLD = 950;
+
     @Override
     public Suit chooseTrumpSuit(Player player, Rank trumpRank) {
         Map<Suit, Integer> trumpRankCounts = new EnumMap<>(Suit.class);
@@ -165,7 +168,7 @@ public class EasyAI implements AIStrategy {
                             bestStrongGunzi = new ArrayList<>(gunzi);
                             bestStrongGunziStrength = strength;
                         }
-                    } else if (isTrump && strength < 950) {
+                    } else if (isTrump && strength < SMALL_TRUMP_THRESHOLD) {
                         // 小主滚子（非2/非主牌级/非王的主牌，用于小掉主）
                         if (bestSmallTrumpGunzi == null || strength < bestSmallTrumpGunziStrength) {
                             bestSmallTrumpGunzi = new ArrayList<>(gunzi);
@@ -183,7 +186,7 @@ public class EasyAI implements AIStrategy {
                             bestStrongBang = new ArrayList<>(bang);
                             bestStrongBangStrength = strength;
                         }
-                    } else if (isTrump && strength < 950) {
+                    } else if (isTrump && strength < SMALL_TRUMP_THRESHOLD) {
                         // 小主棒子（用于小掉主）
                         if (bestSmallTrumpBang == null || strength < bestSmallTrumpBangStrength) {
                             bestSmallTrumpBang = new ArrayList<>(bang);
