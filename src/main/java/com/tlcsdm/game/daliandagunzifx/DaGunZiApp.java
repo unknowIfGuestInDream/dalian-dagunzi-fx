@@ -99,6 +99,7 @@ public class DaGunZiApp extends Application {
     private static final int CARD_WIDTH = 80;
     private static final int CARD_HEIGHT = 106;
     private static final int CARD_OVERLAP = 25;
+    private static final int DRAG_SELECT_THRESHOLD = 20;
     private static final String TABLE_COLOR = "#2d8a4e";
     private static final String DARK_TABLE_COLOR = "#1a1a2e";
     private static final String SPADE_COLOR = "#1a1a1a";
@@ -1280,8 +1281,7 @@ public class DaGunZiApp extends Application {
             cardNode.setOnMouseDragged(e -> {
                 if (!dragTriggered[0] && (waitingForHumanPlay || waitingForKitty)) {
                     double deltaY = e.getSceneY() - dragStartY[0];
-                    // 向上拖拽超过20像素触发选择
-                    if (deltaY < -20) {
+                    if (deltaY < -DRAG_SELECT_THRESHOLD) {
                         dragTriggered[0] = true;
                         if (waitingForHumanPlay) {
                             handleHumanCardClick(c);

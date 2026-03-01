@@ -178,13 +178,13 @@ public class MediumAI implements AIStrategy {
         // 跟花色牌按强度升序，但保留特殊主牌
         suitCards.sort(Comparator.comparingInt(c -> {
             int strength = trumpInfo.getCardStrength(c);
-            if (easyAI.isSpecialTrump(c, trumpInfo)) return strength + 10000;
+            if (easyAI.isSpecialTrump(c, trumpInfo)) return strength + EasyAI.SORT_PRIORITY_OFFSET;
             return strength;
         }));
         // Sort other cards: non-point weakest first
         otherCards.sort(Comparator.comparingInt(c -> {
             int base = trumpInfo.getCardStrength(c);
-            if (c.getPoints() > 0) return base + 10000;
+            if (c.getPoints() > 0) return base + EasyAI.SORT_PRIORITY_OFFSET;
             return base;
         }));
         trumpCards.sort(Comparator.comparingInt(trumpInfo::getCardStrength));
@@ -279,7 +279,7 @@ public class MediumAI implements AIStrategy {
             // Prefer suits with fewer remaining cards (easier to exhaust)
             score += Math.max(0, 26 - cardTracker.getRemainingCount(suit));
             // 短套加分：1-2张的短套有制造缺门价值
-            if (size <= 2) score += 15;
+            if (size <= EasyAI.SHORT_SUIT_THRESHOLD) score += 15;
             if (score > bestScore) {
                 bestScore = score;
                 bestSuit = suit;

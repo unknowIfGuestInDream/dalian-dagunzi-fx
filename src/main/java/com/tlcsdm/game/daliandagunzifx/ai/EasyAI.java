@@ -42,6 +42,10 @@ public class EasyAI implements AIStrategy {
 
     // 小掉主策略的强度上限：低于此值的主牌视为"小主"（排除2/主牌级/王牌）
     private static final int SMALL_TRUMP_THRESHOLD = 950;
+    // 排序优先级偏移：特殊主牌/分牌排到最后
+    protected static final int SORT_PRIORITY_OFFSET = 10000;
+    // 短套判断阈值：花色牌数 ≤ 此值视为短套
+    protected static final int SHORT_SUIT_THRESHOLD = 2;
 
     @Override
     public Suit chooseTrumpSuit(Player player, Rank trumpRank) {
@@ -238,14 +242,13 @@ public class EasyAI implements AIStrategy {
         // Sort suit cards: play weakest first, but preserve special trump
         suitCards.sort(Comparator.comparingInt(c -> {
             int strength = trumpInfo.getCardStrength(c);
-            // 特殊主牌（王、2、主牌级）排后面，尽量不先出
-            if (isSpecialTrump(c, trumpInfo)) return strength + 10000;
+            if (isSpecialTrump(c, trumpInfo)) return strength + SORT_PRIORITY_OFFSET;
             return strength;
         }));
         // Sort non-trump cards: play weakest non-point first
         otherNonTrump.sort(Comparator.comparingInt(c -> {
             int base = trumpInfo.getCardStrength(c);
-            if (c.getPoints() > 0) return base + 10000;
+            if (c.getPoints() > 0) return base + SORT_PRIORITY_OFFSET;
             return base;
         }));
         // Sort trump cards: weakest first
@@ -312,7 +315,7 @@ public class EasyAI implements AIStrategy {
         int shortSize = Integer.MAX_VALUE;
         for (Map.Entry<Suit, List<Card>> entry : suitCards.entrySet()) {
             int size = entry.getValue().size();
-            if (size <= 2 && size < shortSize) {
+            if (size <= SHORT_SUIT_THRESHOLD && size < shortSize) {
                 // 短套中有非分牌才考虑
                 boolean hasNonPoint = entry.getValue().stream().anyMatch(c -> c.getPoints() == 0);
                 if (hasNonPoint) {
