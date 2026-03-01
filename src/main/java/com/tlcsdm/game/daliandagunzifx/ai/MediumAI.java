@@ -136,6 +136,11 @@ public class MediumAI implements AIStrategy {
     public List<Card> chooseCards(Player player, GameEngine engine) {
         PlayType trickType = engine.getCurrentTrickPlayType();
         if (trickType == null) {
+            // 领出时考虑主动出对子(棒子)或滚子
+            List<Card> leadMulti = easyAI.chooseLeadMulti(player, engine);
+            if (leadMulti != null) {
+                return leadMulti;
+            }
             return List.of(chooseCard(player, engine));
         }
         int requiredCount = switch (trickType) {
@@ -258,14 +263,11 @@ public class MediumAI implements AIStrategy {
 
         if (bestSuit != null) {
             List<Card> cards = suitCards.get(bestSuit);
-            // Play A or K first
+            // 只有A明确最大，可以安全领出
             for (Card card : cards) {
                 if (card.getRank() == Rank.ACE) return card;
             }
-            for (Card card : cards) {
-                if (card.getRank() == Rank.KING) return card;
-            }
-            // Prefer non-point cards when leading
+            // 优先选非分牌(避免主动送10/K/5)
             Optional<Card> nonPointLead = cards.stream()
                 .filter(c -> c.getPoints() == 0)
                 .max(Comparator.comparingInt(trumpInfo::getCardStrength));
@@ -340,25 +342,27 @@ public class MediumAI implements AIStrategy {
         boolean partnerWinning = easyAI.isPartnerWinning(player, engine);
 
         if (partnerWinning) {
-            return suitCards.stream()
-                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-                .orElse(suitCards.get(0));
+            // 队友赢时，优先给分牌
+            return easyAI.playPointsForPartner(suitCards, trumpInfo);
         }
 
-        // Try to win with the minimum card that beats the current winner
-        int currentWinStrength = getCurrentWinningStrength(engine);
-        Card bestWinner = null;
-        for (Card card : suitCards) {
-            int strength = trumpInfo.getCardStrength(card);
-            if (strength > currentWinStrength) {
-                if (bestWinner == null || strength < trumpInfo.getCardStrength(bestWinner)) {
-                    bestWinner = card;
+        // 只在有分值得争的时候才尝试压牌
+        int trickPoints = calculateCurrentTrickPoints(engine);
+        if (trickPoints > 0) {
+            int currentWinStrength = getCurrentWinningStrength(engine);
+            Card bestWinner = null;
+            for (Card card : suitCards) {
+                int strength = trumpInfo.getCardStrength(card);
+                if (strength > currentWinStrength) {
+                    if (bestWinner == null || strength < trumpInfo.getCardStrength(bestWinner)) {
+                        bestWinner = card;
+                    }
                 }
             }
+            if (bestWinner != null) return bestWinner;
         }
-        if (bestWinner != null) return bestWinner;
 
-        // Can't win, play lowest
+        // 无分或赢不了，出最小
         return suitCards.stream()
             .min(Comparator.comparingInt(trumpInfo::getCardStrength))
             .orElse(suitCards.get(0));
