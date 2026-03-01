@@ -57,6 +57,7 @@ public class GameEngine {
     private int previousWinningTeam;
     private int previousTributeCount;
     private boolean lastTrickWonByDefender;
+    private int nextDealerIndex;
 
     public GameEngine(Player[] players) {
         if (players.length != 4) {
@@ -70,6 +71,7 @@ public class GameEngine {
         this.previousWinningTeam = -1;
         this.previousTributeCount = 0;
         this.lastTrickWonByDefender = false;
+        this.nextDealerIndex = -1;
     }
 
     public void startNewRound() {
@@ -285,8 +287,10 @@ public class GameEngine {
             }
         }
 
-        // Pick a dealer: prefer winning team from previous round
-        if (previousWinningTeam >= 0) {
+        // Pick a dealer: prefer nextDealerIndex if set, then winning team from previous round
+        if (nextDealerIndex >= 0) {
+            dealerIndex = nextDealerIndex;
+        } else if (previousWinningTeam >= 0) {
             // 上轮赢家队伍优先当庄
             for (int i = 0; i < 4; i++) {
                 if (players[i].getTeam() == previousWinningTeam) {
@@ -304,6 +308,50 @@ public class GameEngine {
         // Dealer picks up the kitty
         players[dealerIndex].addCards(new ArrayList<>(kitty));
         // Sort all hands
+        for (Player player : players) {
+            player.sortHand(trumpInfo);
+        }
+
+        return dealerIndex;
+    }
+
+    /**
+     * 使用指定的庄家从底牌确定主牌花色。
+     * 用于非首局庄家无法叫主时，保持预定庄家不变。
+     *
+     * @param specifiedDealer 指定的庄家索引
+     * @return 庄家索引
+     */
+    public int declareTrumpFromKittyForDealer(int specifiedDealer) {
+        if (phase != GamePhase.DEALING && phase != GamePhase.DECLARING_TRUMP) {
+            throw new IllegalStateException("Cannot declare trump from kitty in phase: " + phase);
+        }
+
+        java.util.Map<Suit, Integer> suitCounts = new java.util.EnumMap<>(Suit.class);
+        for (Suit s : Suit.values()) {
+            suitCounts.put(s, 0);
+        }
+        for (Card card : kitty) {
+            if (card.getSuit() != null) {
+                suitCounts.merge(card.getSuit(), 1, Integer::sum);
+            }
+        }
+
+        Suit minSuit = Suit.SPADE;
+        int minCount = Integer.MAX_VALUE;
+        for (Suit s : Suit.values()) {
+            if (suitCounts.get(s) < minCount) {
+                minCount = suitCounts.get(s);
+                minSuit = s;
+            }
+        }
+
+        dealerIndex = specifiedDealer;
+        Rank currentLevel = teamLevels[players[dealerIndex].getTeam()];
+        trumpInfo = new TrumpInfo(minSuit, currentLevel);
+        phase = GamePhase.PREPARING_KITTY;
+
+        players[dealerIndex].addCards(new ArrayList<>(kitty));
         for (Player player : players) {
             player.sortHand(trumpInfo);
         }
@@ -592,6 +640,13 @@ public class GameEngine {
         RoundResult result = new RoundResult(defenderPoints, declarerTeam, bloods, lastTrickWonByDefender);
         previousWinningTeam = result.getWinningTeam();
         previousTributeCount = result.getTributeCount();
+
+        // 根据得分决定下一局庄家：庄家赢→搭档当庄，闲家赢→顺时针下一个闲家当庄
+        if (result.isDeclarerWins()) {
+            nextDealerIndex = (dealerIndex + 2) % 4; // 搭档
+        } else {
+            nextDealerIndex = (dealerIndex + 1) % 4; // 顺时针下一个（闲家）
+        }
         return result;
     }
 
@@ -681,6 +736,10 @@ public class GameEngine {
         return totalCardsPlayed;
     }
 
+    public int getNextDealerIndex() {
+        return nextDealerIndex;
+    }
+
     public GameEngine copy() {
         Player[] newPlayers = new Player[4];
         for (int i = 0; i < 4; i++) {
@@ -707,6 +766,7 @@ public class GameEngine {
         copy.previousWinningTeam = this.previousWinningTeam;
         copy.previousTributeCount = this.previousTributeCount;
         copy.lastTrickWonByDefender = this.lastTrickWonByDefender;
+        copy.nextDealerIndex = this.nextDealerIndex;
         return copy;
     }
 }
