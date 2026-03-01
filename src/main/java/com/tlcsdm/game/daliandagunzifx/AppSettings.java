@@ -152,6 +152,7 @@ public final class AppSettings {
                 )
             )
         ).persistWindowState(false)
+         // 禁用 PreferencesFx 自动保存，使用手动 Preferences API 作为唯一持久化机制，避免设置被覆盖
          .saveSettings(false)
          .debugHistoryMode(false)
          .buttonsVisibility(false)
