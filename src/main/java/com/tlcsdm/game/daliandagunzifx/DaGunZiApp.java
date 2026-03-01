@@ -1422,7 +1422,6 @@ public class DaGunZiApp extends Application {
     }
 
     private void updateAIPlayerPanes() {
-        // AI玩家面板更新（牌数标签已移除）
     }
 
     private void updateInfoPanel() {
