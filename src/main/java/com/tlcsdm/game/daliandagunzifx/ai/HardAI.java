@@ -107,12 +107,9 @@ public class HardAI implements AIStrategy {
         PlayType trickType = engine.getCurrentTrickPlayType();
         if (trickType == null) {
             // 领出时考虑主动出对子(棒子)或滚子
-            // 早期（手牌多于30张）不轻易出滚子/棒子，避免刚开始就丢滚子
-            if (player.getHand().size() <= 30) {
-                List<Card> leadMulti = rolloutAI.chooseLeadMulti(player, engine);
-                if (leadMulti != null) {
-                    return leadMulti;
-                }
+            List<Card> leadMulti = rolloutAI.chooseLeadMulti(player, engine);
+            if (leadMulti != null) {
+                return leadMulti;
             }
             return List.of(chooseCard(player, engine));
         }

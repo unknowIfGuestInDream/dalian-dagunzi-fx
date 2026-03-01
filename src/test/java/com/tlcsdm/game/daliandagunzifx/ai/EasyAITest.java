@@ -92,11 +92,11 @@ class EasyAITest {
 
         Player leader = players[engine.getCurrentPlayerIndex()];
         leader.getHand().clear();
-        // 给定两张相同花色点数的牌（构成棒子）+ 一张单牌
-        Card spadeJ1 = new Card(Suit.SPADE, Rank.JACK, 800);
-        Card spadeJ2 = new Card(Suit.SPADE, Rank.JACK, 801);
+        // 给定两张相同花色点数的A牌（构成强副牌棒子）+ 一张单牌
+        Card spadeA1 = new Card(Suit.SPADE, Rank.ACE, 800);
+        Card spadeA2 = new Card(Suit.SPADE, Rank.ACE, 801);
         Card spadeQ = new Card(Suit.SPADE, Rank.QUEEN, 802);
-        leader.addCards(List.of(spadeJ1, spadeJ2, spadeQ));
+        leader.addCards(List.of(spadeA1, spadeA2, spadeQ));
 
         EasyAI ai = new EasyAI();
         List<Card> chosen = ai.chooseCards(leader, engine);
@@ -126,12 +126,12 @@ class EasyAITest {
 
         Player leader = players[engine.getCurrentPlayerIndex()];
         leader.getHand().clear();
-        // 给定三张相同花色点数的牌（构成滚子）+ 一张单牌
-        Card spadeJ1 = new Card(Suit.SPADE, Rank.JACK, 800);
-        Card spadeJ2 = new Card(Suit.SPADE, Rank.JACK, 801);
-        Card spadeJ3 = new Card(Suit.SPADE, Rank.JACK, 803);
+        // 给定三张相同花色点数的A牌（构成强副牌滚子）+ 一张单牌
+        Card spadeA1 = new Card(Suit.SPADE, Rank.ACE, 800);
+        Card spadeA2 = new Card(Suit.SPADE, Rank.ACE, 801);
+        Card spadeA3 = new Card(Suit.SPADE, Rank.ACE, 803);
         Card spadeQ = new Card(Suit.SPADE, Rank.QUEEN, 802);
-        leader.addCards(List.of(spadeJ1, spadeJ2, spadeJ3, spadeQ));
+        leader.addCards(List.of(spadeA1, spadeA2, spadeA3, spadeQ));
 
         EasyAI ai = new EasyAI();
         List<Card> chosen = ai.chooseCards(leader, engine);
