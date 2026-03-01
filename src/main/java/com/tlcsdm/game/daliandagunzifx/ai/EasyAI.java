@@ -102,6 +102,11 @@ public class EasyAI implements AIStrategy {
     public List<Card> chooseCards(Player player, GameEngine engine) {
         PlayType trickType = engine.getCurrentTrickPlayType();
         if (trickType == null) {
+            // 领出时考虑主动出对子(棒子)或滚子
+            List<Card> leadMulti = chooseLeadMulti(player, engine);
+            if (leadMulti != null) {
+                return leadMulti;
+            }
             return List.of(chooseCard(player, engine));
         }
         int requiredCount = switch (trickType) {
@@ -113,6 +118,66 @@ public class EasyAI implements AIStrategy {
             return List.of(chooseCard(player, engine));
         }
         return chooseMultiCards(player, engine, requiredCount);
+    }
+
+    /**
+     * 领出时检查是否有适合打出的对子(棒子)或滚子。
+     * 优先出强势的非分牌棒子/滚子。
+     */
+    protected List<Card> chooseLeadMulti(Player player, GameEngine engine) {
+        TrumpInfo trumpInfo = engine.getTrumpInfo();
+        List<Card> hand = player.getHand();
+
+        // 按花色+点数分组，找出相同花色+点数的牌
+        Map<String, List<Card>> groups = new java.util.LinkedHashMap<>();
+        for (Card card : hand) {
+            String key = (card.getSuit() == null ? "JOKER" : card.getSuit().name()) + "_" + card.getRank().name();
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(card);
+        }
+
+        List<Card> bestGunzi = null;
+        int bestGunziStrength = -1;
+        List<Card> bestBang = null;
+        int bestBangStrength = -1;
+
+        for (List<Card> group : groups.values()) {
+            if (group.size() >= 3) {
+                // 滚子候选
+                List<Card> gunzi = group.subList(0, 3);
+                if (engine.determinePlayType(gunzi) == PlayType.GUNZI) {
+                    int strength = trumpInfo.getCardStrength(gunzi.get(0));
+                    // 优先选非分牌的强牌滚子
+                    boolean hasPoints = gunzi.get(0).getPoints() > 0;
+                    int score = strength + (hasPoints ? -5000 : 0);
+                    if (bestGunzi == null || score > bestGunziStrength) {
+                        bestGunzi = new ArrayList<>(gunzi);
+                        bestGunziStrength = score;
+                    }
+                }
+            }
+            if (group.size() >= 2) {
+                // 棒子候选
+                List<Card> bang = group.subList(0, 2);
+                if (engine.determinePlayType(bang) == PlayType.BANG) {
+                    int strength = trumpInfo.getCardStrength(bang.get(0));
+                    boolean hasPoints = bang.get(0).getPoints() > 0;
+                    int score = strength + (hasPoints ? -5000 : 0);
+                    if (bestBang == null || score > bestBangStrength) {
+                        bestBang = new ArrayList<>(bang);
+                        bestBangStrength = score;
+                    }
+                }
+            }
+        }
+
+        // 优先出滚子（威力更大）
+        if (bestGunzi != null && engine.isValidPlay(player.getId(), bestGunzi)) {
+            return bestGunzi;
+        }
+        if (bestBang != null && engine.isValidPlay(player.getId(), bestBang)) {
+            return bestBang;
+        }
+        return null;
     }
 
     protected List<Card> chooseMultiCards(Player player, GameEngine engine, int requiredCount) {
@@ -163,7 +228,7 @@ public class EasyAI implements AIStrategy {
     }
 
     protected Card chooseLead(Player player, List<Card> validCards, TrumpInfo trumpInfo) {
-        // Lead with strongest non-trump suit (most cards), play A or K first
+        // Lead with strongest non-trump suit (most cards), prefer A (likely to win), avoid point cards
         Map<Suit, List<Card>> suitCards = new EnumMap<>(Suit.class);
         for (Card card : validCards) {
             Suit effective = trumpInfo.getEffectiveSuit(card);
@@ -183,17 +248,16 @@ public class EasyAI implements AIStrategy {
 
         if (bestSuit != null) {
             List<Card> cards = suitCards.get(bestSuit);
+            // 只有A明确最大，可以安全领出
             for (Card card : cards) {
                 if (card.getRank() == Rank.ACE) return card;
             }
-            for (Card card : cards) {
-                if (card.getRank() == Rank.KING) return card;
-            }
-            // Prefer non-point cards when leading
+            // 优先选非分牌(避免主动送10/K/5)
             Optional<Card> nonPointLead = cards.stream()
                 .filter(c -> c.getPoints() == 0)
                 .max(Comparator.comparingInt(trumpInfo::getCardStrength));
             if (nonPointLead.isPresent()) return nonPointLead.get();
+            // 只有分牌时，出最大的（最有可能赢回来）
             return cards.stream()
                 .max(Comparator.comparingInt(trumpInfo::getCardStrength))
                 .orElse(validCards.get(0));
@@ -222,8 +286,32 @@ public class EasyAI implements AIStrategy {
             }
         }
 
-        // Must follow suit: play lowest card of that suit
+        // Must follow suit
         if (!suitCards.isEmpty()) {
+            boolean partnerWinning = isPartnerWinning(player, engine);
+            if (partnerWinning) {
+                // 队友赢时，出最小的牌
+                return suitCards.stream()
+                    .min(Comparator.comparingInt(trumpInfo::getCardStrength))
+                    .orElse(suitCards.get(0));
+            }
+            // 队友没赢，看看这墩是否有分值得争
+            int trickPoints = calculateCurrentTrickPoints(engine);
+            if (trickPoints > 0) {
+                // 有分，尝试用最小能赢的牌来赢
+                int currentWinStrength = getCurrentTrickWinnerStrength(engine);
+                Card bestWinner = null;
+                for (Card card : suitCards) {
+                    int strength = trumpInfo.getCardStrength(card);
+                    if (strength > currentWinStrength) {
+                        if (bestWinner == null || strength < trumpInfo.getCardStrength(bestWinner)) {
+                            bestWinner = card;
+                        }
+                    }
+                }
+                if (bestWinner != null) return bestWinner;
+            }
+            // 无分或赢不了，出最小
             return suitCards.stream()
                 .min(Comparator.comparingInt(trumpInfo::getCardStrength))
                 .orElse(suitCards.get(0));
@@ -236,12 +324,23 @@ public class EasyAI implements AIStrategy {
             return playLow(validCards, trumpInfo);
         }
 
-        // Partner not winning, play trump if available
-        if (!trumpCards.isEmpty()) {
+        // 队友没赢，考虑是否值得用主牌
+        int trickPoints = calculateCurrentTrickPoints(engine);
+        if (!trumpCards.isEmpty() && trickPoints >= 5) {
             return playTrump(player, trumpCards, engine);
         }
 
         return playLow(validCards, trumpInfo);
+    }
+
+    protected int calculateCurrentTrickPoints(GameEngine engine) {
+        int points = 0;
+        for (Card card : engine.getCurrentTrick()) {
+            if (card != null) {
+                points += card.getPoints();
+            }
+        }
+        return points;
     }
 
     protected Card playTrump(Player player, List<Card> trumpCards, GameEngine engine) {

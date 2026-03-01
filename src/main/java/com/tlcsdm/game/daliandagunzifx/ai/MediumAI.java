@@ -136,6 +136,11 @@ public class MediumAI implements AIStrategy {
     public List<Card> chooseCards(Player player, GameEngine engine) {
         PlayType trickType = engine.getCurrentTrickPlayType();
         if (trickType == null) {
+            // 领出时考虑主动出对子(棒子)或滚子
+            List<Card> leadMulti = easyAI.chooseLeadMulti(player, engine);
+            if (leadMulti != null) {
+                return leadMulti;
+            }
             return List.of(chooseCard(player, engine));
         }
         int requiredCount = switch (trickType) {
@@ -258,14 +263,11 @@ public class MediumAI implements AIStrategy {
 
         if (bestSuit != null) {
             List<Card> cards = suitCards.get(bestSuit);
-            // Play A or K first
+            // 只有A明确最大，可以安全领出
             for (Card card : cards) {
                 if (card.getRank() == Rank.ACE) return card;
             }
-            for (Card card : cards) {
-                if (card.getRank() == Rank.KING) return card;
-            }
-            // Prefer non-point cards when leading
+            // 优先选非分牌(避免主动送10/K/5)
             Optional<Card> nonPointLead = cards.stream()
                 .filter(c -> c.getPoints() == 0)
                 .max(Comparator.comparingInt(trumpInfo::getCardStrength));

@@ -595,6 +595,14 @@ public class DaGunZiApp extends Application {
             String tributeMsg = engine.performAutoTribute();
             if (tributeMsg != null) {
                 statusLabel.setText("进贡：" + tributeMsg);
+                // 显示进贡信息对话框
+                Alert tributeAlert = new Alert(Alert.AlertType.INFORMATION);
+                tributeAlert.setTitle("进贡");
+                tributeAlert.setHeaderText("进贡/回贡");
+                tributeAlert.setContentText(tributeMsg);
+                Stage alertStage = (Stage) tributeAlert.getDialogPane().getScene().getWindow();
+                alertStage.getIcons().add(createAppIcon());
+                tributeAlert.showAndWait();
             }
         }
 
@@ -1097,9 +1105,43 @@ public class DaGunZiApp extends Application {
             }
             startNewRound();
         });
-        actionPane.getChildren().add(nextBtn);
+
+        Button showKittyBtn = new Button("显示底牌");
+        showKittyBtn.setStyle("-fx-font-size: 14px; -fx-padding: 8 16; "
+            + "-fx-background-color: #5588cc; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        showKittyBtn.setOnAction(e -> showKittyCards());
+
+        actionPane.getChildren().addAll(nextBtn, showKittyBtn);
 
         updateInfoPanel();
+    }
+
+    private void showKittyCards() {
+        List<Card> kittyCards = engine.getKitty();
+        if (kittyCards == null || kittyCards.isEmpty()) {
+            statusLabel.setText("底牌信息不可用");
+            return;
+        }
+
+        // 在出牌区域显示底牌
+        clearTrickArea();
+        HBox kittyDisplay = new HBox(-10);
+        kittyDisplay.setAlignment(Pos.CENTER);
+        for (Card card : kittyCards) {
+            kittyDisplay.getChildren().add(createCardFace(card));
+        }
+        trickCardNodes[1].getChildren().add(kittyDisplay);
+
+        StringBuilder kittyText = new StringBuilder("底牌：");
+        for (Card card : kittyCards) {
+            kittyText.append(card.getDisplayName()).append(" ");
+        }
+        int kittyPoints = 0;
+        for (Card card : kittyCards) {
+            kittyPoints += card.getPoints();
+        }
+        kittyText.append("（分值：").append(kittyPoints).append("分）");
+        statusLabel.setText(kittyText.toString());
     }
 
     // ======================== Card Rendering ========================
@@ -1541,7 +1583,13 @@ public class DaGunZiApp extends Application {
                 played++;
             }
         }
-        return 2 - played;
+        int inHand = 0;
+        for (Card c : players[0].getHand()) {
+            if (c.getSuit() == suit && c.getRank() == rank) {
+                inHand++;
+            }
+        }
+        return 3 - played - inHand;
     }
 
     private int jokerRemaining(Rank jokerRank) {
@@ -1551,6 +1599,12 @@ public class DaGunZiApp extends Application {
                 played++;
             }
         }
-        return 2 - played;
+        int inHand = 0;
+        for (Card c : players[0].getHand()) {
+            if (c.getRank() == jokerRank) {
+                inHand++;
+            }
+        }
+        return 3 - played - inHand;
     }
 }

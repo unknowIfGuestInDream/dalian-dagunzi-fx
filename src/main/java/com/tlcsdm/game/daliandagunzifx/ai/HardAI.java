@@ -88,6 +88,11 @@ public class HardAI implements AIStrategy {
     public List<Card> chooseCards(Player player, GameEngine engine) {
         PlayType trickType = engine.getCurrentTrickPlayType();
         if (trickType == null) {
+            // 领出时考虑主动出对子(棒子)或滚子
+            List<Card> leadMulti = rolloutAI.chooseLeadMulti(player, engine);
+            if (leadMulti != null) {
+                return leadMulti;
+            }
             return List.of(chooseCard(player, engine));
         }
         int requiredCount = switch (trickType) {
