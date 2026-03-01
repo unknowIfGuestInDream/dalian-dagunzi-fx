@@ -221,25 +221,35 @@ public class EasyAI implements AIStrategy {
         Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
 
         List<Card> suitCards = new ArrayList<>();
-        List<Card> otherCards = new ArrayList<>();
+        List<Card> otherNonTrump = new ArrayList<>();
+        List<Card> otherTrump = new ArrayList<>();
         for (Card card : player.getHand()) {
             if (trumpInfo.getEffectiveSuit(card) == leadSuit) {
                 suitCards.add(card);
+            } else if (trumpInfo.isTrump(card)) {
+                otherTrump.add(card);
             } else {
-                otherCards.add(card);
+                otherNonTrump.add(card);
             }
         }
 
         boolean partnerWinning = isPartnerWinning(player, engine);
 
-        // Sort suit cards: play weakest first
-        suitCards.sort(Comparator.comparingInt(trumpInfo::getCardStrength));
-        // Sort other cards: play weakest non-point first
-        otherCards.sort(Comparator.comparingInt(c -> {
+        // Sort suit cards: play weakest first, but preserve special trump
+        suitCards.sort(Comparator.comparingInt(c -> {
+            int strength = trumpInfo.getCardStrength(c);
+            // 特殊主牌（王、2、主牌级）排后面，尽量不先出
+            if (isSpecialTrump(c, trumpInfo)) return strength + 10000;
+            return strength;
+        }));
+        // Sort non-trump cards: play weakest non-point first
+        otherNonTrump.sort(Comparator.comparingInt(c -> {
             int base = trumpInfo.getCardStrength(c);
             if (c.getPoints() > 0) return base + 10000;
             return base;
         }));
+        // Sort trump cards: weakest first
+        otherTrump.sort(Comparator.comparingInt(trumpInfo::getCardStrength));
 
         List<Card> result = new ArrayList<>();
         // Play suit cards first (required by rules)
@@ -250,28 +260,76 @@ public class EasyAI implements AIStrategy {
         // Fill with other cards if not enough suit cards
         if (result.size() < requiredCount) {
             if (partnerWinning) {
-                // Dump point cards when partner is winning
-                otherCards.sort(Comparator.comparingInt((Card c) -> c.getPoints()).reversed()
+                // 队友赢时给分牌，但优先非主牌，避免浪费主牌
+                otherNonTrump.sort(Comparator.comparingInt((Card c) -> c.getPoints()).reversed()
                     .thenComparingInt(trumpInfo::getCardStrength));
-            }
-            for (Card card : otherCards) {
-                if (result.size() >= requiredCount) break;
-                result.add(card);
+                for (Card card : otherNonTrump) {
+                    if (result.size() >= requiredCount) break;
+                    result.add(card);
+                }
+                // 非主牌不够时再用主牌
+                for (Card card : otherTrump) {
+                    if (result.size() >= requiredCount) break;
+                    result.add(card);
+                }
+            } else {
+                // 优先垫非主牌，保留主牌实力
+                for (Card card : otherNonTrump) {
+                    if (result.size() >= requiredCount) break;
+                    result.add(card);
+                }
+                for (Card card : otherTrump) {
+                    if (result.size() >= requiredCount) break;
+                    result.add(card);
+                }
             }
         }
         return result;
     }
 
     protected Card chooseLead(Player player, List<Card> validCards, TrumpInfo trumpInfo) {
-        // 领出非主最强花色（牌数最多），优先A（可能获胜），避免分牌
+        // 领出策略：综合考虑花色强度、长短套和安全性
         Map<Suit, List<Card>> suitCards = new EnumMap<>(Suit.class);
+        List<Card> trumpCards = new ArrayList<>();
         for (Card card : validCards) {
             Suit effective = trumpInfo.getEffectiveSuit(card);
             if (effective != null) {
                 suitCards.computeIfAbsent(effective, k -> new ArrayList<>()).add(card);
+            } else {
+                trumpCards.add(card);
             }
         }
 
+        // 1. 任何花色有A，优先安全领出
+        for (Map.Entry<Suit, List<Card>> entry : suitCards.entrySet()) {
+            for (Card card : entry.getValue()) {
+                if (card.getRank() == Rank.ACE) return card;
+            }
+        }
+
+        // 2. 考虑出短套副牌（1-2张），制造缺门以便后续用主牌杀分
+        Suit shortSuit = null;
+        int shortSize = Integer.MAX_VALUE;
+        for (Map.Entry<Suit, List<Card>> entry : suitCards.entrySet()) {
+            int size = entry.getValue().size();
+            if (size <= 2 && size < shortSize) {
+                // 短套中有非分牌才考虑
+                boolean hasNonPoint = entry.getValue().stream().anyMatch(c -> c.getPoints() == 0);
+                if (hasNonPoint) {
+                    shortSize = size;
+                    shortSuit = entry.getKey();
+                }
+            }
+        }
+        if (shortSuit != null) {
+            List<Card> cards = suitCards.get(shortSuit);
+            Optional<Card> nonPointLead = cards.stream()
+                .filter(c -> c.getPoints() == 0)
+                .min(Comparator.comparingInt(trumpInfo::getCardStrength));
+            if (nonPointLead.isPresent()) return nonPointLead.get();
+        }
+
+        // 3. 从最长的副牌花色领出（保持控制力）
         Suit bestSuit = null;
         int bestCount = 0;
         for (Map.Entry<Suit, List<Card>> entry : suitCards.entrySet()) {
@@ -283,10 +341,6 @@ public class EasyAI implements AIStrategy {
 
         if (bestSuit != null) {
             List<Card> cards = suitCards.get(bestSuit);
-            // 只有A明确最大，可以安全领出
-            for (Card card : cards) {
-                if (card.getRank() == Rank.ACE) return card;
-            }
             // 优先选非分牌(避免主动送10/K/5)
             Optional<Card> nonPointLead = cards.stream()
                 .filter(c -> c.getPoints() == 0)
@@ -298,7 +352,15 @@ public class EasyAI implements AIStrategy {
                 .orElse(validCards.get(0));
         }
 
-        // 只剩主牌，出最小的
+        // 只剩主牌，优先出非特殊的小主牌
+        List<Card> nonSpecialTrump = trumpCards.stream()
+            .filter(c -> !isSpecialTrump(c, trumpInfo))
+            .collect(Collectors.toList());
+        if (!nonSpecialTrump.isEmpty()) {
+            return nonSpecialTrump.stream()
+                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
+                .orElse(nonSpecialTrump.get(0));
+        }
         return validCards.stream()
             .min(Comparator.comparingInt(trumpInfo::getCardStrength))
             .orElse(validCards.get(0));
@@ -351,9 +413,16 @@ public class EasyAI implements AIStrategy {
         }
 
         // 没有该花色可跟
+        List<Card> nonTrumpCards = validCards.stream()
+            .filter(c -> !trumpInfo.isTrump(c))
+            .collect(Collectors.toList());
         boolean partnerWinning = isPartnerWinning(player, engine);
 
         if (partnerWinning) {
+            // 队友赢时，优先垫非主牌分牌，避免浪费主牌
+            if (!nonTrumpCards.isEmpty()) {
+                return playPointsForPartner(nonTrumpCards, trumpInfo);
+            }
             return playPointsForPartner(validCards, trumpInfo);
         }
 
@@ -363,6 +432,10 @@ public class EasyAI implements AIStrategy {
             return playTrump(player, trumpCards, engine);
         }
 
+        // 优先垫非主牌，避免浪费主牌
+        if (!nonTrumpCards.isEmpty()) {
+            return playLow(nonTrumpCards, trumpInfo);
+        }
         return playLow(validCards, trumpInfo);
     }
 
@@ -444,16 +517,42 @@ public class EasyAI implements AIStrategy {
 
     /**
      * 队友赢时优先给分牌（5/10/K），让队友带走更多分数。
-     * 优先出分值最高的牌（K/10 > 5），无分牌时出最小。
+     * 优先出非特殊主牌的分值最高的牌（K/10 > 5），保留王牌、2、主牌级等高价值主牌。
+     * 无分牌时出最小的非特殊主牌。
      */
     protected Card playPointsForPartner(List<Card> cards, TrumpInfo trumpInfo) {
-        // 优先出分值最高的牌，无分牌时出最小
-        return cards.stream()
-            .filter(c -> c.getPoints() > 0)
-            .max(Comparator.comparingInt(Card::getPoints))
-            .orElseGet(() -> cards.stream()
-                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-                .orElse(cards.get(0)));
+        // 分离特殊主牌（王、2、主牌级）和普通牌
+        List<Card> normalCards = new ArrayList<>();
+        List<Card> specialTrumpCards = new ArrayList<>();
+        for (Card c : cards) {
+            if (isSpecialTrump(c, trumpInfo)) {
+                specialTrumpCards.add(c);
+            } else {
+                normalCards.add(c);
+            }
+        }
+        // 优先从普通牌中给分
+        if (!normalCards.isEmpty()) {
+            return normalCards.stream()
+                .filter(c -> c.getPoints() > 0)
+                .max(Comparator.comparingInt(Card::getPoints))
+                .orElseGet(() -> normalCards.stream()
+                    .min(Comparator.comparingInt(trumpInfo::getCardStrength))
+                    .orElse(normalCards.get(0)));
+        }
+        // 只剩特殊主牌时，出最小的
+        return specialTrumpCards.stream()
+            .min(Comparator.comparingInt(trumpInfo::getCardStrength))
+            .orElse(cards.get(0));
+    }
+
+    /**
+     * 判断是否为高价值特殊主牌（王、2、主牌级），这些牌不应轻易丢弃。
+     */
+    protected boolean isSpecialTrump(Card card, TrumpInfo trumpInfo) {
+        Rank rank = card.getRank();
+        return rank == Rank.BIG_JOKER || rank == Rank.SMALL_JOKER
+            || rank == Rank.TWO || rank == trumpInfo.getTrumpRank();
     }
 
     protected boolean isPartnerWinning(Player player, GameEngine engine) {

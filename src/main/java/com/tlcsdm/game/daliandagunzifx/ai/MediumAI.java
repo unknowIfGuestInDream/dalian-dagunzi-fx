@@ -175,8 +175,12 @@ public class MediumAI implements AIStrategy {
 
         boolean partnerWinning = easyAI.isPartnerWinning(player, engine);
 
-        // Sort suit cards by strength ascending (weakest first)
-        suitCards.sort(Comparator.comparingInt(trumpInfo::getCardStrength));
+        // 跟花色牌按强度升序，但保留特殊主牌
+        suitCards.sort(Comparator.comparingInt(c -> {
+            int strength = trumpInfo.getCardStrength(c);
+            if (easyAI.isSpecialTrump(c, trumpInfo)) return strength + 10000;
+            return strength;
+        }));
         // Sort other cards: non-point weakest first
         otherCards.sort(Comparator.comparingInt(c -> {
             int base = trumpInfo.getCardStrength(c);
@@ -194,26 +198,33 @@ public class MediumAI implements AIStrategy {
         // Fill with other cards if not enough suit cards
         if (result.size() < requiredCount) {
             if (partnerWinning) {
-                // Dump point cards when partner is winning
+                // 队友赢时优先垫非主牌分牌
                 otherCards.sort(Comparator.comparingInt((Card c) -> c.getPoints()).reversed()
                     .thenComparingInt(trumpInfo::getCardStrength));
                 for (Card card : otherCards) {
                     if (result.size() >= requiredCount) break;
                     result.add(card);
                 }
+                // 非主牌不够再用主牌
+                for (Card card : trumpCards) {
+                    if (result.size() >= requiredCount) break;
+                    result.add(card);
+                }
             } else {
+                // 优先垫非主牌
+                for (Card card : otherCards) {
+                    if (result.size() >= requiredCount) break;
+                    result.add(card);
+                }
                 // Use low trump if available and worth it
                 int trickPoints = calculateCurrentTrickPoints(engine);
                 if (!trumpCards.isEmpty() && trickPoints >= 10) {
                     for (Card card : trumpCards) {
                         if (result.size() >= requiredCount) break;
-                        result.add(card);
+                        if (!result.contains(card)) {
+                            result.add(card);
+                        }
                     }
-                }
-                // Fill remaining with weakest non-trump non-point cards
-                for (Card card : otherCards) {
-                    if (result.size() >= requiredCount) break;
-                    result.add(card);
                 }
                 // If still not enough, use trump
                 for (Card card : trumpCards) {
@@ -235,19 +246,31 @@ public class MediumAI implements AIStrategy {
 
         // Partition cards by effective suit
         Map<Suit, List<Card>> suitCards = new EnumMap<>(Suit.class);
+        List<Card> trumpCards = new ArrayList<>();
         for (Card card : validCards) {
             Suit effective = trumpInfo.getEffectiveSuit(card);
             if (effective != null) {
                 suitCards.computeIfAbsent(effective, k -> new ArrayList<>()).add(card);
+            } else {
+                trumpCards.add(card);
+            }
+        }
+
+        // 1. 任何花色有A优先安全领出
+        for (Map.Entry<Suit, List<Card>> entry : suitCards.entrySet()) {
+            for (Card card : entry.getValue()) {
+                if (card.getRank() == Rank.ACE) return card;
             }
         }
 
         // Score each suit considering tracked void information
+        // 同时考虑短套策略（制造缺门）
         Suit bestSuit = null;
         int bestScore = -1;
         for (Map.Entry<Suit, List<Card>> entry : suitCards.entrySet()) {
             Suit suit = entry.getKey();
-            int score = entry.getValue().size() * 10;
+            int size = entry.getValue().size();
+            int score = size * 10;
             // Bonus if opponents are void (they can't follow suit)
             if (cardTracker.isVoid(opp1, suit)) score += 20;
             if (cardTracker.isVoid(opp3, suit)) score += 20;
@@ -255,6 +278,8 @@ public class MediumAI implements AIStrategy {
             if (cardTracker.isVoid(partnerIndex, suit)) score -= 30;
             // Prefer suits with fewer remaining cards (easier to exhaust)
             score += Math.max(0, 26 - cardTracker.getRemainingCount(suit));
+            // 短套加分：1-2张的短套有制造缺门价值
+            if (size <= 2) score += 15;
             if (score > bestScore) {
                 bestScore = score;
                 bestSuit = suit;
@@ -263,10 +288,6 @@ public class MediumAI implements AIStrategy {
 
         if (bestSuit != null) {
             List<Card> cards = suitCards.get(bestSuit);
-            // 只有A明确最大，可以安全领出
-            for (Card card : cards) {
-                if (card.getRank() == Rank.ACE) return card;
-            }
             // 优先选非分牌(避免主动送10/K/5)
             Optional<Card> nonPointLead = cards.stream()
                 .filter(c -> c.getPoints() == 0)
@@ -277,7 +298,15 @@ public class MediumAI implements AIStrategy {
                 .orElse(validCards.get(0));
         }
 
-        // Only trump cards remain, play lowest
+        // 只剩主牌，优先出非特殊的小主牌
+        List<Card> nonSpecialTrump = trumpCards.stream()
+            .filter(c -> !easyAI.isSpecialTrump(c, trumpInfo))
+            .collect(Collectors.toList());
+        if (!nonSpecialTrump.isEmpty()) {
+            return nonSpecialTrump.stream()
+                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
+                .orElse(nonSpecialTrump.get(0));
+        }
         return validCards.stream()
             .min(Comparator.comparingInt(trumpInfo::getCardStrength))
             .orElse(validCards.get(0));
@@ -290,6 +319,7 @@ public class MediumAI implements AIStrategy {
 
         List<Card> suitCards = new ArrayList<>();
         List<Card> trumpCards = new ArrayList<>();
+        List<Card> nonTrumpCards = new ArrayList<>();
 
         for (Card card : validCards) {
             Suit effective = trumpInfo.getEffectiveSuit(card);
@@ -297,6 +327,8 @@ public class MediumAI implements AIStrategy {
                 suitCards.add(card);
             } else if (trumpInfo.isTrump(card)) {
                 trumpCards.add(card);
+            } else {
+                nonTrumpCards.add(card);
             }
         }
 
@@ -322,18 +354,21 @@ public class MediumAI implements AIStrategy {
                     }
                 }
                 if (bestTrump != null) return bestTrump;
-                // Can't beat current winner, play lowest trump
-                return trumpCards.stream()
-                    .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-                    .orElse(trumpCards.get(0));
             }
         }
 
-        // Partner winning: dump point cards when safe
+        // 队友赢时给非主牌分牌，避免浪费主牌
         if (partnerWinning) {
+            if (!nonTrumpCards.isEmpty()) {
+                return playPointsIfSafe(nonTrumpCards, trumpInfo);
+            }
             return playPointsIfSafe(validCards, trumpInfo);
         }
 
+        // 优先垫非主牌
+        if (!nonTrumpCards.isEmpty()) {
+            return easyAI.playLow(nonTrumpCards, trumpInfo);
+        }
         return easyAI.playLow(validCards, trumpInfo);
     }
 
