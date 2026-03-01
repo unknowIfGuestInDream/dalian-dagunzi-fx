@@ -299,9 +299,9 @@ public class DaGunZiApp extends Application {
 
         players = new Player[]{
             new Player(0, "你", true),
-            new Player(1, "电脑1", false),
-            new Player(2, "电脑2(搭档)", false),
-            new Player(3, "电脑3", false)
+            new Player(1, "小明", false),
+            new Player(2, "搭档小红", false),
+            new Player(3, "小刚", false)
         };
         cardTracker = new CardTracker();
         aiStrategy = switch (AppSettings.getInstance().getAiLevel()) {
@@ -397,9 +397,9 @@ public class DaGunZiApp extends Application {
     private void startGame() {
         players = new Player[]{
             new Player(0, "你", true),
-            new Player(1, "电脑1", false),
-            new Player(2, "电脑2(搭档)", false),
-            new Player(3, "电脑3", false)
+            new Player(1, "小明", false),
+            new Player(2, "搭档小红", false),
+            new Player(3, "小刚", false)
         };
 
         cardTracker = new CardTracker();
@@ -430,19 +430,19 @@ public class DaGunZiApp extends Application {
         actionPane.setPadding(new Insets(5));
 
         // Top: menu bar + Player 2 (partner)
-        VBox topPlayerPane = createAIPlayerPane("电脑2(搭档)", 2);
+        VBox topPlayerPane = createAIPlayerPane("搭档小红", 2);
         topPlayerPane.setPadding(new Insets(8));
 
         VBox topArea = new VBox();
         topArea.getChildren().addAll(createMenuBar(true), topPlayerPane);
 
         // Left: Player 1
-        VBox leftPlayerPane = createAIPlayerPane("电脑1", 1);
+        VBox leftPlayerPane = createAIPlayerPane("小明", 1);
         leftPlayerPane.setMinWidth(120);
         leftPlayerPane.setPrefWidth(120);
 
         // Right: Player 3 + info panel
-        VBox rightPlayerPane = createAIPlayerPane("电脑3", 3);
+        VBox rightPlayerPane = createAIPlayerPane("小刚", 3);
         buildInfoPanel();
 
         VBox rightSide = new VBox(10);
@@ -679,7 +679,6 @@ public class DaGunZiApp extends Application {
         boolean humanHasBigJoker = engine.playerHasBigJoker(0);
 
         if (isFirstRound && !humanHasBigJoker) {
-            // First round: human has no Big Joker, skip to AI declaration
             statusLabel.setText("第一局需要亮大王定庄，你没有大王，电脑正在考虑...");
             actionPane.getChildren().clear();
             humanPassTrump();
@@ -687,7 +686,6 @@ public class DaGunZiApp extends Application {
         }
 
         if (isFirstRound) {
-            // First round: show "亮王" button with random suit selection
             statusLabel.setText("第一局：你有大王，点击亮王按钮要主（花色随机）");
             actionPane.getChildren().clear();
 
@@ -711,14 +709,59 @@ public class DaGunZiApp extends Application {
             return;
         }
 
-        statusLabel.setText("请选择主牌花色或不叫");
+        // 非首局：所有玩家同时考虑叫主
+        // 先检查AI是否想叫主
+        int aiDeclarer = -1;
+        Suit aiChosenSuit = null;
+        for (int i = 1; i <= 3; i++) {
+            Player p = players[i];
+            Rank trumpRank = engine.getTeamLevels()[p.getTeam()];
+            Suit chosen = aiStrategy.chooseTrumpSuit(p, trumpRank);
+            if (chosen != null) {
+                aiDeclarer = i;
+                aiChosenSuit = chosen;
+                break;
+            }
+        }
 
+        // 检查人类是否能叫主
         Rank humanTrumpRank = engine.getTeamLevels()[players[0].getTeam()];
         Map<Suit, Integer> suitCounts = new EnumMap<>(Suit.class);
         for (Card card : players[0].getHand()) {
             if (card.getRank() == humanTrumpRank && card.getSuit() != null) {
                 suitCounts.merge(card.getSuit(), 1, Integer::sum);
             }
+        }
+        boolean humanCanDeclare = suitCounts.values().stream().anyMatch(c -> c >= 2);
+
+        if (aiDeclarer >= 0 && !humanCanDeclare) {
+            // 只有AI能叫主，直接叫
+            engine.declareTrump(aiDeclarer, aiChosenSuit);
+            statusLabel.setText(players[aiDeclarer].getName() + " 叫了主牌："
+                + aiChosenSuit.getSymbol() + aiChosenSuit.getDisplayName());
+            updateInfoPanel();
+            updateHumanHand();
+            handleAIKitty(aiDeclarer);
+            return;
+        }
+
+        if (!humanCanDeclare && aiDeclarer < 0) {
+            // 无人能叫主，从底牌确定
+            actionPane.getChildren().clear();
+            declareTrumpFromKittyWithDelay();
+            return;
+        }
+
+        // 人类和/或AI都能叫主，显示选择界面
+        final int pendingAiDeclarer = aiDeclarer;
+        final Suit pendingAiSuit = aiChosenSuit;
+
+        if (aiDeclarer >= 0) {
+            statusLabel.setText(players[aiDeclarer].getName() + " 想叫 "
+                + aiChosenSuit.getSymbol() + aiChosenSuit.getDisplayName()
+                + "，你也可以叫主（抢先叫主）");
+        } else {
+            statusLabel.setText("请选择主牌花色或不叫");
         }
 
         actionPane.getChildren().clear();
@@ -737,7 +780,21 @@ public class DaGunZiApp extends Application {
         Button passBtn = new Button("不叫");
         passBtn.setStyle("-fx-font-size: 14px; -fx-padding: 8 16; "
             + "-fx-background-color: #888888; -fx-text-fill: white;");
-        passBtn.setOnAction(e -> humanPassTrump());
+        passBtn.setOnAction(e -> {
+            actionPane.getChildren().clear();
+            if (pendingAiDeclarer >= 0) {
+                // AI叫主
+                engine.declareTrump(pendingAiDeclarer, pendingAiSuit);
+                statusLabel.setText(players[pendingAiDeclarer].getName() + " 叫了主牌："
+                    + pendingAiSuit.getSymbol() + pendingAiSuit.getDisplayName());
+                updateInfoPanel();
+                updateHumanHand();
+                handleAIKitty(pendingAiDeclarer);
+            } else {
+                // 无人叫主，从底牌确定
+                declareTrumpFromKittyWithDelay();
+            }
+        });
         actionPane.getChildren().add(passBtn);
     }
 
@@ -752,7 +809,6 @@ public class DaGunZiApp extends Application {
     private void humanPassTrump() {
         actionPane.getChildren().clear();
         statusLabel.setText("你选择了不叫，电脑正在考虑...");
-        boolean isFirstRound = engine.isFirstRound();
 
         Timeline timeline = new Timeline();
         boolean[] declared = {false};
@@ -763,69 +819,51 @@ public class DaGunZiApp extends Application {
                 if (declared[0]) return;
                 Player p = players[idx];
 
-                if (isFirstRound) {
-                    // First round: only players with Big Joker can declare with random suit
-                    if (!engine.playerHasBigJoker(idx)) {
-                        statusLabel.setText(p.getName() + " 没有大王，不叫");
-                        return;
-                    }
-                    // Declare with random suit
-                    declared[0] = true;
-                    Suit randomSuit = engine.declareTrumpRandomSuit(idx);
-                    statusLabel.setText(p.getName() + " 亮王定庄，随机主牌："
-                        + randomSuit.getSymbol() + randomSuit.getDisplayName());
-                    updateInfoPanel();
-                    updateHumanHand();
-                    handleAIKitty(idx);
+                // 第一局：只有有大王的玩家才能亮王
+                if (!engine.playerHasBigJoker(idx)) {
+                    statusLabel.setText(p.getName() + " 没有大王，不叫");
                     return;
                 }
-
-                Rank trumpRank = engine.getTeamLevels()[p.getTeam()];
-                Suit chosenSuit = aiStrategy.chooseTrumpSuit(p, trumpRank);
-                if (chosenSuit != null) {
-                    declared[0] = true;
-                    engine.declareTrump(idx, chosenSuit);
-                    statusLabel.setText(p.getName() + " 叫了主牌："
-                        + chosenSuit.getSymbol() + chosenSuit.getDisplayName());
-                    updateInfoPanel();
-                    updateHumanHand();
-                    handleAIKitty(idx);
-                } else {
-                    statusLabel.setText(p.getName() + " 不叫");
-                }
+                declared[0] = true;
+                Suit randomSuit = engine.declareTrumpRandomSuit(idx);
+                statusLabel.setText(p.getName() + " 亮王定庄，随机主牌："
+                    + randomSuit.getSymbol() + randomSuit.getDisplayName());
+                updateInfoPanel();
+                updateHumanHand();
+                handleAIKitty(idx);
             });
             timeline.getKeyFrames().add(kf);
         }
 
-        // If nobody declared after all AIs tried
+        // 无人亮王，从底牌确定主牌花色
         KeyFrame finalKf = new KeyFrame(Duration.millis(2000), e -> {
             if (!declared[0]) {
-                if (isFirstRound) {
-                    // First round fallback: determine trump from kitty
-                    statusLabel.setText("无人叫牌，从底牌确定主牌花色...");
-                    Timeline kittyDelay = new Timeline(new KeyFrame(Duration.millis(1000), ev -> {
-                        int newDealer = engine.declareTrumpFromKitty();
-                        TrumpInfo ti = engine.getTrumpInfo();
-                        statusLabel.setText("底牌确定主牌：" + ti.getTrumpSuit().getSymbol()
-                            + ti.getTrumpSuit().getDisplayName() + "，庄家：" + players[newDealer].getName());
-                        updateInfoPanel();
-                        updateHumanHand();
-                        if (newDealer == 0) {
-                            beginKittySelection();
-                        } else {
-                            handleAIKitty(newDealer);
-                        }
-                    }));
-                    kittyDelay.play();
-                } else {
-                    statusLabel.setText("无人叫牌，重新发牌...");
-                    Timeline redeal = new Timeline(new KeyFrame(Duration.millis(1500), ev -> startNewRound()));
-                    redeal.play();
-                }
+                declareTrumpFromKittyWithDelay();
             }
         });
         timeline.getKeyFrames().add(finalKf);
         timeline.play();
+    }
+
+    /**
+     * 从底牌确定主牌花色（延迟后执行）。
+     */
+    private void declareTrumpFromKittyWithDelay() {
+        statusLabel.setText("无人叫牌，从底牌确定主牌花色...");
+        Timeline kittyDelay = new Timeline(new KeyFrame(Duration.millis(1000), ev -> {
+            int newDealer = engine.declareTrumpFromKitty();
+            TrumpInfo ti = engine.getTrumpInfo();
+            statusLabel.setText("底牌确定主牌：" + ti.getTrumpSuit().getSymbol()
+                + ti.getTrumpSuit().getDisplayName() + "，庄家：" + players[newDealer].getName());
+            updateInfoPanel();
+            updateHumanHand();
+            if (newDealer == 0) {
+                beginKittySelection();
+            } else {
+                handleAIKitty(newDealer);
+            }
+        }));
+        kittyDelay.play();
     }
 
     // ======================== Kitty Management ========================

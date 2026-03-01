@@ -347,20 +347,23 @@ public class MediumAI implements AIStrategy {
                 .orElse(suitCards.get(0));
         }
 
-        // Try to win with the minimum card that beats the current winner
-        int currentWinStrength = getCurrentWinningStrength(engine);
-        Card bestWinner = null;
-        for (Card card : suitCards) {
-            int strength = trumpInfo.getCardStrength(card);
-            if (strength > currentWinStrength) {
-                if (bestWinner == null || strength < trumpInfo.getCardStrength(bestWinner)) {
-                    bestWinner = card;
+        // 只在有分值得争的时候才尝试压牌
+        int trickPoints = calculateCurrentTrickPoints(engine);
+        if (trickPoints > 0) {
+            int currentWinStrength = getCurrentWinningStrength(engine);
+            Card bestWinner = null;
+            for (Card card : suitCards) {
+                int strength = trumpInfo.getCardStrength(card);
+                if (strength > currentWinStrength) {
+                    if (bestWinner == null || strength < trumpInfo.getCardStrength(bestWinner)) {
+                        bestWinner = card;
+                    }
                 }
             }
+            if (bestWinner != null) return bestWinner;
         }
-        if (bestWinner != null) return bestWinner;
 
-        // Can't win, play lowest
+        // 无分或赢不了，出最小
         return suitCards.stream()
             .min(Comparator.comparingInt(trumpInfo::getCardStrength))
             .orElse(suitCards.get(0));
