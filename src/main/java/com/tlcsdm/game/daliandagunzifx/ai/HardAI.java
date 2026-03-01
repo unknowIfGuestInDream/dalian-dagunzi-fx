@@ -82,8 +82,8 @@ public class HardAI implements AIStrategy {
             boolean partnerWinning = rolloutAI.isPartnerWinning(player, engine);
 
             if (partnerWinning) {
-                // 队友赢时，直接出最小牌
-                return rolloutAI.playLow(validCards, trumpInfo);
+                // 队友赢时，优先给分牌
+                return rolloutAI.playPointsForPartner(validCards, trumpInfo);
             }
 
             int trickPoints = rolloutAI.calculateCurrentTrickPoints(engine);

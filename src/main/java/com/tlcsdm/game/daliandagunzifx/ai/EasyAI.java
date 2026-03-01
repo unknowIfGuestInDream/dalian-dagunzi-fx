@@ -290,10 +290,8 @@ public class EasyAI implements AIStrategy {
         if (!suitCards.isEmpty()) {
             boolean partnerWinning = isPartnerWinning(player, engine);
             if (partnerWinning) {
-                // 队友赢时，出最小的牌
-                return suitCards.stream()
-                    .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-                    .orElse(suitCards.get(0));
+                // 队友赢时，优先给分牌
+                return playPointsForPartner(suitCards, trumpInfo);
             }
             // 队友没赢，看看这墩是否有分值得争
             int trickPoints = calculateCurrentTrickPoints(engine);
@@ -321,7 +319,7 @@ public class EasyAI implements AIStrategy {
         boolean partnerWinning = isPartnerWinning(player, engine);
 
         if (partnerWinning) {
-            return playLow(validCards, trumpInfo);
+            return playPointsForPartner(validCards, trumpInfo);
         }
 
         // 队友没赢，考虑是否值得用主牌
@@ -407,6 +405,20 @@ public class EasyAI implements AIStrategy {
         return target.stream()
             .min(Comparator.comparingInt(trumpInfo::getCardStrength))
             .orElse(cards.get(0));
+    }
+
+    /**
+     * 队友赢时优先给分牌（5/10/K），让队友带走更多分数。
+     * 优先出分值最高的牌（K/10 > 5），无分牌时出最小。
+     */
+    protected Card playPointsForPartner(List<Card> cards, TrumpInfo trumpInfo) {
+        // 优先出分值最高的牌，无分牌时出最小
+        return cards.stream()
+            .filter(c -> c.getPoints() > 0)
+            .max(Comparator.comparingInt(Card::getPoints))
+            .orElseGet(() -> cards.stream()
+                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
+                .orElse(cards.get(0)));
     }
 
     protected boolean isPartnerWinning(Player player, GameEngine engine) {

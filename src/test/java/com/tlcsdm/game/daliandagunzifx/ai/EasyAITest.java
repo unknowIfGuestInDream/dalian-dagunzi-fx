@@ -173,4 +173,28 @@ class EasyAITest {
         assertEquals(Rank.JACK, chosen.getRank(),
             "AI不应该主动出K(分牌)，应该选非分牌J");
     }
+
+    @Test
+    void testPlayPointsForPartnerPrefersHighestPoints() {
+        EasyAI ai = new EasyAI();
+        com.tlcsdm.game.daliandagunzifx.engine.TrumpInfo trumpInfo =
+            new com.tlcsdm.game.daliandagunzifx.engine.TrumpInfo(Suit.HEART, Rank.THREE);
+
+        // K(10分), 10(10分), 5(5分), J(0分)
+        Card spadeK = new Card(Suit.SPADE, Rank.KING, 800);
+        Card spade10 = new Card(Suit.SPADE, Rank.TEN, 801);
+        Card spade5 = new Card(Suit.SPADE, Rank.FIVE, 802);
+        Card spadeJ = new Card(Suit.SPADE, Rank.JACK, 803);
+
+        // 有分牌时，应该返回分值最高的牌（K或10，都是10分）
+        Card chosen = ai.playPointsForPartner(List.of(spadeJ, spade5, spade10, spadeK), trumpInfo);
+        assertTrue(chosen.getPoints() == 10,
+            "队友赢时应优先出分值最高的牌(K/10=10分)，实际出了: " + chosen.getRank());
+
+        // 只有非分牌时，应该返回最小的牌
+        Card chosenNoPoints = ai.playPointsForPartner(List.of(spadeJ,
+            new Card(Suit.SPADE, Rank.QUEEN, 804)), trumpInfo);
+        assertEquals(Rank.JACK, chosenNoPoints.getRank(),
+            "无分牌时应出最小的牌");
+    }
 }

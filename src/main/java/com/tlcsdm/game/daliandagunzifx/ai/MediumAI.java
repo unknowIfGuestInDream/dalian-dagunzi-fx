@@ -342,9 +342,8 @@ public class MediumAI implements AIStrategy {
         boolean partnerWinning = easyAI.isPartnerWinning(player, engine);
 
         if (partnerWinning) {
-            return suitCards.stream()
-                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-                .orElse(suitCards.get(0));
+            // 队友赢时，优先给分牌
+            return easyAI.playPointsForPartner(suitCards, trumpInfo);
         }
 
         // 只在有分值得争的时候才尝试压牌
