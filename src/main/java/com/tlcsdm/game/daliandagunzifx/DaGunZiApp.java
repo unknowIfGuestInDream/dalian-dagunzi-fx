@@ -41,6 +41,7 @@ import com.tlcsdm.game.daliandagunzifx.model.Card;
 import com.tlcsdm.game.daliandagunzifx.model.Rank;
 import com.tlcsdm.game.daliandagunzifx.model.Suit;
 import com.tlcsdm.game.daliandagunzifx.tracker.CardTracker;
+import com.tlcsdm.game.daliandagunzifx.utils.UpdateChecker;
 
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
@@ -62,10 +63,12 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.Separator;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
@@ -161,6 +164,8 @@ public class DaGunZiApp extends Application {
 
         showWelcomeScreen();
         stage.show();
+
+        checkForUpdateOnStartup();
     }
 
     /**
@@ -228,11 +233,15 @@ public class DaGunZiApp extends Application {
         // --- About menu ---
         Menu helpMenu = new Menu("帮助");
 
+        MenuItem checkUpdateItem = new MenuItem("检查更新");
+        checkUpdateItem.setGraphic(new FontIcon(Material.SYSTEM_UPDATE));
+        checkUpdateItem.setOnAction(e -> checkForUpdateManually());
+
         MenuItem aboutItem = new MenuItem("关于");
         aboutItem.setGraphic(new FontIcon(Material.INFO_OUTLINE));
         aboutItem.setOnAction(e -> showAboutDialog());
 
-        helpMenu.getItems().add(aboutItem);
+        helpMenu.getItems().addAll(checkUpdateItem, aboutItem);
 
         menuBar.getMenus().addAll(settingsMenu, rulesMenu, helpMenu);
         return menuBar;
@@ -259,6 +268,90 @@ public class DaGunZiApp extends Application {
         content.getChildren().addAll(versionLabel, descLabel);
         alert.getDialogPane().setContent(content);
         alert.getDialogPane().setPrefWidth(400);
+        alert.showAndWait();
+    }
+
+    private void checkForUpdateOnStartup() {
+        if (!AppSettings.getInstance().isCheckUpdateEnabled()) {
+            return;
+        }
+        if (UpdateChecker.hasCheckedToday()) {
+            return;
+        }
+        Thread.ofVirtual().name("update-checker").start(() -> {
+            UpdateChecker.UpdateInfo info = UpdateChecker.checkForUpdate(APP_VERSION);
+            UpdateChecker.markCheckedToday();
+            if (info != null) {
+                Platform.runLater(() -> showUpdateDialog(info));
+            }
+        });
+    }
+
+    private void checkForUpdateManually() {
+        Alert checking = new Alert(Alert.AlertType.INFORMATION);
+        checking.setTitle("检查更新");
+        checking.setHeaderText(null);
+        checking.setContentText("正在检查更新...");
+        checking.getDialogPane().lookupButton(ButtonType.OK).setDisable(true);
+        Stage checkingStage = (Stage) checking.getDialogPane().getScene().getWindow();
+        checkingStage.getIcons().add(createAppIcon());
+
+        ProgressIndicator progress = new ProgressIndicator();
+        progress.setMaxSize(40, 40);
+        checking.setGraphic(progress);
+        checking.show();
+
+        Thread.ofVirtual().name("update-checker-manual").start(() -> {
+            UpdateChecker.UpdateInfo info = UpdateChecker.checkForUpdate(APP_VERSION);
+            UpdateChecker.markCheckedToday();
+            Platform.runLater(() -> {
+                checking.close();
+                if (info != null) {
+                    showUpdateDialog(info);
+                } else {
+                    Alert upToDate = new Alert(Alert.AlertType.INFORMATION);
+                    upToDate.setTitle("检查更新");
+                    upToDate.setHeaderText(null);
+                    upToDate.setContentText("当前已是最新版本（" + APP_VERSION + "）");
+                    Stage upToDateStage = (Stage) upToDate.getDialogPane().getScene().getWindow();
+                    upToDateStage.getIcons().add(createAppIcon());
+                    upToDate.showAndWait();
+                }
+            });
+        });
+    }
+
+    private void showUpdateDialog(UpdateChecker.UpdateInfo info) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("发现新版本");
+        alert.setHeaderText("新版本 v" + info.latestVersion() + " 可用！");
+
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(10, 0, 0, 0));
+
+        Label currentLabel = new Label("当前版本：" + APP_VERSION);
+        Label newLabel = new Label("最新版本：" + info.latestVersion());
+
+        content.getChildren().addAll(currentLabel, newLabel);
+
+        String notes = info.releaseNotes();
+        if (notes != null && !notes.isBlank()) {
+            Label notesHeader = new Label("更新说明：");
+            notesHeader.setStyle("-fx-font-weight: bold;");
+            Label notesLabel = new Label(notes.length() > 500 ? notes.substring(0, 500) + "..." : notes);
+            notesLabel.setWrapText(true);
+            notesLabel.setMaxWidth(400);
+            content.getChildren().addAll(notesHeader, notesLabel);
+        }
+
+        Hyperlink downloadLink = new Hyperlink("前往下载页面");
+        downloadLink.setOnAction(e -> getHostServices().showDocument(info.downloadUrl()));
+        content.getChildren().add(downloadLink);
+
+        alert.getDialogPane().setContent(content);
+        alert.getDialogPane().setPrefWidth(450);
+        Stage alertStage = (Stage) alert.getDialogPane().getScene().getWindow();
+        alertStage.getIcons().add(createAppIcon());
         alert.showAndWait();
     }
 

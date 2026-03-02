@@ -54,10 +54,12 @@ public final class AppSettings {
     private static final String PREF_DARK_THEME = "darkTheme";
     private static final String PREF_TRACKER_ENABLED = "trackerEnabled";
     private static final String PREF_AI_LEVEL = "aiLevel";
+    private static final String PREF_CHECK_UPDATE = "checkUpdateEnabled";
 
     private final BooleanProperty darkThemeProperty;
     private final BooleanProperty trackerEnabledProperty;
     private final ObjectProperty<AILevel> aiLevelProperty;
+    private final BooleanProperty checkUpdateEnabledProperty;
 
     private PreferencesFx preferencesFx;
 
@@ -82,6 +84,8 @@ public final class AppSettings {
             level = AILevel.MEDIUM;
         }
         aiLevelProperty = new SimpleObjectProperty<>(level);
+        checkUpdateEnabledProperty = new SimpleBooleanProperty(
+            PREFS != null ? PREFS.getBoolean(PREF_CHECK_UPDATE, true) : true);
 
         darkThemeProperty.addListener((obs, oldVal, newVal) -> {
             if (PREFS != null) {
@@ -96,6 +100,11 @@ public final class AppSettings {
         aiLevelProperty.addListener((obs, oldVal, newVal) -> {
             if (newVal != null && PREFS != null) {
                 PREFS.put(PREF_AI_LEVEL, newVal.name());
+            }
+        });
+        checkUpdateEnabledProperty.addListener((obs, oldVal, newVal) -> {
+            if (PREFS != null) {
+                PREFS.putBoolean(PREF_CHECK_UPDATE, newVal);
             }
         });
     }
@@ -128,6 +137,14 @@ public final class AppSettings {
         return aiLevelProperty.get();
     }
 
+    public BooleanProperty checkUpdateEnabledProperty() {
+        return checkUpdateEnabledProperty;
+    }
+
+    public boolean isCheckUpdateEnabled() {
+        return checkUpdateEnabledProperty.get();
+    }
+
     /**
      * Get the PreferencesFx instance. Creates it on first call.
      */
@@ -149,6 +166,9 @@ public final class AppSettings {
                     Setting.of("AI难度",
                         FXCollections.observableArrayList(Arrays.asList(AILevel.values())),
                         aiLevelProperty)
+                ),
+                Group.of("更新",
+                    Setting.of("启动时检查更新", checkUpdateEnabledProperty)
                 )
             )
         ).persistWindowState(false)
