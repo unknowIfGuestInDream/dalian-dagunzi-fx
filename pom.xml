@@ -156,6 +156,18 @@
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.kordamp.ikonli</groupId>
+                    <artifactId>ikonli-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.kordamp.ikonli</groupId>
+                    <artifactId>ikonli-javafx</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.kordamp.ikonli</groupId>
+                    <artifactId>ikonli-material-pack</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
