@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 unknowIfGuestInDream.
+ * Copyright (c) 2026 unknowIfGuestInDream.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
