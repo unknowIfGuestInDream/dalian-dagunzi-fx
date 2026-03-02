@@ -1,0 +1,7 @@
+{
+    // 如果你希望修改 pom.xml 后自动更新而不再弹窗烦人，可以改为 "automatic"
+    "java.configuration.updateBuildConfiguration": "automatic",
+    
+    // 优化后的 JVM 参数 (JDK 21使用 ZGC)
+    "java.jdt.ls.vmargs": "-XX:+UseZGC -XX:+ZGenerational -Dsun.zip.disableMemoryMapping=true -Xmx2G -Xms521m -Xlog:disable"
+}
