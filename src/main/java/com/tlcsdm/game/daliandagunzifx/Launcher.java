@@ -35,7 +35,7 @@ package com.tlcsdm.game.daliandagunzifx;
  * which prevents the "Missing JavaFX runtime components" error when
  * launching from a classpath-based JAR.
  */
-public class DaGunZiAppLauncher {
+public class Launcher {
 
     public static void main(String[] args) {
         DaGunZiApp.main(args);
