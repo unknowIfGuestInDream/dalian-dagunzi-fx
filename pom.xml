@@ -168,6 +168,7 @@
             <groupId>org.kordamp.ikonli</groupId>
             <artifactId>ikonli-core</artifactId>
             <version>${ikonli.version}</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.kordamp.ikonli</groupId>
