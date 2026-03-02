@@ -1,89 +1,89 @@
-# CONTRIBUTING
+# 贡献指南
 
-We'd be glad for you to contribute to our source code and to make this project better!
+欢迎为本项目贡献代码，让这个项目变得更好！
 
-Feel free to submit a pull request or an issue, but make sure to use the templates
+欢迎提交 Pull Request 或 Issue，但请确保使用相应的模板。
 
-We adopt a series of automation tools to check, contributions not following the conventions may be rejected
+我们采用了一系列自动化工具进行代码检查，不符合规范的贡献可能会被拒绝。
 
-Here are the contributing conventions we'd like you to follow:
+以下是我们希望您遵循的贡献规范：
 
-## Style Guide
+## 代码风格指南
 
-### Commit Message Convention
+### Commit 消息规范
 
-Each commit should contain relatively independent change (that is, a hodgepodge of multiple types of modifications is not allowed to be submitted in one commit), and the specific changes need to be clarified in the message
+每次提交应包含相对独立的变更（即不允许在一次 commit 中混合提交多种类型的修改），并在消息中明确说明具体变更内容。
 
-The commit message conventions of this project mainly refers to the most widely used [AngularJS Git Commit Message Conventions](https://docs.google.com/document/d/1QrDFcIiPjSLDn3EL15IJygNPiHORgU1_OOAqWjiDU5Y/edit#heading=h.uyo6cb12dt6w)
+本项目的 commit 消息规范主要参考广泛使用的 [AngularJS Git Commit Message Conventions](https://docs.google.com/document/d/1QrDFcIiPjSLDn3EL15IJygNPiHORgU1_OOAqWjiDU5Y/edit#heading=h.uyo6cb12dt6w)。
 
-Here is the message format:
+消息格式如下：
 
-> `<type>(<scope>): <subject>`
+> `<类型>(<范围>): <主题>`
 >
-> // blank line
+> // 空行
 >
-> `<body>`
+> `<正文>`
 >
-> // blank line
+> // 空行
 >
-> `<footer>`
+> `<页脚>`
 
-The `<header>` section(the first line) is mandatory for any project. The `<body>` section and `<footer>` section are optional according to the actual situation
+`<头部>`（第一行）对任何项目都是必填项。`<正文>` 和 `<页脚>` 可根据实际情况选填。
 
-A blank line is required between sections
+各部分之间必须有一个空行。
 
-Also, the `<header>` section(only contains one line) cannot be longer than 50 characters and any line of the `<body>` section cannot be longer than 72 characters
+此外，`<头部>`（仅一行）不得超过 50 个字符，`<正文>` 中每行不得超过 72 个字符。
 
-This allows the commit message to be easier to read on GitHub as well as in various git tools.
+这样可以使 commit 消息在 GitHub 及各种 Git 工具中更易于阅读。
 
-#### About `<header>` Section
+#### 关于 `<头部>` 部分
 
-The `<header>` section only contains one line and three fields(`<type>`, `<scope>` and `<subject>`) need to meet the requirements:
+`<头部>` 仅包含一行，其中三个字段（`<类型>`、`<范围>` 和 `<主题>`）需满足以下要求：
 
-The `type` field mainly explains the type of the commit. Only the following 9 types are allowed to be used in `AngularJS Git Commit Message Conventions`:
+`类型` 字段主要说明本次提交的类型。在 `AngularJS Git Commit Message Conventions` 中，仅允许使用以下 9 种类型：
 
-- feat: A new feature
-- fix: A bug fix
-- docs: Documentation only changes
-- style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
-- refactor: A code change that neither fixes a bug nor adds a feature
-- perf: A code change that improves performance
-- test: Adding missing or correcting existing tests
-- chore: Changes to the build process or auxiliary tools and libraries such as documentation generation
-- revert: If the commit reverts a previous commit, it should be followed by the `<header>`of the reverted commit and in the body it should say: `This reverts commit <hash>.`, where the hash is the SHA of the commit being reverted
+- feat：新功能
+- fix：Bug 修复
+- docs：仅修改文档
+- style：不影响代码含义的变更（空格、格式化、缺少分号等）
+- refactor：既不修复 Bug 也不新增功能的代码重构
+- perf：提升性能的代码变更
+- test：添加缺失的测试或修正现有测试
+- chore：对构建流程或辅助工具及库（如文档生成）的变更
+- revert：如果本次 commit 撤销了之前的提交，应跟上被撤销 commit 的 `<头部>`，正文中注明：`This reverts commit <hash>.`，其中 hash 为被撤销 commit 的 SHA
 
-For this project, the following 2 types can also be used if necessary:
+对于本项目，必要时还可使用以下 2 种类型：
 
-- build: Changes to the build tools or dependencies (webpack, npm, etc)
-- ci: Changes to Continuous Integration
+- build：构建工具或依赖项的变更（webpack、npm 等）
+- ci：持续集成相关的变更
 
-If a commit is related to multiple `<type>`, use `feat` and `fix` in priority, followed by the remaining seven types specified in `AngularJS Git Commit Message Conventions`, and the remaining two are for special needs
+如果一次提交涉及多种 `<类型>`，优先使用 `feat` 和 `fix`，其次为 `AngularJS Git Commit Message Conventions` 中规定的其余七种类型，最后两种仅用于特殊需求。
 
-The `<scope>` section mainly describes the influence scope of this commit, usually file, path or functionality. For example, name of modified file can be filled in this section (Module name of project name can be used if multiple files are modified), and feature influenced can be filled in this section. If it is a global influence, character `*` can be used
+`<范围>` 主要描述本次提交的影响范围，通常为文件、路径或功能。例如，可填写修改的文件名（若修改了多个文件，可使用模块名或项目名），也可填写受影响的功能。若为全局影响，可使用字符 `*`。
 
-The `<subject>` section mainly summarizes the purpose and changes of this commit. It should begin with verb and use the imperative, present tense. The first letter should be lowercase and have no dot(.) at the end
+`<主题>` 主要概括本次提交的目的和变更内容，应以动词开头，使用祈使句、现在时态，首字母小写，结尾不加句点（.）。
 
-#### About `<body>` Section
+#### 关于 `<正文>` 部分
 
-The `<body>` section is the text section, which contains the detailed description of this commit. It should use the imperative, present tense
+`<正文>` 为文本部分，包含本次提交的详细说明，应使用祈使句、现在时态。
 
-This section can be bypassed if the `<header>` section is enough to summarize the entire change of this commit
+如果 `<头部>` 已足以概括本次提交的全部变更，可省略此部分。
 
-It is recommended to use the dashes(-) to create an unordered list, and it should explain what problem this commit solves, how to solve it, and whether other changes have been introduced (such as necessary document updates, etc.)
+建议使用短横线（-）创建无序列表，说明本次提交解决了什么问题、如何解决，以及是否引入了其他变更（如必要的文档更新等）。
 
-#### About `<footer>` Section
+#### 关于 `<页脚>` 部分
 
-The `<footer>` section is bypassed except 2 situations:
+`<页脚>` 通常可省略，仅在以下 2 种情况下使用：
 
-One is breaking change, that is, the current version is not compatible with the previous version. It should start with the word `BREAKING CHANGE:` with a space or two newlines. The rest of the breaking change block is then the description of the change, justification and migration notes.
+一是破坏性变更，即当前版本与上一版本不兼容。应以 `BREAKING CHANGE:` 开头，后跟一个空格或两个换行符，其余内容为变更描述、理由和迁移说明。
 
-The other is to reference GitHub issues that this commit closes. Use format `Closes #123, #456` to close one or more issues
+二是关联本次提交关闭的 GitHub Issues。使用 `Closes #123, #456` 格式来关闭一个或多个 Issue。
 
-#### Commit Message Examples
+#### Commit 消息示例
 
-Here are some examples of commit message:
+以下是一些 commit 消息示例：
 
-> For example, if a new feature is to add a option for round contributor's avatar, the commit message can be written as:
+> 例如，若新功能是为贡献者头像添加圆形选项，commit 消息可以写成：
 
 ```text
 feat(contributor): add a option for round avatar
@@ -95,7 +95,7 @@ feat(contributor): add a option for round avatar
 Closes #123
 ```
 
-> If a new documentation of linux command ls is added, the commit message can be written as:
+> 若新增了 Linux 命令 ls 的文档，commit 消息可以写成：
 
 ```text
 docs(command): add linux command ls
@@ -107,7 +107,7 @@ docs(command): add linux command ls
 - plan to add descriptions in the future
 ```
 
-> If it fixes a typo found in the documentation ls.md, the commit message can be written as:
+> 若修复了文档 ls.md 中的一个错别字，commit 消息可以写成：
 
 ```text
 docs(ls.md): fix a typo
@@ -117,53 +117,53 @@ docs(ls.md): fix a typo
 Closes #456
 ```
 
-### Pull Request Convention
+### Pull Request 规范
 
-> **NOTE**: Use `rebase` method or `pull --rebase` method to update your branch so as to make the commit history clean.
+> **注意**：请使用 `rebase` 或 `pull --rebase` 方式更新您的分支，以保持提交历史的整洁。
 
-The project has configured several automation check tools. Please wait a moment after your Pull Request submitted and deal with some issues according to the comments and details of check tools.
+本项目已配置多个自动化检查工具。提交 Pull Request 后，请稍等片刻，并根据检查工具的评论和详情处理相关问题。
 
-#### Branch Name
+#### 分支命名
 
-You are recommended to submit a Pull Request (PR) from a new branch with a name related to the changes. **Pull Request from master branch may cause trouble to your future work**. This is because when you open a Pull Request from a branch, you can still update the Pull Request by committing and pushing to the branch. And your master branch can be used to track the latest changes.
+建议从一个与变更内容相关的新分支提交 Pull Request（PR）。**从 master 分支提交 PR 可能会给您的后续工作带来麻烦**，因为从分支提交 PR 后，您仍可通过向该分支提交和推送来更新 PR，而 master 分支可用于跟踪最新变更。
 
-As for this project, the branch name of the Pull Request should follow the conventions below:
+对于本项目，PR 的分支命名应遵循以下规范：
 
-- If it is for a new feature, the branch name should begin with `feature/`, followed by the specific feature name, e.g. `feature/md2pdf` for developing a new feature `md2pdf` and `feature/optimize_md2pdf` for optimizing the feature `md2pdf`
-- If it is a bug fix to a feature, the branch name should begin with `fix/`, followed by the fixed feature name, e.g. `fix/yapf` for fixing bug of feature `yapf`
-- If it is only a change to documentation, the branch name should begin with `docs/`, followed by the scope of documentation change, e.g. `docs/usage` for changing the documentation of usage
-- In other cases, please submit an issue to discuss with the maintainer first
+- 新功能分支应以 `feature/` 开头，后跟具体功能名称，例如：开发新功能 `md2pdf` 用 `feature/md2pdf`，优化该功能用 `feature/optimize_md2pdf`
+- Bug 修复分支应以 `fix/` 开头，后跟修复的功能名称，例如：修复 `yapf` 功能的 Bug 用 `fix/yapf`
+- 仅修改文档的分支应以 `docs/` 开头，后跟文档变更范围，例如：修改使用说明文档用 `docs/usage`
+- 其他情况，请先提交 Issue 与维护者讨论
 
-#### Title of Pull Request
+#### Pull Request 标题
 
-The title of the Pull Request should summarize the changes. It should begin with type that represents the changes. Here are some examples:
+PR 标题应概括变更内容，并以表示变更类型的前缀开头。以下是一些示例：
 
-For a new feature, the title should begin with **`feature(<Your-New-Feature>):`**
+新功能的标题应以 **`feature(<您的新功能>):`** 开头
 
-For a bug fix, the title should begin with **`fix(<Your-Bugfix-Feature>)`**
+Bug 修复的标题应以 **`fix(<您修复的功能>)`** 开头
 
-For documentation changes, the title should begin with **`docs(<Your-Documentation-change-scope>)`**
+文档变更的标题应以 **`docs(<您的文档变更范围>)`** 开头
 
-#### Description of Pull Request
+#### Pull Request 描述
 
-Please follow [pull_request_template](.github/PULL_REQUEST_TEMPLATE.md) to describe the changes of the Pull Request so that the reviewers can understand your changes more clearly. This part cannot be empty.
+请遵循 [pull_request_template](.github/PULL_REQUEST_TEMPLATE.md) 来描述 PR 的变更内容，以便审阅者更清楚地了解您的改动，此部分不可为空。
 
-Motivation of this Pull Request(e.g. what problem is solved and what feature is optimized) should be clarified in the description. What feature has been implemented in this Pull Request should be described in details and the technology stack of this feature should also be introduced. Other necessary changes (e.g. relevant documentation update) also need to be declared in the description.
+描述中应说明本次 PR 的动机（例如解决了什么问题、优化了什么功能），详细描述已实现的功能，并介绍所使用的技术栈。还需声明其他必要的变更（如相关文档的更新）。
 
-It is recommended to use `Tasklist` format to describe the steps or technology stack of the changes. Any `draft pull request` is recommended to contain a `Tasklist` in the description and update it when the development progresses.
+建议使用 `任务列表` 格式描述变更步骤或技术栈。所有 `草稿 Pull Request` 建议在描述中包含 `任务列表`，并随开发进展持续更新。
 
-> Following is the Tasklist format:
+> 任务列表格式如下：
 >
-> [x] This is what you have done and how you achieve this.
+> [x] 这是您已完成的内容及实现方式。
 >
-> [ ] This is what you plan to do and how you plan to achieve it.
+> [ ] 这是您计划完成的内容及实现方案。
 
-If this Pull Request fixes a issue, you should use the right format to link it in the description. You can use format like `Resolves: #123` or `Closes: #123` to close that issue when this Pull Request is merged and use format like `Ref: #123` just for reference.
+如果本次 PR 修复了某个 Issue，应在描述中使用正确格式进行关联。可使用 `Resolves: #123` 或 `Closes: #123` 格式，在 PR 合并时自动关闭该 Issue；使用 `Ref: #123` 格式仅作引用。
 
-Besides, please make sure that your Pull Request is not a duplicate to any assigned issue or existing Pull Request. **Screenshots** are needed for changes to html files or css files
+此外，请确保您的 PR 与任何已指派的 Issue 或现有 PR 不重复。**修改 HTML 或 CSS 文件时需附上截图**。
 
-### Language Style
+### 语言风格
 
-Files of different languages should be checked locally according to the following conventions
+不同语言的文件应按照以下规范在本地进行检查。
 
-Commits should be made after all checks pass
+所有检查通过后再进行提交。
