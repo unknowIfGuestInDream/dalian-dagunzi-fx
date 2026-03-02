@@ -61,7 +61,7 @@ if (-not $modules -or $modules.Trim() -eq '') {
     # Fallback: conservative set covering JavaFX, Preferences API, logging,
     # XML processing, and sun.misc.Unsafe access.
     # Derived from module-info.java requires and transitive runtime dependencies.
-    $modules = 'java.base,java.desktop,java.logging,java.management,java.naming,java.prefs,java.xml,jdk.unsupported'
+    $modules = 'java.base,java.desktop,java.logging,java.management,java.naming,java.net.http,java.prefs,java.xml,jdk.unsupported'
     Write-Host "jdeps analysis failed, using fallback modules: $modules" -ForegroundColor Yellow
     if ($jdepsErr) { Write-Host "  Reason: $jdepsErr" -ForegroundColor Yellow }
 } else {
