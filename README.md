@@ -72,6 +72,15 @@ mvn test
 
 # 打包
 mvn package
+
+# 检查源文件 license 头
+mvn license:check
+
+# 添加或更新源文件 license 头
+mvn license:format
+
+# 移除源文件 license 头
+mvn license:remove
 ```
 
 ## 联系方式
