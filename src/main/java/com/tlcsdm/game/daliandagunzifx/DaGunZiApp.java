@@ -111,6 +111,7 @@ public class DaGunZiApp extends Application {
     private static final String DIAMOND_COLOR = "#0066bb";
     private static final String CLUB_COLOR = "#228833";
     private static final String APP_VERSION = "1.0.0";
+    private static final int MAX_RELEASE_NOTES_LENGTH = 500;
     private static final String DEALER_STYLE = "-fx-text-fill: #ffd700; -fx-font-size: 16px; "
         + "-fx-font-weight: bold; -fx-effect: dropshadow(gaussian, #ffd700, 5, 0.5, 0, 0);";
     private static final String DEALER_CURRENT_STYLE = "-fx-text-fill: #ffd700; -fx-font-size: 16px; "
@@ -338,7 +339,8 @@ public class DaGunZiApp extends Application {
         if (notes != null && !notes.isBlank()) {
             Label notesHeader = new Label("更新说明：");
             notesHeader.setStyle("-fx-font-weight: bold;");
-            Label notesLabel = new Label(notes.length() > 500 ? notes.substring(0, 500) + "..." : notes);
+            Label notesLabel = new Label(notes.length() > MAX_RELEASE_NOTES_LENGTH
+                ? notes.substring(0, MAX_RELEASE_NOTES_LENGTH) + "..." : notes);
             notesLabel.setWrapText(true);
             notesLabel.setMaxWidth(400);
             content.getChildren().addAll(notesHeader, notesLabel);

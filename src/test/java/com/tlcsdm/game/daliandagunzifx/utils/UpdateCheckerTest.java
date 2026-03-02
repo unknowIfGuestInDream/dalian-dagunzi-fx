@@ -44,5 +44,6 @@ class UpdateCheckerTest {
     void testIsNewerVersion_invalidFormat() {
         assertFalse(UpdateChecker.isNewerVersion("abc", "1.0.0"));
         assertTrue(UpdateChecker.isNewerVersion("1.0.0", "abc"));
+        assertFalse(UpdateChecker.isNewerVersion("abc", "xyz"));
     }
 }
