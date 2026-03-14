@@ -443,7 +443,7 @@ public class EasyAI implements AIStrategy {
             // 优先使用非特殊主牌
             List<Card> nonSpecialTrumps = trumpCards.stream()
                 .filter(c -> !isSpecialTrump(c, trumpInfo))
-                .collect(Collectors.toList());
+                .toList();
             if (!nonSpecialTrumps.isEmpty()) {
                 return playTrump(player, nonSpecialTrumps, engine);
             }

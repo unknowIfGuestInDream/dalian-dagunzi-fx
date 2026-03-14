@@ -349,7 +349,7 @@ public class MediumAI implements AIStrategy {
                 // 优先使用非特殊主牌杀分
                 List<Card> nonSpecialTrumps = trumpCards.stream()
                     .filter(c -> !easyAI.isSpecialTrump(c, trumpInfo))
-                    .collect(Collectors.toList());
+                    .toList();
                 List<Card> candidates = nonSpecialTrumps.isEmpty() ? trumpCards : nonSpecialTrumps;
                 // Play minimum trump that can win
                 int currentWinStrength = getCurrentWinningStrength(engine);
