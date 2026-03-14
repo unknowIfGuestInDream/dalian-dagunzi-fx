@@ -511,4 +511,84 @@ class GameEngineTest {
         // Player 2 was leader and played Big Joker first
         assertEquals(2, winner, "领出者先出大王应赢");
     }
+
+    // ======================== Step-by-Step Tribute Tests ========================
+
+    @Test
+    void testFindNextTributeGiverInfo() {
+        // 模拟需要进贡的场景
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.SPADE);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // 打完一整局来触发进贡（通过 RoundResult）
+        // 这里直接测试方法本身：当没有进贡需求时返回null
+        assertNull(engine.findNextTributeGiverInfo(),
+            "没有进贡需求时应返回null");
+    }
+
+    @Test
+    void testAutoSelectReturnCard() {
+        engine.startNewRound();
+        // Player 0 手里有各种牌
+        players[0].getHand().clear();
+        Card spadeA = new Card(Suit.SPADE, Rank.ACE, 900);
+        Card club4 = new Card(Suit.CLUB, Rank.FOUR, 901);
+        Card bigJoker = new Card(null, Rank.BIG_JOKER, 902);
+        players[0].addCards(List.of(spadeA, club4, bigJoker));
+
+        // 自动选择回贡牌应选最小的非王牌
+        Card returnCard = engine.autoSelectReturnCard(0);
+        assertNotNull(returnCard);
+        assertNotEquals(Rank.BIG_JOKER, returnCard.getRank(),
+            "自动回贡不应选王牌");
+        assertEquals(Rank.FOUR, returnCard.getRank(),
+            "应选最小的非王牌(♣4)");
+    }
+
+    @Test
+    void testExecuteTributeGiveAndReturn() {
+        engine.startNewRound();
+        // 设置手牌用于测试进贡转移
+        players[0].getHand().clear();
+        players[1].getHand().clear();
+        Card spadeA = new Card(Suit.SPADE, Rank.ACE, 900);
+        Card club4 = new Card(Suit.CLUB, Rank.FOUR, 901);
+        players[0].addCards(List.of(spadeA));
+        players[1].addCards(List.of(club4));
+
+        int p0Size = players[0].getHand().size();
+        int p1Size = players[1].getHand().size();
+
+        // 进贡：P0 给 P1 一张 ♠A
+        engine.executeTributeGive(0, spadeA, 1);
+        assertEquals(p0Size - 1, players[0].getHand().size(), "进贡方应少一张牌");
+        assertEquals(p1Size + 1, players[1].getHand().size(), "接收方应多一张牌");
+        assertTrue(players[1].hasCards(List.of(spadeA)), "接收方应有贡牌");
+
+        // 回贡：P1 还给 P0 一张 ♣4
+        engine.executeTributeReturn(1, club4, 0);
+        assertTrue(players[0].hasCards(List.of(club4)), "进贡方应收到回贡牌");
+        assertFalse(players[1].hasCards(List.of(club4)), "接收方不应再有回贡牌");
+    }
+
+    @Test
+    void testGetTributeCard() {
+        engine.startNewRound();
+        players[0].getHand().clear();
+        Card spadeA = new Card(Suit.SPADE, Rank.ACE, 900);
+        Card club4 = new Card(Suit.CLUB, Rank.FOUR, 901);
+        Card bigJoker = new Card(null, Rank.BIG_JOKER, 902);
+        players[0].addCards(List.of(spadeA, club4, bigJoker));
+
+        Card tributeCard = engine.getTributeCard(0);
+        assertNotNull(tributeCard);
+        // 大王是最大的牌，应该被选为进贡牌
+        assertEquals(Rank.BIG_JOKER, tributeCard.getRank(),
+            "进贡牌应是手中最大的牌（大王）");
+    }
 }

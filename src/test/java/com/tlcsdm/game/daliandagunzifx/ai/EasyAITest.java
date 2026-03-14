@@ -651,4 +651,88 @@ class EasyAITest {
         assertTrue(trumpInfo.isTrump(chosen),
             "非主牌全是分牌时，应用主牌赢墩而非送分给对方。实际出了: " + chosen.getDisplayName());
     }
+
+    @Test
+    void testLeadMultiDoesNotLeadKingBang() {
+        // K是分牌(10分)，AI不应主动领出K棒子（风险太大）
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        Player leader = players[engine.getCurrentPlayerIndex()];
+        leader.getHand().clear();
+        // 只有K棒子和小牌（无A棒子）
+        Card spadeK1 = new Card(Suit.SPADE, Rank.KING, 800);
+        Card spadeK2 = new Card(Suit.SPADE, Rank.KING, 801);
+        Card spade7 = new Card(Suit.SPADE, Rank.SEVEN, 802);
+        leader.addCards(List.of(spadeK1, spadeK2, spade7));
+
+        EasyAI ai = new EasyAI();
+        List<Card> chosen = ai.chooseCards(leader, engine);
+
+        // AI不应主动出K棒子（K是分牌），应该出单牌
+        if (chosen.size() == 2) {
+            PlayType type = engine.determinePlayType(chosen);
+            if (type == PlayType.BANG) {
+                for (Card c : chosen) {
+                    assertNotEquals(Rank.KING, c.getRank(),
+                        "AI不应主动领出K棒子（K是分牌10分，风险太大）");
+                }
+            }
+        }
+    }
+
+    @Test
+    void testMultiCardFillPreservesAce() {
+        // 多牌跟牌时填充非花色牌，应保留A（A是最有价值的单牌）
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0 leads with spade BANG
+        players[0].getHand().clear();
+        Card spade9a = new Card(Suit.SPADE, Rank.NINE, 800);
+        Card spade9b = new Card(Suit.SPADE, Rank.NINE, 801);
+        players[0].addCards(List.of(spade9a, spade9b));
+        engine.playCards(0, List.of(spade9a, spade9b));
+
+        // Player 1 has no spades, has ♣A, ♣4, ♦6 → should play ♣4+♦6 (not A)
+        players[1].getHand().clear();
+        Card clubA = new Card(Suit.CLUB, Rank.ACE, 802);
+        Card club4 = new Card(Suit.CLUB, Rank.FOUR, 803);
+        Card diamond6 = new Card(Suit.DIAMOND, Rank.SIX, 804);
+        players[1].addCards(List.of(clubA, club4, diamond6));
+
+        EasyAI ai = new EasyAI();
+        List<Card> chosen = ai.chooseCards(players[1], engine);
+
+        assertEquals(2, chosen.size(), "应出2张牌跟棒子");
+        // A不应被当作填充牌打出
+        for (Card c : chosen) {
+            assertNotEquals(Rank.ACE, c.getRank(),
+                "多牌填充时应保留A，出最小的非A牌。实际出了: " + c.getDisplayName());
+        }
+    }
 }
