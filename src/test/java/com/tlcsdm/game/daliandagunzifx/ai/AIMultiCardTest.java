@@ -528,12 +528,13 @@ class AIMultiCardTest {
     }
 
     /**
-     * 棒子跟牌规则：出棒子时有同花色棒子，不能拆成散牌出。
+     * 棒子跟牌规则：出棒子时有同花色棒子，也允许出散牌（只需跟花色）。
      * 场景：主牌花色HEART，打3级。Player 0出主牌棒子（♥4对），
-     * Player 1手中有♥7棒子和两张单主牌（♥6, ♥8），应必须出♥7棒子，不能出♥6+♥8散牌。
+     * Player 1手中有♥7棒子和两张单主牌（♥6, ♥8），出♥6+♥8散牌也合法，出♥7棒子也合法。
+     * AI策略上仍然优先出棒子。
      */
     @Test
-    void testBangFollowMustPlayBangWhenAvailable() {
+    void testBangFollowAllowsSinglesEvenWhenBangAvailable() {
         Player[] players = new Player[]{
             new Player(0, "P0", false),
             new Player(1, "P1", false),
@@ -564,15 +565,15 @@ class AIMultiCardTest {
         Card heart8 = new Card(Suit.HEART, Rank.EIGHT, 913);
         players[1].addCards(List.of(heart7a, heart7b, heart6, heart8));
 
-        // 有棒子时出散牌应该不合法
-        assertFalse(engine.isValidPlay(1, List.of(heart6, heart8)),
-            "有同花色棒子时，不允许出散牌");
+        // 有棒子时出散牌也合法（只需跟花色）
+        assertTrue(engine.isValidPlay(1, List.of(heart6, heart8)),
+            "有同花色棒子时，也允许出散牌");
 
-        // 出棒子应合法
+        // 出棒子也合法
         assertTrue(engine.isValidPlay(1, List.of(heart7a, heart7b)),
             "出同花色棒子应合法");
 
-        // AI应出棒子
+        // AI策略上仍然优先出棒子
         EasyAI easyAI = new EasyAI();
         List<Card> easyChosen = easyAI.chooseCards(players[1], engine);
         assertEquals(2, easyChosen.size());
@@ -625,10 +626,10 @@ class AIMultiCardTest {
     }
 
     /**
-     * 主牌棒子跟牌：级牌（特殊主牌）不应被拆散出 —— 复现Issue截图场景。
+     * 主牌棒子跟牌：出散牌也合法，但AI策略上优先出棒子、避免拆散级牌。
      * 场景：主牌花色SPADE，打3级。Player 0出♠5棒子，
      * Player 1有♠7棒子（普通主牌）+ 黑桃3 + 红桃3（两张不同花色的级牌），
-     * 应出♠7棒子而非两张单3。
+     * 出♠3+♥3散牌合法，AI策略上应出♠7棒子。
      */
     @Test
     void testTrumpBangFollowDoesNotWasteSpecialTrump() {
@@ -665,9 +666,9 @@ class AIMultiCardTest {
         TrumpInfo trumpInfo = engine.getTrumpInfo();
         EasyAI easyAI = new EasyAI();
 
-        // 有♠7棒子时，不允许出♠3+♥3散牌
-        assertFalse(engine.isValidPlay(1, List.of(spade3, heart3)),
-            "有同花色棒子时，不允许出两张单3散牌");
+        // 有♠7棒子时，出♠3+♥3散牌也合法（只需跟花色，两张都是主牌）
+        assertTrue(engine.isValidPlay(1, List.of(spade3, heart3)),
+            "有同花色棒子时，也允许出两张主牌散牌");
 
         // 应出♠7棒子
         List<Card> easyChosen = easyAI.chooseCards(players[1], engine);
