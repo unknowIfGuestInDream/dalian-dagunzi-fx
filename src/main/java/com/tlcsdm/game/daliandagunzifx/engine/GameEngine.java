@@ -216,8 +216,8 @@ public class GameEngine {
     }
 
     /**
-     * 查找下一个需要进贡的玩家及其最大牌，以及对应的接收者。
-     * 返回长度为3的数组：[进贡方索引, 接收方索引, 贡牌在手牌中的索引]，
+     * 查找下一个需要进贡的玩家及其对应的接收者。
+     * 返回长度为2的数组：[进贡方索引, 接收方索引]，
      * 或null表示无法进贡。
      */
     public int[] findNextTributeGiverInfo() {
@@ -247,8 +247,7 @@ public class GameEngine {
         }
         if (receiverIndex < 0) return null;
 
-        int cardIdx = giver.getHand().indexOf(bestCard);
-        return new int[]{giver.getId(), receiverIndex, cardIdx};
+        return new int[]{giver.getId(), receiverIndex};
     }
 
     /**

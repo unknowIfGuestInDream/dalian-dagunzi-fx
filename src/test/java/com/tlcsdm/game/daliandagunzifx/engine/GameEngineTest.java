@@ -515,8 +515,8 @@ class GameEngineTest {
     // ======================== Step-by-Step Tribute Tests ========================
 
     @Test
-    void testFindNextTributeGiverInfo() {
-        // 模拟需要进贡的场景
+    void testFindNextTributeGiverInfoNoTribute() {
+        // 没有进贡需求时返回null
         engine.startNewRound();
         engine.declareTrump(0, Suit.SPADE);
         List<Card> kittyCards = players[0].getHand().stream()
@@ -525,8 +525,6 @@ class GameEngineTest {
             .toList();
         engine.setKitty(kittyCards);
 
-        // 打完一整局来触发进贡（通过 RoundResult）
-        // 这里直接测试方法本身：当没有进贡需求时返回null
         assertNull(engine.findNextTributeGiverInfo(),
             "没有进贡需求时应返回null");
     }

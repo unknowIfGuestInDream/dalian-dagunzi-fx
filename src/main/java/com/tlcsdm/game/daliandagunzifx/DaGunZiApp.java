@@ -116,6 +116,7 @@ public class DaGunZiApp extends Application {
     private static final String DEALER_CURRENT_STYLE = "-fx-text-fill: #ffd700; -fx-font-size: 16px; "
         + "-fx-font-weight: bold; -fx-underline: true; "
         + "-fx-effect: dropshadow(gaussian, #ffd700, 5, 0.5, 0, 0);";
+    private static final String TRIBUTE_RETURN_BTN_ID = "tributeReturnBtn";
 
     // Game state
     private GameEngine engine;
@@ -832,7 +833,7 @@ public class DaGunZiApp extends Application {
             confirmBtn.setStyle("-fx-font-size: 16px; -fx-padding: 8 20; "
                 + "-fx-background-color: #d4af37; -fx-text-fill: black; -fx-font-weight: bold;");
             confirmBtn.setDisable(true);
-            confirmBtn.setId("tributeReturnBtn");
+            confirmBtn.setId(TRIBUTE_RETURN_BTN_ID);
             confirmBtn.setOnAction(e -> confirmTributeReturn());
             actionPane.getChildren().add(confirmBtn);
         } else {
@@ -867,7 +868,7 @@ public class DaGunZiApp extends Application {
 
         // 更新按钮状态
         Node btn = actionPane.getChildren().stream()
-            .filter(n -> "tributeReturnBtn".equals(n.getId()))
+            .filter(n -> TRIBUTE_RETURN_BTN_ID.equals(n.getId()))
             .findFirst().orElse(null);
         if (btn instanceof Button tributeBtn) {
             tributeBtn.setDisable(false);

@@ -364,10 +364,10 @@ public class MediumAI implements AIStrategy {
             if (trickPoints >= 10 || engine.getTrickCardsPlayed() == 3
                 || !hasNonPointNonTrump) {
                 // 检查后续对手是否也缺该花色（会用主牌毙），需要选更大的主牌
-                boolean subsequentOpponentVoid = isSubsequentOpponentVoid(player, engine, leadSuit);
+                boolean hasSubsequentOpponentVoid = isSubsequentOpponentVoid(player, engine, leadSuit);
 
                 List<Card> candidates;
-                if (subsequentOpponentVoid) {
+                if (hasSubsequentOpponentVoid) {
                     // 后续对手也缺门，他们也会用主牌毙 → 放宽限制，允许使用2
                     candidates = trumpCards.stream()
                         .filter(c -> c.getRank() != Rank.BIG_JOKER
