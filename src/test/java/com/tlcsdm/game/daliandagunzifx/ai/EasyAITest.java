@@ -559,4 +559,96 @@ class EasyAITest {
                 "无法用主牌管上时应垫非主牌，不应浪费主牌。实际出了: " + card.getDisplayName());
         }
     }
+
+    @Test
+    void testFollowSuitOnlyPointCardsShouldTryToWin() {
+        // 对方赢时，若手中只有分牌可跟，应尝试赢墩而非白送分给对方
+        Player[] players = new Player[]{
+            new Player(0, "P0", true),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0 (庄家) leads with ♠9（0分）
+        players[0].getHand().clear();
+        Card spade9 = new Card(Suit.SPADE, Rank.NINE, 900);
+        players[0].addCards(List.of(spade9));
+        engine.playCard(0, spade9);
+
+        // Player 1 (闲家) has only point spades: ♠5(5分), ♠K(10分)
+        // 对方(P0)赢着，手中只有分牌 → 应尝试用♠K赢墩
+        players[1].getHand().clear();
+        Card spade5 = new Card(Suit.SPADE, Rank.FIVE, 901);
+        Card spadeK = new Card(Suit.SPADE, Rank.KING, 902);
+        players[1].addCards(List.of(spade5, spadeK));
+
+        // 确保其他玩家有牌
+        players[2].getHand().clear();
+        players[2].addCards(List.of(new Card(Suit.DIAMOND, Rank.FOUR, 910)));
+        players[3].getHand().clear();
+        players[3].addCards(List.of(new Card(Suit.DIAMOND, Rank.SIX, 911)));
+
+        EasyAI ai = new EasyAI();
+        Card chosen = ai.chooseCard(players[1], engine);
+
+        // K♠能赢9♠，应出K♠赢墩，而非出5♠白给对方5分
+        assertEquals(Rank.KING, chosen.getRank(),
+            "只有分牌可跟且能赢时，应尝试赢墩而非白送分。实际出了: " + chosen.getDisplayName());
+    }
+
+    @Test
+    void testNoSuitOnlyPointNonTrumpShouldUseTrumpToWin() {
+        // 无花色可跟、非主牌全是分牌时，应用主牌赢墩避免送分
+        Player[] players = new Player[]{
+            new Player(0, "P0", true),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0 leads with ♠9
+        players[0].getHand().clear();
+        Card spade9 = new Card(Suit.SPADE, Rank.NINE, 900);
+        players[0].addCards(List.of(spade9));
+        engine.playCard(0, spade9);
+
+        // Player 1: 无♠可跟，非主牌只有分牌(♣5, ♦K)，有非特殊主牌(♥4)
+        // 应用♥4(主牌)赢墩，而非垫♣5送分给对方
+        players[1].getHand().clear();
+        Card club5 = new Card(Suit.CLUB, Rank.FIVE, 901);
+        Card diamondK = new Card(Suit.DIAMOND, Rank.KING, 902);
+        Card heart4 = new Card(Suit.HEART, Rank.FOUR, 903);
+        players[1].addCards(List.of(club5, diamondK, heart4));
+
+        // 确保其他玩家有牌
+        players[2].getHand().clear();
+        players[2].addCards(List.of(new Card(Suit.DIAMOND, Rank.FOUR, 910)));
+        players[3].getHand().clear();
+        players[3].addCards(List.of(new Card(Suit.DIAMOND, Rank.SIX, 911)));
+
+        EasyAI ai = new EasyAI();
+        TrumpInfo trumpInfo = engine.getTrumpInfo();
+        Card chosen = ai.chooseCard(players[1], engine);
+
+        // 应出主牌赢墩，避免送分
+        assertTrue(trumpInfo.isTrump(chosen),
+            "非主牌全是分牌时，应用主牌赢墩而非送分给对方。实际出了: " + chosen.getDisplayName());
+    }
 }

@@ -357,8 +357,12 @@ public class MediumAI implements AIStrategy {
         // Consider if it's worth using trump based on trick points
         if (!trumpCards.isEmpty() && !partnerWinning) {
             int trickPoints = calculateCurrentTrickPoints(engine);
-            if (trickPoints >= 10 || engine.getTrickCardsPlayed() == 3) {
-                // 优先使用非特殊主牌杀分
+            // 检查非主牌中是否有无分牌可以安全垫
+            boolean hasNonPointNonTrump = nonTrumpCards.stream()
+                .anyMatch(c -> c.getPoints() == 0 && !easyAI.isSpecialTrump(c, trumpInfo));
+            if (trickPoints >= 10 || engine.getTrickCardsPlayed() == 3
+                || !hasNonPointNonTrump) {
+                // 有分可争、最后出牌、或只有分牌可垫时 → 尝试用非特殊主牌赢墩
                 List<Card> nonSpecialTrumps = trumpCards.stream()
                     .filter(c -> !easyAI.isSpecialTrump(c, trumpInfo))
                     .toList();
@@ -402,9 +406,11 @@ public class MediumAI implements AIStrategy {
             return easyAI.playPointsForPartner(suitCards, trumpInfo);
         }
 
-        // 只在有分值得争的时候才尝试压牌，保护特殊主牌（2/王/主牌级）
+        // 有分值得争，或手中只剩分牌时尝试压牌，保护特殊主牌（2/王/主牌级）
         int trickPoints = calculateCurrentTrickPoints(engine);
-        if (trickPoints > 0) {
+        boolean hasNonPointCard = suitCards.stream()
+            .anyMatch(c -> c.getPoints() == 0 && !easyAI.isSpecialTrump(c, trumpInfo));
+        if (trickPoints > 0 || !hasNonPointCard) {
             int currentWinStrength = getCurrentWinningStrength(engine);
             Card bestWinner = null;
             for (Card card : suitCards) {

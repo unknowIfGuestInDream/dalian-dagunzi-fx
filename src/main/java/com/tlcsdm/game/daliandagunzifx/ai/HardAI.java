@@ -93,12 +93,14 @@ public class HardAI implements AIStrategy {
             }
 
             int trickPoints = rolloutAI.calculateCurrentTrickPoints(engine);
-            if (trickPoints == 0) {
-                // 无分墩，不浪费高牌，出最小
+            boolean hasNonPointCard = validCards.stream()
+                .anyMatch(c -> c.getPoints() == 0 && !rolloutAI.isSpecialTrump(c, trumpInfo));
+            if (trickPoints == 0 && hasNonPointCard) {
+                // 无分墩且有无分牌可出，不浪费高牌，出最小
                 return rolloutAI.playLow(validCards, trumpInfo);
             }
 
-            // 有分但队友没赢，检查是否有能赢的非特殊主牌
+            // 有分可争或手中只剩分牌，检查是否有能赢的非特殊主牌
             // 排除特殊主牌（2/王/主牌级）：这些牌价值极高，不应为中低分墩轻易打出，
             // 如果只剩特殊主牌能赢，视为"无法赢墩"走playLow保护它们
             int currentWinStrength = rolloutAI.getCurrentTrickWinnerStrength(engine);
