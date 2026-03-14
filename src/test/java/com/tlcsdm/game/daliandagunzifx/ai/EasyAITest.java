@@ -28,6 +28,7 @@ package com.tlcsdm.game.daliandagunzifx.ai;
 
 import com.tlcsdm.game.daliandagunzifx.engine.GameEngine;
 import com.tlcsdm.game.daliandagunzifx.engine.Player;
+import com.tlcsdm.game.daliandagunzifx.engine.TrumpInfo;
 import com.tlcsdm.game.daliandagunzifx.model.Card;
 import com.tlcsdm.game.daliandagunzifx.model.PlayType;
 import com.tlcsdm.game.daliandagunzifx.model.Rank;
@@ -350,5 +351,67 @@ class EasyAITest {
             assertFalse(ai.isSpecialTrump(card, engine.getTrumpInfo()),
                 "跟主牌棒子有非特殊主牌时，不应出特殊主牌(2/王等)。实际出了: " + card.getRank());
         }
+    }
+
+    @Test
+    void testChooseKittyCardsKeepsAces() {
+        // 庄家扣底牌时不应把A扣下去，A是最大的非主牌
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+
+        // 手动设置手牌：包含A和低牌
+        players[0].getHand().clear();
+        Card spadeA = new Card(Suit.SPADE, Rank.ACE, 800);
+        Card clubA = new Card(Suit.CLUB, Rank.ACE, 801);
+        Card spade4 = new Card(Suit.SPADE, Rank.FOUR, 802);
+        Card spade6 = new Card(Suit.SPADE, Rank.SIX, 803);
+        Card club7 = new Card(Suit.CLUB, Rank.SEVEN, 804);
+        Card club8 = new Card(Suit.CLUB, Rank.EIGHT, 805);
+        Card diamond4 = new Card(Suit.DIAMOND, Rank.FOUR, 806);
+        Card diamond6 = new Card(Suit.DIAMOND, Rank.SIX, 807);
+        Card diamond9 = new Card(Suit.DIAMOND, Rank.NINE, 808);
+        Card heart4 = new Card(Suit.HEART, Rank.FOUR, 809);
+        players[0].addCards(List.of(spadeA, clubA, spade4, spade6, club7, club8,
+            diamond4, diamond6, diamond9, heart4));
+
+        var trumpInfo = engine.getTrumpInfo();
+        EasyAI ai = new EasyAI();
+        List<Card> kitty = ai.chooseKittyCards(players[0], List.of(), trumpInfo);
+
+        assertEquals(6, kitty.size(), "应该扣6张牌");
+        // A不应在扣的牌中
+        for (Card card : kitty) {
+            assertNotEquals(Rank.ACE, card.getRank(),
+                "A是最大的非主牌，不应被扣进底牌。实际扣了: " + card.getDisplayName());
+        }
+    }
+
+    @Test
+    void testPlayLowProtectsSpecialTrumps() {
+        // playLow应该优先出非特殊主牌的小牌
+        var trumpInfo = new TrumpInfo(Suit.HEART, Rank.THREE);
+        EasyAI ai = new EasyAI();
+
+        Card heart4 = new Card(Suit.HEART, Rank.FOUR, 900);
+        Card heart6 = new Card(Suit.HEART, Rank.SIX, 901);
+        Card heart2 = new Card(Suit.HEART, Rank.TWO, 902);
+        Card smallJoker = new Card(null, Rank.SMALL_JOKER, 903);
+
+        // 有非特殊主牌时，应出非特殊的最小牌
+        Card result = ai.playLow(List.of(heart4, heart6, heart2, smallJoker), trumpInfo);
+        assertEquals(heart4, result,
+            "有非特殊主牌(♥4, ♥6)时，应出♥4而不是特殊主牌(♥2/小王)。实际出了: " + result.getDisplayName());
+
+        // 只有特殊主牌时，出最小的特殊主牌
+        Card result2 = ai.playLow(List.of(heart2, smallJoker), trumpInfo);
+        assertEquals(heart2, result2,
+            "只有特殊主牌时，应出最小的(♥2)。实际出了: " + result2.getDisplayName());
     }
 }

@@ -113,6 +113,8 @@ public class MediumAI implements AIStrategy {
         int suitLength = effective != null ? suitCounts.getOrDefault(effective, 0) : 0;
         int points = card.getPoints();
 
+        // A是最大的非主牌，必须保留
+        if (card.getRank() == Rank.ACE) return 600 + suitLength;
         // Point cards: always keep
         if (points > 0) return 500 + points + suitLength;
         // Long suits are worth keeping (>=5 cards)
@@ -407,10 +409,8 @@ public class MediumAI implements AIStrategy {
             if (bestWinner != null) return bestWinner;
         }
 
-        // 无分或赢不了，出最小
-        return suitCards.stream()
-            .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-            .orElse(suitCards.get(0));
+        // 无分或赢不了，出最小（保护特殊主牌）
+        return easyAI.playLow(suitCards, trumpInfo);
     }
 
     private int getCurrentWinningStrength(GameEngine engine) {
