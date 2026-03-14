@@ -38,7 +38,11 @@ import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
 
 import java.util.Arrays;
+import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Application settings management using PreferencesFX.
@@ -46,6 +50,8 @@ import java.util.prefs.Preferences;
  * @author unknowIfGuestInDream
  */
 public final class AppSettings {
+
+    private static final Logger log = LoggerFactory.getLogger(AppSettings.class);
 
     private static final Preferences PREFS = initPreferences();
     private static final String PREF_DARK_THEME = "darkTheme";
@@ -89,21 +95,25 @@ public final class AppSettings {
         darkThemeProperty.addListener((obs, oldVal, newVal) -> {
             if (PREFS != null) {
                 PREFS.putBoolean(PREF_DARK_THEME, newVal);
+                flushQuietly();
             }
         });
         trackerEnabledProperty.addListener((obs, oldVal, newVal) -> {
             if (PREFS != null) {
                 PREFS.putBoolean(PREF_TRACKER_ENABLED, newVal);
+                flushQuietly();
             }
         });
         aiLevelProperty.addListener((obs, oldVal, newVal) -> {
             if (newVal != null && PREFS != null) {
                 PREFS.put(PREF_AI_LEVEL, newVal.name());
+                flushQuietly();
             }
         });
         checkUpdateEnabledProperty.addListener((obs, oldVal, newVal) -> {
             if (PREFS != null) {
                 PREFS.putBoolean(PREF_CHECK_UPDATE, newVal);
+                flushQuietly();
             }
         });
     }
@@ -152,6 +162,16 @@ public final class AppSettings {
             buildPreferences();
         }
         return preferencesFx;
+    }
+
+    private static void flushQuietly() {
+        if (PREFS != null) {
+            try {
+                PREFS.flush();
+            } catch (BackingStoreException e) {
+                log.warn("偏好设置保存失败", e);
+            }
+        }
     }
 
     private void buildPreferences() {
