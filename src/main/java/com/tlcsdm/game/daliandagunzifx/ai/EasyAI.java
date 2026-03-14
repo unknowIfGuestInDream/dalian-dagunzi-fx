@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 unknowIfGuestInDream.
+ * Copyright (c) ${year} unknowIfGuestInDream.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -90,6 +90,8 @@ public class EasyAI implements AIStrategy {
 
     private int getKeepPriority(Card card, TrumpInfo trumpInfo) {
         if (trumpInfo.isTrump(card)) return 100 + trumpInfo.getCardStrength(card);
+        // A是最大的非主牌，应该保留
+        if (card.getRank() == Rank.ACE) return 80;
         if (card.getPoints() > 0) return 50 + card.getPoints();
         return card.getRank().getValue();
     }
@@ -413,10 +415,8 @@ public class EasyAI implements AIStrategy {
                 }
                 if (bestWinner != null) return bestWinner;
             }
-            // 无分或赢不了，出最小
-            return suitCards.stream()
-                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-                .orElse(suitCards.get(0));
+            // 无分或赢不了，出最小（保护特殊主牌）
+            return playLow(suitCards, trumpInfo);
         }
 
         // 没有该花色可跟
@@ -526,11 +526,26 @@ public class EasyAI implements AIStrategy {
     }
 
     protected Card playLow(List<Card> cards, TrumpInfo trumpInfo) {
-        List<Card> nonPoint = cards.stream()
-            .filter(c -> c.getPoints() == 0)
+        // 优先出非分牌且非特殊主牌的最小牌
+        List<Card> best = cards.stream()
+            .filter(c -> c.getPoints() == 0 && !isSpecialTrump(c, trumpInfo))
             .collect(Collectors.toList());
-        List<Card> target = nonPoint.isEmpty() ? cards : nonPoint;
-        return target.stream()
+        if (!best.isEmpty()) {
+            return best.stream()
+                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
+                .orElse(best.get(0));
+        }
+        // 没有普通牌时，优先出非特殊主牌
+        List<Card> nonSpecial = cards.stream()
+            .filter(c -> !isSpecialTrump(c, trumpInfo))
+            .collect(Collectors.toList());
+        if (!nonSpecial.isEmpty()) {
+            return nonSpecial.stream()
+                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
+                .orElse(nonSpecial.get(0));
+        }
+        // 只剩特殊主牌时，出最小的
+        return cards.stream()
             .min(Comparator.comparingInt(trumpInfo::getCardStrength))
             .orElse(cards.get(0));
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 unknowIfGuestInDream.
+ * Copyright (c) ${year} unknowIfGuestInDream.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1134,6 +1134,10 @@ public class DaGunZiApp extends Application {
         updateTrickArea();
         updateHumanHand();
         updateAIPlayerPanes();
+
+        if (trackerSection != null && trackerSection.isVisible()) {
+            updateTrackerPanel();
+        }
 
         if (engine.getTrickCardsPlayed() == 4) {
             Timeline pause = new Timeline(new KeyFrame(Duration.millis(1000), e -> completeTrick()));
