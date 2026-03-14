@@ -399,10 +399,11 @@ public class EasyAI implements AIStrategy {
             // 队友没赢，看看这墩是否有分值得争
             int trickPoints = calculateCurrentTrickPoints(engine);
             if (trickPoints > 0) {
-                // 有分，尝试用最小能赢的牌来赢
+                // 有分，尝试用最小能赢的非特殊主牌来赢，保护2/王/主牌级等高价值牌
                 int currentWinStrength = getCurrentTrickWinnerStrength(engine);
                 Card bestWinner = null;
                 for (Card card : suitCards) {
+                    if (isSpecialTrump(card, trumpInfo)) continue;
                     int strength = trumpInfo.getCardStrength(card);
                     if (strength > currentWinStrength) {
                         if (bestWinner == null || strength < trumpInfo.getCardStrength(bestWinner)) {
