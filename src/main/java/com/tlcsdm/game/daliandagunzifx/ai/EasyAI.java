@@ -250,8 +250,12 @@ public class EasyAI implements AIStrategy {
             if (c.getPoints() > 0) return base + SORT_PRIORITY_OFFSET;
             return base;
         }));
-        // Sort trump cards: weakest first
-        otherTrump.sort(Comparator.comparingInt(trumpInfo::getCardStrength));
+        // Sort trump cards: weakest first, special trumps last
+        otherTrump.sort(Comparator.comparingInt(c -> {
+            int strength = trumpInfo.getCardStrength(c);
+            if (isSpecialTrump(c, trumpInfo)) return strength + SORT_PRIORITY_OFFSET;
+            return strength;
+        }));
 
         List<Card> result = new ArrayList<>();
         // Play suit cards first (required by rules)
@@ -430,22 +434,33 @@ public class EasyAI implements AIStrategy {
 
         // 队友没赢，考虑是否值得用主牌
         int trickPoints = calculateCurrentTrickPoints(engine);
-        if (!trumpCards.isEmpty() && trickPoints >= 5) {
-            return playTrump(player, trumpCards, engine);
-        }
-
         // 优先垫非主牌，避免浪费主牌
         if (!nonTrumpCards.isEmpty()) {
             return playLow(nonTrumpCards, trumpInfo);
         }
+        // 没有非主牌可垫时，分值够高才考虑用主牌杀分
+        if (!trumpCards.isEmpty() && trickPoints >= 15) {
+            // 优先使用非特殊主牌
+            List<Card> nonSpecialTrumps = trumpCards.stream()
+                .filter(c -> !isSpecialTrump(c, trumpInfo))
+                .collect(Collectors.toList());
+            if (!nonSpecialTrumps.isEmpty()) {
+                return playTrump(player, nonSpecialTrumps, engine);
+            }
+            return playTrump(player, trumpCards, engine);
+        }
+
         return playLow(validCards, trumpInfo);
     }
 
     protected int calculateCurrentTrickPoints(GameEngine engine) {
         int points = 0;
-        for (Card card : engine.getCurrentTrick()) {
-            if (card != null) {
-                points += card.getPoints();
+        List<Card>[] trickCards = engine.getCurrentTrickCards();
+        for (int i = 0; i < 4; i++) {
+            if (trickCards[i] != null) {
+                for (Card card : trickCards[i]) {
+                    points += card.getPoints();
+                }
             }
         }
         return points;
@@ -487,7 +502,9 @@ public class EasyAI implements AIStrategy {
         PlayType trickPlayType = engine.getCurrentTrickPlayType();
 
         int highestStrength = -1;
-        for (int i = 0; i < 4; i++) {
+        // 从领出者开始按出牌顺序遍历，确保同牌力时先出者赢
+        for (int offset = 0; offset < 4; offset++) {
+            int i = (leader + offset) % 4;
             Card card = trick[i];
             if (card == null) continue;
 
@@ -580,7 +597,9 @@ public class EasyAI implements AIStrategy {
         int winnerIndex = leader;
         int highestStrength = -1;
 
-        for (int i = 0; i < 4; i++) {
+        // 从领出者开始按出牌顺序遍历，确保同牌力时先出者赢
+        for (int offset = 0; offset < 4; offset++) {
+            int i = (leader + offset) % 4;
             Card card = trick[i];
             if (card == null) continue;
 

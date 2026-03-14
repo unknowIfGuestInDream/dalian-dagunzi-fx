@@ -186,7 +186,12 @@ public class MediumAI implements AIStrategy {
             if (c.getPoints() > 0) return base + EasyAI.SORT_PRIORITY_OFFSET;
             return base;
         }));
-        trumpCards.sort(Comparator.comparingInt(trumpInfo::getCardStrength));
+        // Sort trump cards: weakest first, special trumps last
+        trumpCards.sort(Comparator.comparingInt(c -> {
+            int strength = trumpInfo.getCardStrength(c);
+            if (easyAI.isSpecialTrump(c, trumpInfo)) return strength + EasyAI.SORT_PRIORITY_OFFSET;
+            return strength;
+        }));
 
         List<Card> result = new ArrayList<>();
         // Must play suit cards first
@@ -341,10 +346,15 @@ public class MediumAI implements AIStrategy {
         if (!trumpCards.isEmpty() && !partnerWinning) {
             int trickPoints = calculateCurrentTrickPoints(engine);
             if (trickPoints >= 10 || engine.getTrickCardsPlayed() == 3) {
+                // 优先使用非特殊主牌杀分
+                List<Card> nonSpecialTrumps = trumpCards.stream()
+                    .filter(c -> !easyAI.isSpecialTrump(c, trumpInfo))
+                    .collect(Collectors.toList());
+                List<Card> candidates = nonSpecialTrumps.isEmpty() ? trumpCards : nonSpecialTrumps;
                 // Play minimum trump that can win
                 int currentWinStrength = getCurrentWinningStrength(engine);
                 Card bestTrump = null;
-                for (Card card : trumpCards) {
+                for (Card card : candidates) {
                     int strength = trumpInfo.getCardStrength(card);
                     if (strength > currentWinStrength) {
                         if (bestTrump == null || strength < trumpInfo.getCardStrength(bestTrump)) {
@@ -411,7 +421,9 @@ public class MediumAI implements AIStrategy {
         PlayType trickPlayType = engine.getCurrentTrickPlayType();
 
         int highestStrength = -1;
-        for (int i = 0; i < 4; i++) {
+        // 从领出者开始按出牌顺序遍历，确保同牌力时先出者赢
+        for (int offset = 0; offset < 4; offset++) {
+            int i = (leader + offset) % 4;
             Card card = trick[i];
             if (card == null) continue;
 
@@ -434,9 +446,12 @@ public class MediumAI implements AIStrategy {
 
     private int calculateCurrentTrickPoints(GameEngine engine) {
         int points = 0;
-        for (Card card : engine.getCurrentTrick()) {
-            if (card != null) {
-                points += card.getPoints();
+        List<Card>[] trickCards = engine.getCurrentTrickCards();
+        for (int i = 0; i < 4; i++) {
+            if (trickCards[i] != null) {
+                for (Card card : trickCards[i]) {
+                    points += card.getPoints();
+                }
             }
         }
         return points;

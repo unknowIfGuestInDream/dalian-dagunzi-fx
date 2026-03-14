@@ -529,7 +529,9 @@ public class GameEngine {
         int winnerIndex = currentTrickLeader;
         int highestStrength = -1;
 
-        for (int i = 0; i < 4; i++) {
+        // 从领出者开始按出牌顺序遍历，确保同牌力时先出者赢
+        for (int offset = 0; offset < 4; offset++) {
+            int i = (currentTrickLeader + offset) % 4;
             List<Card> playerCards = currentTrickCards[i];
 
             // For BANG/GUNZI tricks, only a valid matching play can compete

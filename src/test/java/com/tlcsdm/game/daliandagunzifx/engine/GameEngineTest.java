@@ -439,4 +439,76 @@ class GameEngineTest {
         // Dealer should have 45 cards (39 + 6 kitty)
         assertEquals(45, players[1].getHand().size());
     }
+
+    @Test
+    void testSameCardFirstPlayedWins() {
+        // Bug 3: 先出大王的人应赢，后出大王的人不应赢
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
+        engine.setKitty(kittyCards);
+
+        for (Player p : players) {
+            p.getHand().clear();
+        }
+
+        // Player 0 leads with Big Joker
+        Card bigJoker1 = new Card(null, Rank.BIG_JOKER, 800);
+        // Player 1 plays a small card
+        Card spade4 = new Card(Suit.SPADE, Rank.FOUR, 801);
+        // Player 2 also plays Big Joker (same strength)
+        Card bigJoker2 = new Card(null, Rank.BIG_JOKER, 802);
+        // Player 3 plays a small card
+        Card club6 = new Card(Suit.CLUB, Rank.SIX, 803);
+
+        players[0].addCards(List.of(bigJoker1));
+        players[1].addCards(List.of(spade4));
+        players[2].addCards(List.of(bigJoker2));
+        players[3].addCards(List.of(club6));
+
+        engine.playCard(0, bigJoker1);
+        engine.playCard(1, spade4);
+        engine.playCard(2, bigJoker2);
+        engine.playCard(3, club6);
+
+        int winner = engine.evaluateTrick();
+        // Player 0 played first, same strength → first played should win
+        assertEquals(0, winner, "先出大王的人应赢");
+    }
+
+    @Test
+    void testSameCardFirstPlayedWinsNonZeroLeader() {
+        // 验证非0号玩家领出时，同牌力先出者赢
+        engine.startNewRound();
+        engine.declareTrump(2, Suit.HEART);
+        List<Card> kittyCards = selectNonJokerKitty(players[2], 6);
+        engine.setKitty(kittyCards);
+
+        for (Player p : players) {
+            p.getHand().clear();
+        }
+
+        // Player 2 leads with Big Joker
+        Card bigJoker1 = new Card(null, Rank.BIG_JOKER, 900);
+        // Player 3 plays small card
+        Card diamond7 = new Card(Suit.DIAMOND, Rank.SEVEN, 901);
+        // Player 0 also plays Big Joker
+        Card bigJoker2 = new Card(null, Rank.BIG_JOKER, 902);
+        // Player 1 plays small card
+        Card club8 = new Card(Suit.CLUB, Rank.EIGHT, 903);
+
+        players[2].addCards(List.of(bigJoker1));
+        players[3].addCards(List.of(diamond7));
+        players[0].addCards(List.of(bigJoker2));
+        players[1].addCards(List.of(club8));
+
+        engine.playCard(2, bigJoker1);
+        engine.playCard(3, diamond7);
+        engine.playCard(0, bigJoker2);
+        engine.playCard(1, club8);
+
+        int winner = engine.evaluateTrick();
+        // Player 2 was leader and played Big Joker first
+        assertEquals(2, winner, "领出者先出大王应赢");
+    }
 }
