@@ -43,6 +43,9 @@ public class EasyAI implements AIStrategy {
     private static final int SMALL_TRUMP_THRESHOLD = 950;
     // 排序优先级偏移：特殊主牌/分牌排到最后
     protected static final int SORT_PRIORITY_OFFSET = 10000;
+    // 分牌排序惩罚偏移：使分牌排在普通牌之后、特殊主牌之前，
+    // 用于队友未赢时避免出分牌（5/10/K）给对手送分
+    protected static final int POINT_CARD_PENALTY_OFFSET = SORT_PRIORITY_OFFSET / 2;
     // 短套判断阈值：花色牌数 ≤ 此值视为短套
     protected static final int SHORT_SUIT_THRESHOLD = 2;
     // 用主牌管上的最低分值门槛：当前墩分值达到此值以上才考虑用主牌棒子/滚子管上
@@ -247,7 +250,7 @@ public class EasyAI implements AIStrategy {
         suitCards.sort(Comparator.comparingInt(c -> {
             int strength = trumpInfo.getCardStrength(c);
             if (isSpecialTrump(c, trumpInfo)) return strength + SORT_PRIORITY_OFFSET;
-            if (!partnerWinning && c.getPoints() > 0) return strength + SORT_PRIORITY_OFFSET / 2;
+            if (!partnerWinning && c.getPoints() > 0) return strength + POINT_CARD_PENALTY_OFFSET;
             return strength;
         }));
         // Sort non-trump cards: play weakest non-point first

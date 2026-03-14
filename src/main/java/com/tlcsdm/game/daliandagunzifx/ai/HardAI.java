@@ -140,15 +140,17 @@ public class HardAI implements AIStrategy {
             return List.of(chooseCard(player, engine));
         }
 
-        // 多牌跟牌启发式守卫：明确场景下使用确定性策略，避免PIMC模拟选出不合理的牌
+        // 多牌跟牌启发式守卫：以下两种场景结果明确，不需要PIMC蒙特卡罗模拟。
+        // PIMC在这些场景中容易因随机采样选出不合理的牌（如用王杀队友的牌、把分牌给对手等），
+        // 使用MediumAI的确定性策略能保证出牌符合基本打牌常识。
         boolean partnerWinning = rolloutAI.isPartnerWinning(player, engine);
         if (partnerWinning) {
-            // 队友赢时使用确定性策略（出小牌/分牌），不需要PIMC
+            // 场景1：队友赢时应出小牌或分牌给队友，确定性策略足够
             return fallbackAI.chooseCards(player, engine);
         }
         int trickPoints = rolloutAI.calculateCurrentTrickPoints(engine);
         if (trickPoints == 0) {
-            // 无分墩，不需要PIMC，直接出最小
+            // 场景2：无分墩不值得争，出最小即可，确定性策略足够
             return fallbackAI.chooseCards(player, engine);
         }
 

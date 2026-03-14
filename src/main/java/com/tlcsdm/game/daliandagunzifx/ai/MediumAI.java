@@ -181,7 +181,7 @@ public class MediumAI implements AIStrategy {
         suitCards.sort(Comparator.comparingInt(c -> {
             int strength = trumpInfo.getCardStrength(c);
             if (easyAI.isSpecialTrump(c, trumpInfo)) return strength + EasyAI.SORT_PRIORITY_OFFSET;
-            if (!partnerWinning && c.getPoints() > 0) return strength + EasyAI.SORT_PRIORITY_OFFSET / 2;
+            if (!partnerWinning && c.getPoints() > 0) return strength + EasyAI.POINT_CARD_PENALTY_OFFSET;
             return strength;
         }));
         // Sort other cards: non-point weakest first
