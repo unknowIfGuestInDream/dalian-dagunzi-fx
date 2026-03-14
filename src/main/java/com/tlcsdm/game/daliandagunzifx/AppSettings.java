@@ -47,13 +47,13 @@ import java.util.prefs.Preferences;
  */
 public final class AppSettings {
 
-    private static final AppSettings INSTANCE = new AppSettings();
-
     private static final Preferences PREFS = initPreferences();
     private static final String PREF_DARK_THEME = "darkTheme";
     private static final String PREF_TRACKER_ENABLED = "trackerEnabled";
     private static final String PREF_AI_LEVEL = "aiLevel";
     private static final String PREF_CHECK_UPDATE = "checkUpdateEnabled";
+
+    private static final AppSettings INSTANCE = new AppSettings();
 
     private final BooleanProperty darkThemeProperty;
     private final BooleanProperty trackerEnabledProperty;
