@@ -1,5 +1,5 @@
 /*
- * Copyright (c) ${year} unknowIfGuestInDream.
+ * Copyright (c) 2026 unknowIfGuestInDream.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -527,13 +527,13 @@ public class EasyAI implements AIStrategy {
 
     protected Card playLow(List<Card> cards, TrumpInfo trumpInfo) {
         // 优先出非分牌且非特殊主牌的最小牌
-        List<Card> best = cards.stream()
+        List<Card> normalNonPoint = cards.stream()
             .filter(c -> c.getPoints() == 0 && !isSpecialTrump(c, trumpInfo))
             .collect(Collectors.toList());
-        if (!best.isEmpty()) {
-            return best.stream()
+        if (!normalNonPoint.isEmpty()) {
+            return normalNonPoint.stream()
                 .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-                .orElse(best.get(0));
+                .orElse(normalNonPoint.get(0));
         }
         // 没有普通牌时，优先出非特殊主牌
         List<Card> nonSpecial = cards.stream()
