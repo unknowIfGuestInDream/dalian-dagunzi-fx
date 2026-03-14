@@ -91,7 +91,9 @@ public class HardAI implements AIStrategy {
                 return rolloutAI.playLow(validCards, trumpInfo);
             }
 
-            // 有分但队友没赢，检查是否有能赢的牌
+            // 有分但队友没赢，检查是否有能赢的非特殊主牌
+            // 排除特殊主牌（2/王/主牌级）：这些牌价值极高，不应为中低分墩轻易打出，
+            // 如果只剩特殊主牌能赢，视为"无法赢墩"走playLow保护它们
             int currentWinStrength = rolloutAI.getCurrentTrickWinnerStrength(engine);
             boolean canWin = validCards.stream().anyMatch(c ->
                 trumpInfo.getCardStrength(c) > currentWinStrength

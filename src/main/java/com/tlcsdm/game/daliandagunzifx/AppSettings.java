@@ -175,7 +175,8 @@ public final class AppSettings {
     }
 
     private void buildPreferences() {
-        // 保存当前属性值，防止 PreferencesFx 初始化时用内部空存储覆盖已从 PREFS 加载的属性值
+        // 保存当前属性值，防止 PreferencesFx 初始化时用内部空存储覆盖已从 PREFS 加载的属性值。
+        // 注意：如果新增属性，必须在此处同步添加保存和恢复逻辑，否则新属性可能在打开偏好设置后被重置。
         boolean savedDark = darkThemeProperty.get();
         boolean savedTracker = trackerEnabledProperty.get();
         AILevel savedLevel = aiLevelProperty.get();

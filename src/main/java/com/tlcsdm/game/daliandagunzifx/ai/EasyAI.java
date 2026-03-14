@@ -45,6 +45,8 @@ public class EasyAI implements AIStrategy {
     protected static final int SORT_PRIORITY_OFFSET = 10000;
     // 短套判断阈值：花色牌数 ≤ 此值视为短套
     protected static final int SHORT_SUIT_THRESHOLD = 2;
+    // 用主牌管上的最低分值门槛：当前墩分值达到此值以上才考虑用主牌棒子/滚子管上
+    protected static final int MIN_POINTS_FOR_TRUMP_OVERRIDE = 10;
 
     @Override
     public Suit chooseTrumpSuit(Player player, Rank trumpRank) {
@@ -308,6 +310,12 @@ public class EasyAI implements AIStrategy {
      * 在主牌中查找能赢墩的棒子/滚子组合。
      * 只有当能组成完整的棒子(2张)/滚子(3张)并能管上当前赢家时才返回，
      * 否则返回null表示不值得用主牌。
+     *
+     * @param trumpCards    可用的主牌列表
+     * @param engine        当前游戏引擎（用于获取当前墩信息）
+     * @param requiredCount 需要的牌数（2=棒子，3=滚子）
+     * @param trumpInfo     主牌信息
+     * @return 能赢墩的主牌组合，或null表示无法组成赢墩的组合（此时调用方应垫非主牌）
      */
     protected List<Card> findWinningTrumpGroup(List<Card> trumpCards, GameEngine engine,
                                                int requiredCount, TrumpInfo trumpInfo) {
@@ -315,8 +323,7 @@ public class EasyAI implements AIStrategy {
 
         int currentWinStrength = getCurrentTrickWinnerStrength(engine);
         int trickPoints = calculateCurrentTrickPoints(engine);
-        // 分值太低不值得用主牌管
-        if (trickPoints < 10) return null;
+        if (trickPoints < MIN_POINTS_FOR_TRUMP_OVERRIDE) return null;
 
         // 按花色+点数分组，找出能组成棒子/滚子的主牌
         Map<String, List<Card>> groups = new java.util.LinkedHashMap<>();
@@ -332,7 +339,7 @@ public class EasyAI implements AIStrategy {
             if (group.size() < requiredCount) continue;
             List<Card> candidate = group.subList(0, requiredCount);
             Card sample = candidate.get(0);
-            // 跳过特殊主牌（2/王/主牌级）
+            // 跳过特殊主牌（2/王/主牌级），这些牌价值过高不应轻易用于管棒子/滚子
             if (isSpecialTrump(sample, trumpInfo)) continue;
             int strength = trumpInfo.getCardStrength(sample);
             if (strength > currentWinStrength && strength < bestStrength) {
