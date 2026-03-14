@@ -526,4 +526,157 @@ class AIMultiCardTest {
         }
         return null;
     }
+
+    /**
+     * 棒子跟牌规则：出棒子时有同花色棒子，不能拆成散牌出。
+     * 场景：主牌花色HEART，打3级。Player 0出主牌棒子（♥4对），
+     * Player 1手中有♥7棒子和两张单主牌（♥6, ♥8），应必须出♥7棒子，不能出♥6+♥8散牌。
+     */
+    @Test
+    void testBangFollowMustPlayBangWhenAvailable() {
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0 出♥4棒子（主牌棒子）
+        players[0].getHand().clear();
+        Card heart4a = new Card(Suit.HEART, Rank.FOUR, 900);
+        Card heart4b = new Card(Suit.HEART, Rank.FOUR, 901);
+        players[0].addCards(List.of(heart4a, heart4b));
+        engine.playCards(0, List.of(heart4a, heart4b));
+
+        // Player 1 有♥7棒子 + 单♥6 + 单♥8
+        players[1].getHand().clear();
+        Card heart7a = new Card(Suit.HEART, Rank.SEVEN, 910);
+        Card heart7b = new Card(Suit.HEART, Rank.SEVEN, 911);
+        Card heart6 = new Card(Suit.HEART, Rank.SIX, 912);
+        Card heart8 = new Card(Suit.HEART, Rank.EIGHT, 913);
+        players[1].addCards(List.of(heart7a, heart7b, heart6, heart8));
+
+        // 有棒子时出散牌应该不合法
+        assertFalse(engine.isValidPlay(1, List.of(heart6, heart8)),
+            "有同花色棒子时，不允许出散牌");
+
+        // 出棒子应合法
+        assertTrue(engine.isValidPlay(1, List.of(heart7a, heart7b)),
+            "出同花色棒子应合法");
+
+        // AI应出棒子
+        EasyAI easyAI = new EasyAI();
+        List<Card> easyChosen = easyAI.chooseCards(players[1], engine);
+        assertEquals(2, easyChosen.size());
+        assertEquals(PlayType.BANG, engine.determinePlayType(easyChosen),
+            "EasyAI: 有棒子时跟棒子应出棒子");
+
+        MediumAI mediumAI = new MediumAI(new CardTracker());
+        List<Card> mediumChosen = mediumAI.chooseCards(players[1], engine);
+        assertEquals(2, mediumChosen.size());
+        assertEquals(PlayType.BANG, engine.determinePlayType(mediumChosen),
+            "MediumAI: 有棒子时跟棒子应出棒子");
+    }
+
+    /**
+     * 棒子跟牌规则：手中没有同花色棒子时，可以出两张散牌。
+     */
+    @Test
+    void testBangFollowSinglesAllowedWhenNoBang() {
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0 出♥4棒子
+        players[0].getHand().clear();
+        Card heart4a = new Card(Suit.HEART, Rank.FOUR, 900);
+        Card heart4b = new Card(Suit.HEART, Rank.FOUR, 901);
+        players[0].addCards(List.of(heart4a, heart4b));
+        engine.playCards(0, List.of(heart4a, heart4b));
+
+        // Player 1 有♥6, ♥8（没有棒子）
+        players[1].getHand().clear();
+        Card heart6 = new Card(Suit.HEART, Rank.SIX, 912);
+        Card heart8 = new Card(Suit.HEART, Rank.EIGHT, 913);
+        players[1].addCards(List.of(heart6, heart8));
+
+        // 没有棒子时出散牌应该合法
+        assertTrue(engine.isValidPlay(1, List.of(heart6, heart8)),
+            "没有同花色棒子时，出散牌应合法");
+    }
+
+    /**
+     * 主牌棒子跟牌：级牌（特殊主牌）不应被拆散出 —— 复现Issue截图场景。
+     * 场景：主牌花色SPADE，打3级。Player 0出♠5棒子，
+     * Player 1有♠7棒子（普通主牌）+ 黑桃3 + 红桃3（两张不同花色的级牌），
+     * 应出♠7棒子而非两张单3。
+     */
+    @Test
+    void testTrumpBangFollowDoesNotWasteSpecialTrump() {
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.SPADE);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0 出♠5棒子（主牌棒子）
+        players[0].getHand().clear();
+        Card spade5a = new Card(Suit.SPADE, Rank.FIVE, 900);
+        Card spade5b = new Card(Suit.SPADE, Rank.FIVE, 901);
+        players[0].addCards(List.of(spade5a, spade5b));
+        engine.playCards(0, List.of(spade5a, spade5b));
+
+        // Player 1 有♠7棒子（普通主牌）+ ♠3（主花级牌）+ ♥3（副花级牌）
+        players[1].getHand().clear();
+        Card spade7a = new Card(Suit.SPADE, Rank.SEVEN, 910);
+        Card spade7b = new Card(Suit.SPADE, Rank.SEVEN, 911);
+        Card spade3 = new Card(Suit.SPADE, Rank.THREE, 912);
+        Card heart3 = new Card(Suit.HEART, Rank.THREE, 913);
+        players[1].addCards(List.of(spade7a, spade7b, spade3, heart3));
+
+        TrumpInfo trumpInfo = engine.getTrumpInfo();
+        EasyAI easyAI = new EasyAI();
+
+        // 有♠7棒子时，不允许出♠3+♥3散牌
+        assertFalse(engine.isValidPlay(1, List.of(spade3, heart3)),
+            "有同花色棒子时，不允许出两张单3散牌");
+
+        // 应出♠7棒子
+        List<Card> easyChosen = easyAI.chooseCards(players[1], engine);
+        assertEquals(2, easyChosen.size());
+        assertEquals(PlayType.BANG, engine.determinePlayType(easyChosen),
+            "EasyAI: 有♠7棒子时应出棒子而非拆散级牌");
+        for (Card card : easyChosen) {
+            assertFalse(easyAI.isSpecialTrump(card, trumpInfo),
+                "EasyAI: 有普通主牌棒子时应出普通棒子，不应出特殊主牌。实际出了: " + card.getDisplayName());
+        }
+    }
 }

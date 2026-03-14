@@ -34,7 +34,9 @@ import com.tlcsdm.game.daliandagunzifx.model.Suit;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class GameEngine {
 
@@ -439,6 +441,15 @@ public class GameEngine {
                     return false;
                 }
             }
+            // 棒子/滚子跟牌规则：出棒子时有同花色棒子必须出棒子，出滚子同理
+            if (currentTrickPlayType == PlayType.BANG || currentTrickPlayType == PlayType.GUNZI) {
+                if (hasPlayTypeInCards(suitCardsInHand, currentTrickPlayType)) {
+                    PlayType playedType = determinePlayType(cards);
+                    if (playedType != currentTrickPlayType) {
+                        return false;
+                    }
+                }
+            }
         } else if (!suitCardsInHand.isEmpty()) {
             // Has some suit cards but not enough — must play all suit cards
             for (Card suitCard : suitCardsInHand) {
@@ -484,6 +495,24 @@ public class GameEngine {
             }
         }
         return null;
+    }
+
+    /**
+     * 检查手牌中是否存在指定的牌型（棒子/滚子）。
+     * 通过按(花色, 点数)分组统计同花色同点数的牌数来判断。
+     */
+    private boolean hasPlayTypeInCards(List<Card> cards, PlayType type) {
+        int count = type == PlayType.GUNZI ? 3 : 2;
+        Map<String, Integer> groups = new HashMap<>();
+        for (Card card : cards) {
+            String key = (card.getSuit() == null ? "NULL" : card.getSuit().name())
+                + "_" + card.getRank().name();
+            int newCount = groups.merge(key, 1, Integer::sum);
+            if (newCount >= count) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int getPlayTypeCardCount(PlayType playType) {

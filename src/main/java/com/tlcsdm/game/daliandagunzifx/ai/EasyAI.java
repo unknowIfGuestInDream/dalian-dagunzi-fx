@@ -243,6 +243,16 @@ public class EasyAI implements AIStrategy {
             }
         }
 
+        // 棒子/滚子跟牌规则：有同花色棒子/滚子时必须出棒子/滚子
+        PlayType leadType = engine.getCurrentTrickPlayType();
+        if ((leadType == PlayType.BANG || leadType == PlayType.GUNZI)
+            && suitCards.size() >= requiredCount) {
+            List<Card> matchingGroup = findWeakestGroup(suitCards, leadType, trumpInfo);
+            if (matchingGroup != null) {
+                return matchingGroup;
+            }
+        }
+
         boolean partnerWinning = isPartnerWinning(player, engine);
 
         // Sort suit cards: play weakest first, but preserve special trump
@@ -350,6 +360,40 @@ public class EasyAI implements AIStrategy {
             if (strength > currentWinStrength && strength < bestStrength) {
                 bestStrength = strength;
                 bestGroup = new ArrayList<>(candidate);
+            }
+        }
+        return bestGroup;
+    }
+
+    /**
+     * 在花色牌中查找最弱的棒子/滚子组合。
+     * 用于跟牌时必须出棒子/滚子的场景（出棒子时有同花色棒子必须出棒子）。
+     * 优先选择非特殊主牌的最弱组合。
+     *
+     * @param suitCards 同花色的手牌列表
+     * @param type      需要匹配的牌型（BANG或GUNZI）
+     * @param trumpInfo 主牌信息
+     * @return 最弱的匹配组合，或null表示手中没有该牌型
+     */
+    protected List<Card> findWeakestGroup(List<Card> suitCards, PlayType type, TrumpInfo trumpInfo) {
+        int count = type == PlayType.GUNZI ? 3 : 2;
+        Map<String, List<Card>> groups = new java.util.LinkedHashMap<>();
+        for (Card card : suitCards) {
+            String key = (card.getSuit() == null ? "NULL" : card.getSuit().name())
+                + "_" + card.getRank().name();
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(card);
+        }
+
+        List<Card> bestGroup = null;
+        int bestPriority = Integer.MAX_VALUE;
+        for (List<Card> group : groups.values()) {
+            if (group.size() < count) continue;
+            Card sample = group.get(0);
+            int strength = trumpInfo.getCardStrength(sample);
+            int priority = isSpecialTrump(sample, trumpInfo) ? strength + SORT_PRIORITY_OFFSET : strength;
+            if (priority < bestPriority) {
+                bestPriority = priority;
+                bestGroup = new ArrayList<>(group.subList(0, count));
             }
         }
         return bestGroup;
