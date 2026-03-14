@@ -174,6 +174,16 @@ public class MediumAI implements AIStrategy {
             }
         }
 
+        // 棒子/滚子跟牌规则：有同花色棒子/滚子时必须出棒子/滚子
+        PlayType leadType = engine.getCurrentTrickPlayType();
+        if ((leadType == PlayType.BANG || leadType == PlayType.GUNZI)
+            && suitCards.size() >= requiredCount) {
+            List<Card> matchingGroup = easyAI.findWeakestGroup(suitCards, leadType, trumpInfo);
+            if (matchingGroup != null) {
+                return matchingGroup;
+            }
+        }
+
         boolean partnerWinning = easyAI.isPartnerWinning(player, engine);
 
         // 跟花色牌按强度升序，但保留特殊主牌
