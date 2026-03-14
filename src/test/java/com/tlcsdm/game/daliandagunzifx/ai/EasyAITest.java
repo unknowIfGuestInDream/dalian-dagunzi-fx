@@ -414,4 +414,149 @@ class EasyAITest {
         assertEquals(heart2, result2,
             "只有特殊主牌时，应出最小的(♥2)。实际出了: " + result2.getDisplayName());
     }
+
+    @Test
+    void testPartnerFollowPlaysLowWhenPartnerWinning() {
+        // Issue 2: 队友出A时，我方跟牌应出最小牌，不应跟着出A
+        Player[] players = new Player[]{
+            new Player(0, "P0", true),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0 leads with ♠A
+        players[0].getHand().clear();
+        Card spadeA = new Card(Suit.SPADE, Rank.ACE, 900);
+        players[0].addCards(List.of(spadeA));
+        engine.playCard(0, spadeA);
+
+        // Player 1 follows with ♠8
+        players[1].getHand().clear();
+        Card spade8 = new Card(Suit.SPADE, Rank.EIGHT, 901);
+        players[1].addCards(List.of(spade8));
+        engine.playCard(1, spade8);
+
+        // Player 2 (搭档) has ♠A, ♠4, ♠6 - should play smallest(♠4), not A
+        // 注意：trumpRank默认THREE，♠3是主牌，所以用♠4和♠6
+        players[2].getHand().clear();
+        Card spadeA2 = new Card(Suit.SPADE, Rank.ACE, 902);
+        Card spade4 = new Card(Suit.SPADE, Rank.FOUR, 903);
+        Card spade6 = new Card(Suit.SPADE, Rank.SIX, 904);
+        players[2].addCards(List.of(spadeA2, spade4, spade6));
+
+        EasyAI ai = new EasyAI();
+        Card chosen = ai.chooseCard(players[2], engine);
+
+        // 队友(P0)已出A且赢着，P2应出最小的牌(♠4)，不应出A
+        assertNotEquals(Rank.ACE, chosen.getRank(),
+            "队友已出A且赢着时，不应跟出A，应出小牌。实际出了: " + chosen.getDisplayName());
+        assertEquals(Rank.FOUR, chosen.getRank(),
+            "应出最小的非分牌(♠4)。实际出了: " + chosen.getDisplayName());
+    }
+
+    @Test
+    void testOpponentAvoidsDumpingPointsWhenCantWin() {
+        // Issue 4: 对手无法赢墩时不应出K等分牌
+        Player[] players = new Player[]{
+            new Player(0, "P0", true),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0 leads with ♠A
+        players[0].getHand().clear();
+        Card spadeA = new Card(Suit.SPADE, Rank.ACE, 900);
+        players[0].addCards(List.of(spadeA));
+        engine.playCard(0, spadeA);
+
+        // Player 1 (对手) has ♠K, ♠8, ♠4 - should play smallest non-point, not K
+        players[1].getHand().clear();
+        Card spadeK = new Card(Suit.SPADE, Rank.KING, 901);
+        Card spade8 = new Card(Suit.SPADE, Rank.EIGHT, 902);
+        Card spade4 = new Card(Suit.SPADE, Rank.FOUR, 903);
+        players[1].addCards(List.of(spadeK, spade8, spade4));
+
+        EasyAI ai = new EasyAI();
+        Card chosen = ai.chooseCard(players[1], engine);
+
+        // 对手无法赢A，应出最小的非分牌，不应出K(10分)
+        assertEquals(0, chosen.getPoints(),
+            "无法赢墩时不应出分牌(K=10分)。实际出了: " + chosen.getDisplayName());
+        assertEquals(Rank.FOUR, chosen.getRank(),
+            "应出最小的非分牌(♠4)。实际出了: " + chosen.getDisplayName());
+    }
+
+    @Test
+    void testMultiCardFollowPrefersNonTrumpWhenCantWin() {
+        // Issue 3: 跟棒子时无法用主牌管上，应垫非主牌而非浪费主牌
+        Player[] players = new Player[]{
+            new Player(0, "P0", true),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0 leads with ♠A棒子 (2张♠A)
+        players[0].getHand().clear();
+        Card spadeA1 = new Card(Suit.SPADE, Rank.ACE, 900);
+        Card spadeA2 = new Card(Suit.SPADE, Rank.ACE, 901);
+        players[0].addCards(List.of(spadeA1, spadeA2));
+        engine.playCards(0, List.of(spadeA1, spadeA2));
+
+        // Player 1 has NO spades, has clubs (non-trump) and individual trump cards (not a pair)
+        players[1].getHand().clear();
+        Card club4 = new Card(Suit.CLUB, Rank.FOUR, 910);
+        Card club7 = new Card(Suit.CLUB, Rank.SEVEN, 911);
+        Card heart5 = new Card(Suit.HEART, Rank.FIVE, 912);  // 主牌5
+        Card heart8 = new Card(Suit.HEART, Rank.EIGHT, 913);  // 主牌8
+        players[1].addCards(List.of(club4, club7, heart5, heart8));
+
+        // 确保Player 2和3有足够的牌
+        players[2].getHand().clear();
+        players[2].addCards(List.of(
+            new Card(Suit.DIAMOND, Rank.FOUR, 920),
+            new Card(Suit.DIAMOND, Rank.SIX, 921)));
+        players[3].getHand().clear();
+        players[3].addCards(List.of(
+            new Card(Suit.DIAMOND, Rank.SEVEN, 922),
+            new Card(Suit.DIAMOND, Rank.EIGHT, 923)));
+
+        EasyAI ai = new EasyAI();
+        List<Card> chosen = ai.chooseCards(players[1], engine);
+
+        assertEquals(2, chosen.size(), "应出2张牌跟棒子");
+
+        // 没有能组成棒子管上A棒子的主牌，应优先垫非主牌
+        TrumpInfo trumpInfo = engine.getTrumpInfo();
+        for (Card card : chosen) {
+            assertFalse(trumpInfo.isTrump(card),
+                "无法用主牌管上时应垫非主牌，不应浪费主牌。实际出了: " + card.getDisplayName());
+        }
+    }
 }

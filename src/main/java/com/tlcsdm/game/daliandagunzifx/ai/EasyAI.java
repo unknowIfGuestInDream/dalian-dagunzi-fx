@@ -45,6 +45,8 @@ public class EasyAI implements AIStrategy {
     protected static final int SORT_PRIORITY_OFFSET = 10000;
     // 短套判断阈值：花色牌数 ≤ 此值视为短套
     protected static final int SHORT_SUIT_THRESHOLD = 2;
+    // 用主牌管上的最低分值门槛：当前墩分值达到此值以上才考虑用主牌棒子/滚子管上
+    protected static final int MIN_POINTS_FOR_TRUMP_OVERRIDE = 10;
 
     @Override
     public Suit chooseTrumpSuit(Player player, Rank trumpRank) {
@@ -267,6 +269,7 @@ public class EasyAI implements AIStrategy {
         }
         // Fill with other cards if not enough suit cards
         if (result.size() < requiredCount) {
+            int remaining = requiredCount - result.size();
             if (partnerWinning) {
                 // 队友赢时给分牌，但优先非主牌，避免浪费主牌
                 otherNonTrump.sort(Comparator.comparingInt((Card c) -> c.getPoints()).reversed()
@@ -281,18 +284,70 @@ public class EasyAI implements AIStrategy {
                     result.add(card);
                 }
             } else {
-                // 优先垫非主牌，保留主牌实力
-                for (Card card : otherNonTrump) {
-                    if (result.size() >= requiredCount) break;
-                    result.add(card);
-                }
-                for (Card card : otherTrump) {
-                    if (result.size() >= requiredCount) break;
-                    result.add(card);
+                // 队友没赢，尝试用主牌管上（需要能组成完整的棒子/滚子才有意义）
+                List<Card> winningTrumpGroup = findWinningTrumpGroup(
+                    otherTrump, engine, remaining, trumpInfo);
+                if (winningTrumpGroup != null) {
+                    result.addAll(winningTrumpGroup);
+                } else {
+                    // 无法用主牌管上，优先垫非主牌（避免浪费主牌）
+                    for (Card card : otherNonTrump) {
+                        if (result.size() >= requiredCount) break;
+                        result.add(card);
+                    }
+                    // 非主牌不够时才用主牌（被迫出牌，不是为了管上）
+                    for (Card card : otherTrump) {
+                        if (result.size() >= requiredCount) break;
+                        result.add(card);
+                    }
                 }
             }
         }
         return result;
+    }
+
+    /**
+     * 在主牌中查找能赢墩的棒子/滚子组合。
+     * 只有当能组成完整的棒子(2张)/滚子(3张)并能管上当前赢家时才返回，
+     * 否则返回null表示不值得用主牌。
+     *
+     * @param trumpCards    可用的主牌列表
+     * @param engine        当前游戏引擎（用于获取当前墩信息）
+     * @param requiredCount 需要的牌数（2=棒子，3=滚子）
+     * @param trumpInfo     主牌信息
+     * @return 能赢墩的主牌组合，或null表示无法组成赢墩的组合（此时调用方应垫非主牌）
+     */
+    protected List<Card> findWinningTrumpGroup(List<Card> trumpCards, GameEngine engine,
+                                               int requiredCount, TrumpInfo trumpInfo) {
+        if (trumpCards.size() < requiredCount) return null;
+
+        int currentWinStrength = getCurrentTrickWinnerStrength(engine);
+        int trickPoints = calculateCurrentTrickPoints(engine);
+        if (trickPoints < MIN_POINTS_FOR_TRUMP_OVERRIDE) return null;
+
+        // 按花色+点数分组，找出能组成棒子/滚子的主牌
+        Map<String, List<Card>> groups = new java.util.LinkedHashMap<>();
+        for (Card card : trumpCards) {
+            String key = (card.getSuit() == null ? "JOKER" : card.getSuit().name())
+                + "_" + card.getRank().name();
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(card);
+        }
+
+        List<Card> bestGroup = null;
+        int bestStrength = Integer.MAX_VALUE;
+        for (List<Card> group : groups.values()) {
+            if (group.size() < requiredCount) continue;
+            List<Card> candidate = group.subList(0, requiredCount);
+            Card sample = candidate.get(0);
+            // 跳过特殊主牌（2/王/主牌级），这些牌价值过高不应轻易用于管棒子/滚子
+            if (isSpecialTrump(sample, trumpInfo)) continue;
+            int strength = trumpInfo.getCardStrength(sample);
+            if (strength > currentWinStrength && strength < bestStrength) {
+                bestStrength = strength;
+                bestGroup = new ArrayList<>(candidate);
+            }
+        }
+        return bestGroup;
     }
 
     protected Card chooseLead(Player player, List<Card> validCards, TrumpInfo trumpInfo) {
@@ -494,7 +549,7 @@ public class EasyAI implements AIStrategy {
             .orElse(trumpCards.get(0));
     }
 
-    private int getCurrentTrickWinnerStrength(GameEngine engine) {
+    protected int getCurrentTrickWinnerStrength(GameEngine engine) {
         TrumpInfo trumpInfo = engine.getTrumpInfo();
         Card[] trick = engine.getCurrentTrick();
         int leader = engine.getCurrentTrickLeader();
