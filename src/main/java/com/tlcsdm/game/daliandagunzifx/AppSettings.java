@@ -175,6 +175,12 @@ public final class AppSettings {
     }
 
     private void buildPreferences() {
+        // 保存当前属性值，防止 PreferencesFx 初始化时用内部空存储覆盖已从 PREFS 加载的属性值
+        boolean savedDark = darkThemeProperty.get();
+        boolean savedTracker = trackerEnabledProperty.get();
+        AILevel savedLevel = aiLevelProperty.get();
+        boolean savedUpdate = checkUpdateEnabledProperty.get();
+
         preferencesFx = PreferencesFx.of(AppSettings.class,
             Category.of("游戏设置",
                 Group.of("显示",
@@ -198,5 +204,12 @@ public final class AppSettings {
          .instantPersistent(true)
          .dialogIcon(new javafx.scene.image.Image(
              getClass().getResourceAsStream("logo.png")));
+
+        // 恢复属性值：PreferencesFx 的 instantPersistent(true) + saveSettings(false) 会在创建时
+        // 从内部空存储加载默认值并覆盖属性，此处恢复确保手动 Preferences 中的值不会丢失
+        darkThemeProperty.set(savedDark);
+        trackerEnabledProperty.set(savedTracker);
+        aiLevelProperty.set(savedLevel);
+        checkUpdateEnabledProperty.set(savedUpdate);
     }
 }

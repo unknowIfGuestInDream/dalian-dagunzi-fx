@@ -203,6 +203,7 @@ public class MediumAI implements AIStrategy {
         }
         // Fill with other cards if not enough suit cards
         if (result.size() < requiredCount) {
+            int remaining = requiredCount - result.size();
             if (partnerWinning) {
                 // 队友赢时优先垫非主牌分牌
                 otherCards.sort(Comparator.comparingInt((Card c) -> c.getPoints()).reversed()
@@ -217,26 +218,23 @@ public class MediumAI implements AIStrategy {
                     result.add(card);
                 }
             } else {
-                // 优先垫非主牌
-                for (Card card : otherCards) {
-                    if (result.size() >= requiredCount) break;
-                    result.add(card);
-                }
-                // Use low trump if available and worth it
-                int trickPoints = calculateCurrentTrickPoints(engine);
-                if (!trumpCards.isEmpty() && trickPoints >= 10) {
+                // 队友没赢，尝试用主牌管上（需要能组成完整的棒子/滚子才有意义）
+                List<Card> winningTrumpGroup = easyAI.findWinningTrumpGroup(
+                    trumpCards, engine, remaining, trumpInfo);
+                if (winningTrumpGroup != null) {
+                    result.addAll(winningTrumpGroup);
+                } else {
+                    // 无法用主牌管上，优先垫非主牌（避免浪费主牌）
+                    for (Card card : otherCards) {
+                        if (result.size() >= requiredCount) break;
+                        result.add(card);
+                    }
+                    // 非主牌不够时才用主牌（被迫出牌，不是为了管上）
                     for (Card card : trumpCards) {
                         if (result.size() >= requiredCount) break;
                         if (!result.contains(card)) {
                             result.add(card);
                         }
-                    }
-                }
-                // If still not enough, use trump
-                for (Card card : trumpCards) {
-                    if (result.size() >= requiredCount) break;
-                    if (!result.contains(card)) {
-                        result.add(card);
                     }
                 }
             }
