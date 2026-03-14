@@ -215,6 +215,92 @@ public class GameEngine {
         return TrumpInfo.effectiveRankStrength(card.getRank());
     }
 
+    /**
+     * 查找下一个需要进贡的玩家及其最大牌，以及对应的接收者。
+     * 返回长度为3的数组：[进贡方索引, 接收方索引, 贡牌在手牌中的索引]，
+     * 或null表示无法进贡。
+     */
+    public int[] findNextTributeGiverInfo() {
+        if (!isTributeRequired()) return null;
+        int losingTeam = 1 - previousWinningTeam;
+
+        Player giver = null;
+        Card bestCard = null;
+        for (Player p : players) {
+            if (p.getTeam() == losingTeam) {
+                for (Card c : p.getHand()) {
+                    if (bestCard == null || cardSortValue(c) > cardSortValue(bestCard)) {
+                        bestCard = c;
+                        giver = p;
+                    }
+                }
+            }
+        }
+        if (giver == null || bestCard == null) return null;
+
+        int receiverIndex = -1;
+        for (int i = 0; i < 4; i++) {
+            if (players[i].getTeam() == previousWinningTeam) {
+                receiverIndex = i;
+                break;
+            }
+        }
+        if (receiverIndex < 0) return null;
+
+        int cardIdx = giver.getHand().indexOf(bestCard);
+        return new int[]{giver.getId(), receiverIndex, cardIdx};
+    }
+
+    /**
+     * 获取进贡方的最大牌（即将用于进贡的牌）。
+     */
+    public Card getTributeCard(int giverIndex) {
+        Card bestCard = null;
+        for (Card c : players[giverIndex].getHand()) {
+            if (bestCard == null || cardSortValue(c) > cardSortValue(bestCard)) {
+                bestCard = c;
+            }
+        }
+        return bestCard;
+    }
+
+    /**
+     * 执行进贡的"给"步骤：进贡方将贡牌转给接收方。
+     */
+    public void executeTributeGive(int giverIndex, Card tributeCard, int receiverIndex) {
+        players[giverIndex].removeCards(List.of(tributeCard));
+        players[receiverIndex].addCards(List.of(tributeCard));
+    }
+
+    /**
+     * 执行进贡的"还"步骤：接收方将回贡牌还给进贡方。
+     */
+    public void executeTributeReturn(int receiverIndex, Card returnCard, int giverIndex) {
+        players[receiverIndex].removeCards(List.of(returnCard));
+        players[giverIndex].addCards(List.of(returnCard));
+    }
+
+    /**
+     * AI自动选择回贡牌（最小的非王牌）。
+     */
+    public Card autoSelectReturnCard(int receiverIndex) {
+        Player receiver = players[receiverIndex];
+        Card returnCard = null;
+        for (Card c : receiver.getHand()) {
+            if (c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER) {
+                if (returnCard == null || cardSortValue(c) < cardSortValue(returnCard)) {
+                    returnCard = c;
+                }
+            }
+        }
+        if (returnCard == null) {
+            returnCard = receiver.getHand().stream()
+                .min(Comparator.comparingInt(this::cardSortValue))
+                .orElse(null);
+        }
+        return returnCard;
+    }
+
     public void declareTrump(int playerIndex, Suit suit) {
         if (phase != GamePhase.DEALING && phase != GamePhase.DECLARING_TRUMP) {
             throw new IllegalStateException("Cannot declare trump in phase: " + phase);

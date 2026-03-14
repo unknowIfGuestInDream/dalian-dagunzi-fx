@@ -194,10 +194,11 @@ public class MediumAI implements AIStrategy {
             if (!partnerWinning && c.getPoints() > 0) return strength + EasyAI.POINT_CARD_PENALTY_OFFSET;
             return strength;
         }));
-        // Sort other cards: non-point weakest first
+        // Sort other cards: non-point weakest first, 保留A（非常有价值的单出牌）
         otherCards.sort(Comparator.comparingInt(c -> {
             int base = trumpInfo.getCardStrength(c);
             if (c.getPoints() > 0) return base + EasyAI.SORT_PRIORITY_OFFSET;
+            if (c.getRank() == Rank.ACE) return base + EasyAI.POINT_CARD_PENALTY_OFFSET;
             return base;
         }));
         // Sort trump cards: weakest first, special trumps last
@@ -362,11 +363,25 @@ public class MediumAI implements AIStrategy {
                 .anyMatch(c -> c.getPoints() == 0 && !easyAI.isSpecialTrump(c, trumpInfo));
             if (trickPoints >= 10 || engine.getTrickCardsPlayed() == 3
                 || !hasNonPointNonTrump) {
-                // 有分可争、最后出牌、或只有分牌可垫时 → 尝试用非特殊主牌赢墩
-                List<Card> nonSpecialTrumps = trumpCards.stream()
-                    .filter(c -> !easyAI.isSpecialTrump(c, trumpInfo))
-                    .toList();
-                List<Card> candidates = nonSpecialTrumps.isEmpty() ? trumpCards : nonSpecialTrumps;
+                // 检查后续对手是否也缺该花色（会用主牌毙），需要选更大的主牌
+                boolean subsequentOpponentVoid = isSubsequentOpponentVoid(player, engine, leadSuit);
+
+                List<Card> candidates;
+                if (subsequentOpponentVoid) {
+                    // 后续对手也缺门，他们也会用主牌毙 → 放宽限制，允许使用2
+                    candidates = trumpCards.stream()
+                        .filter(c -> c.getRank() != Rank.BIG_JOKER
+                            && c.getRank() != Rank.SMALL_JOKER
+                            && c.getRank() != trumpInfo.getTrumpRank())
+                        .collect(Collectors.toList());
+                    if (candidates.isEmpty()) candidates = trumpCards;
+                } else {
+                    // 有分可争、最后出牌、或只有分牌可垫时 → 尝试用非特殊主牌赢墩
+                    List<Card> nonSpecialTrumps = trumpCards.stream()
+                        .filter(c -> !easyAI.isSpecialTrump(c, trumpInfo))
+                        .toList();
+                    candidates = nonSpecialTrumps.isEmpty() ? trumpCards : nonSpecialTrumps;
+                }
                 // Play minimum trump that can win
                 int currentWinStrength = getCurrentWinningStrength(engine);
                 Card bestTrump = null;
@@ -487,5 +502,33 @@ public class MediumAI implements AIStrategy {
 
     public CardTracker getCardTracker() {
         return cardTracker;
+    }
+
+    /**
+     * 检查后续未出牌的对手是否也缺该花色。
+     * 如果对手缺门，他们也会用主牌毙，所以需要选更大的主牌。
+     */
+    private boolean isSubsequentOpponentVoid(Player player, GameEngine engine, Suit leadSuit) {
+        if (leadSuit == null) return false;
+        int leader = engine.getCurrentTrickLeader();
+        Player[] allPlayers = engine.getPlayers();
+        // 找到当前玩家在出牌顺序中的位置
+        int myPosition = -1;
+        for (int i = 0; i < 4; i++) {
+            if ((leader + i) % 4 == player.getId()) {
+                myPosition = i;
+                break;
+            }
+        }
+        // 检查后续未出牌的对手
+        for (int j = myPosition + 1; j < 4; j++) {
+            int futureIdx = (leader + j) % 4;
+            if (allPlayers[futureIdx].getTeam() != player.getTeam()) {
+                if (cardTracker.isVoid(futureIdx, leadSuit)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }
