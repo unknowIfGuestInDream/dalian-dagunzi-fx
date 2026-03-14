@@ -243,9 +243,11 @@ public class EasyAI implements AIStrategy {
         boolean partnerWinning = isPartnerWinning(player, engine);
 
         // Sort suit cards: play weakest first, but preserve special trump
+        // 队友没赢时额外避免出分牌（5/10/K），防止给对方送分
         suitCards.sort(Comparator.comparingInt(c -> {
             int strength = trumpInfo.getCardStrength(c);
             if (isSpecialTrump(c, trumpInfo)) return strength + SORT_PRIORITY_OFFSET;
+            if (!partnerWinning && c.getPoints() > 0) return strength + SORT_PRIORITY_OFFSET / 2;
             return strength;
         }));
         // Sort non-trump cards: play weakest non-point first

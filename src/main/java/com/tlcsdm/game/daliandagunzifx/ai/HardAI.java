@@ -81,7 +81,14 @@ public class HardAI implements AIStrategy {
             boolean partnerWinning = rolloutAI.isPartnerWinning(player, engine);
 
             if (partnerWinning) {
-                // 队友赢时，优先给分牌
+                // 队友赢时，优先出非主牌（分牌或小牌），避免用主牌杀队友的牌
+                List<Card> nonTrumpValid = new ArrayList<>();
+                for (Card c : validCards) {
+                    if (!trumpInfo.isTrump(c)) nonTrumpValid.add(c);
+                }
+                if (!nonTrumpValid.isEmpty()) {
+                    return rolloutAI.playPointsForPartner(nonTrumpValid, trumpInfo);
+                }
                 return rolloutAI.playPointsForPartner(validCards, trumpInfo);
             }
 
@@ -131,6 +138,18 @@ public class HardAI implements AIStrategy {
         };
         if (requiredCount == 1) {
             return List.of(chooseCard(player, engine));
+        }
+
+        // 多牌跟牌启发式守卫：明确场景下使用确定性策略，避免PIMC模拟选出不合理的牌
+        boolean partnerWinning = rolloutAI.isPartnerWinning(player, engine);
+        if (partnerWinning) {
+            // 队友赢时使用确定性策略（出小牌/分牌），不需要PIMC
+            return fallbackAI.chooseCards(player, engine);
+        }
+        int trickPoints = rolloutAI.calculateCurrentTrickPoints(engine);
+        if (trickPoints == 0) {
+            // 无分墩，不需要PIMC，直接出最小
+            return fallbackAI.chooseCards(player, engine);
         }
 
         List<List<Card>> candidates = generateMultiCardCandidates(player, engine, requiredCount);
