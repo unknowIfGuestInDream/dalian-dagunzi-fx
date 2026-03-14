@@ -265,6 +265,50 @@ class EasyAITest {
     }
 
     @Test
+    void testFollowTrumpSinglePreservesDiamondTwo() {
+        // 方片是主时，跟主牌不应用♦2赢低分墩（♦2是大牌，应保留）
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        // 方片是主，打3级（默认级牌THREE）
+        engine.declareTrump(0, Suit.DIAMOND);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0 leads with ♦10（主牌，10分）
+        players[0].getHand().clear();
+        Card diamond10 = new Card(Suit.DIAMOND, Rank.TEN, 920);
+        players[0].addCards(List.of(diamond10));
+        engine.playCard(0, diamond10);
+
+        // Player 1 has ♦2（特殊主牌）、♦4、♦7
+        // ♦4(904) 和 ♦7(907) 都打不过 ♦10(910)，只有 ♦2(996) 能赢
+        // 但 ♦2 是大牌，不应该为了10分就打出去
+        players[1].getHand().clear();
+        Card diamond2 = new Card(Suit.DIAMOND, Rank.TWO, 921);
+        Card diamond4 = new Card(Suit.DIAMOND, Rank.FOUR, 922);
+        Card diamond7 = new Card(Suit.DIAMOND, Rank.SEVEN, 923);
+        players[1].addCards(List.of(diamond2, diamond4, diamond7));
+
+        EasyAI ai = new EasyAI();
+        Card chosen = ai.chooseCard(players[1], engine);
+
+        // 应出♦4（最小的非特殊主牌），而不是♦2
+        assertFalse(ai.isSpecialTrump(chosen, engine.getTrumpInfo()),
+            "跟主牌时有非特殊主牌可出，不应出♦2等特殊主牌。实际出了: " + chosen.getRank() + " " + chosen.getSuit());
+        assertEquals(Rank.FOUR, chosen.getRank(),
+            "应出方片4（最小的非特殊主牌），比如再打3，方片4是最小牌");
+    }
+
+    @Test
     void testFollowTrumpBangPlaysSmallTrumps() {
         // Bug 2: 跟主牌棒子时应出小主牌，不应出2/王等特殊主牌
         Player[] players = new Player[]{

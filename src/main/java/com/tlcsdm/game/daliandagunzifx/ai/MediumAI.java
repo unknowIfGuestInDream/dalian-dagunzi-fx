@@ -390,12 +390,13 @@ public class MediumAI implements AIStrategy {
             return easyAI.playPointsForPartner(suitCards, trumpInfo);
         }
 
-        // 只在有分值得争的时候才尝试压牌
+        // 只在有分值得争的时候才尝试压牌，保护特殊主牌（2/王/主牌级）
         int trickPoints = calculateCurrentTrickPoints(engine);
         if (trickPoints > 0) {
             int currentWinStrength = getCurrentWinningStrength(engine);
             Card bestWinner = null;
             for (Card card : suitCards) {
+                if (easyAI.isSpecialTrump(card, trumpInfo)) continue;
                 int strength = trumpInfo.getCardStrength(card);
                 if (strength > currentWinStrength) {
                     if (bestWinner == null || strength < trumpInfo.getCardStrength(bestWinner)) {
