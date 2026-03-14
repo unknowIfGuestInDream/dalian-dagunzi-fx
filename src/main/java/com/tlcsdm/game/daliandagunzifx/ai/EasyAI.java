@@ -151,7 +151,7 @@ public class EasyAI implements AIStrategy {
             groups.computeIfAbsent(key, k -> new ArrayList<>()).add(card);
         }
 
-        // 候选：强副牌棒子/滚子（A或K）
+        // 候选：强副牌棒子/滚子（仅A，K是分牌不适合主动领出）
         List<Card> bestStrongGunzi = null;
         int bestStrongGunziStrength = -1;
         List<Card> bestStrongBang = null;
@@ -172,8 +172,8 @@ public class EasyAI implements AIStrategy {
             if (group.size() >= 3) {
                 List<Card> gunzi = group.subList(0, 3);
                 if (engine.determinePlayType(gunzi) == PlayType.GUNZI) {
-                    if (!isTrump && (rank == Rank.ACE || rank == Rank.KING)) {
-                        // 强副牌滚子（A/K级别很可能赢）
+                    if (!isTrump && rank == Rank.ACE) {
+                        // 强副牌滚子（仅A级别很可能赢，K是分牌不适合主动领出）
                         if (bestStrongGunzi == null || strength > bestStrongGunziStrength) {
                             bestStrongGunzi = new ArrayList<>(gunzi);
                             bestStrongGunziStrength = strength;
@@ -190,8 +190,8 @@ public class EasyAI implements AIStrategy {
             if (group.size() >= 2) {
                 List<Card> bang = group.subList(0, 2);
                 if (engine.determinePlayType(bang) == PlayType.BANG) {
-                    if (!isTrump && (rank == Rank.ACE || rank == Rank.KING)) {
-                        // 强副牌棒子（A/K级别很可能赢）
+                    if (!isTrump && rank == Rank.ACE) {
+                        // 强副牌棒子（仅A级别很可能赢，K是分牌不适合主动领出）
                         if (bestStrongBang == null || strength > bestStrongBangStrength) {
                             bestStrongBang = new ArrayList<>(bang);
                             bestStrongBangStrength = strength;
@@ -263,10 +263,11 @@ public class EasyAI implements AIStrategy {
             if (!partnerWinning && c.getPoints() > 0) return strength + POINT_CARD_PENALTY_OFFSET;
             return strength;
         }));
-        // Sort non-trump cards: play weakest non-point first
+        // Sort non-trump cards: play weakest non-point first, 保留A（非常有价值的单出牌）
         otherNonTrump.sort(Comparator.comparingInt(c -> {
             int base = trumpInfo.getCardStrength(c);
             if (c.getPoints() > 0) return base + SORT_PRIORITY_OFFSET;
+            if (c.getRank() == Rank.ACE) return base + POINT_CARD_PENALTY_OFFSET;
             return base;
         }));
         // Sort trump cards: weakest first, special trumps last
