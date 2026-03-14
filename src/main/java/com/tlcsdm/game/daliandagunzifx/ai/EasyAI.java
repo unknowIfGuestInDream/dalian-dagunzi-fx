@@ -502,10 +502,12 @@ public class EasyAI implements AIStrategy {
                 // 队友赢时，优先给分牌
                 return playPointsForPartner(suitCards, trumpInfo);
             }
-            // 队友没赢，看看这墩是否有分值得争
+            // 队友没赢，看看这墩是否有分值得争，或者是否被迫出分牌
             int trickPoints = calculateCurrentTrickPoints(engine);
-            if (trickPoints > 0) {
-                // 有分，尝试用最小能赢的非特殊主牌来赢，保护2/王/主牌级等高价值牌
+            boolean hasNonPointCard = suitCards.stream()
+                .anyMatch(c -> c.getPoints() == 0 && !isSpecialTrump(c, trumpInfo));
+            if (trickPoints > 0 || !hasNonPointCard) {
+                // 有分可争，或手中只剩分牌（避免白送对方分数）→ 尝试赢墩
                 int currentWinStrength = getCurrentTrickWinnerStrength(engine);
                 Card bestWinner = null;
                 for (Card card : suitCards) {
@@ -539,19 +541,34 @@ public class EasyAI implements AIStrategy {
 
         // 队友没赢，考虑是否值得用主牌
         int trickPoints = calculateCurrentTrickPoints(engine);
-        // 优先垫非主牌，避免浪费主牌
-        if (!nonTrumpCards.isEmpty()) {
+        // 检查是否有无分非主牌可以安全垫
+        boolean hasNonPointNonTrump = nonTrumpCards.stream()
+            .anyMatch(c -> c.getPoints() == 0 && !isSpecialTrump(c, trumpInfo));
+        if (hasNonPointNonTrump) {
+            // 有无分非主牌可垫，安全垫牌
             return playLow(nonTrumpCards, trumpInfo);
         }
-        // 没有非主牌可垫时，分值够高才考虑用主牌杀分
-        if (!trumpCards.isEmpty() && trickPoints >= 15) {
-            // 优先使用非特殊主牌
+        // 只有分牌非主牌或无非主牌：尝试用非特殊主牌赢墩避免送分
+        if (!trumpCards.isEmpty()) {
+            int currentWinStrength = getCurrentTrickWinnerStrength(engine);
             List<Card> nonSpecialTrumps = trumpCards.stream()
                 .filter(c -> !isSpecialTrump(c, trumpInfo))
                 .toList();
             if (!nonSpecialTrumps.isEmpty()) {
-                return playTrump(player, nonSpecialTrumps, engine);
+                Optional<Card> winningTrump = nonSpecialTrumps.stream()
+                    .filter(c -> trumpInfo.getCardStrength(c) > currentWinStrength)
+                    .min(Comparator.comparingInt(trumpInfo::getCardStrength));
+                if (winningTrump.isPresent()) {
+                    return winningTrump.get();
+                }
             }
+        }
+        // 垫非主牌（如果有的话）
+        if (!nonTrumpCards.isEmpty()) {
+            return playLow(nonTrumpCards, trumpInfo);
+        }
+        // 没有非主牌可垫时，分值够高才考虑用特殊主牌杀分
+        if (!trumpCards.isEmpty() && trickPoints >= 15) {
             return playTrump(player, trumpCards, engine);
         }
 
