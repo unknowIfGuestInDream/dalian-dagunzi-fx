@@ -177,9 +177,11 @@ public class MediumAI implements AIStrategy {
         boolean partnerWinning = easyAI.isPartnerWinning(player, engine);
 
         // 跟花色牌按强度升序，但保留特殊主牌
+        // 队友没赢时额外避免出分牌（5/10/K），防止给对方送分
         suitCards.sort(Comparator.comparingInt(c -> {
             int strength = trumpInfo.getCardStrength(c);
             if (easyAI.isSpecialTrump(c, trumpInfo)) return strength + EasyAI.SORT_PRIORITY_OFFSET;
+            if (!partnerWinning && c.getPoints() > 0) return strength + EasyAI.POINT_CARD_PENALTY_OFFSET;
             return strength;
         }));
         // Sort other cards: non-point weakest first

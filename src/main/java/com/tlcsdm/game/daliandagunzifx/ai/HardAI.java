@@ -81,7 +81,14 @@ public class HardAI implements AIStrategy {
             boolean partnerWinning = rolloutAI.isPartnerWinning(player, engine);
 
             if (partnerWinning) {
-                // 队友赢时，优先给分牌
+                // 队友赢时，优先出非主牌（分牌或小牌），避免用主牌杀队友的牌
+                List<Card> nonTrumpValid = new ArrayList<>();
+                for (Card c : validCards) {
+                    if (!trumpInfo.isTrump(c)) nonTrumpValid.add(c);
+                }
+                if (!nonTrumpValid.isEmpty()) {
+                    return rolloutAI.playPointsForPartner(nonTrumpValid, trumpInfo);
+                }
                 return rolloutAI.playPointsForPartner(validCards, trumpInfo);
             }
 
@@ -131,6 +138,20 @@ public class HardAI implements AIStrategy {
         };
         if (requiredCount == 1) {
             return List.of(chooseCard(player, engine));
+        }
+
+        // 多牌跟牌启发式守卫：以下两种场景结果明确，不需要PIMC蒙特卡罗模拟。
+        // PIMC在这些场景中容易因随机采样选出不合理的牌（如用王杀队友的牌、把分牌给对手等），
+        // 使用MediumAI的确定性策略能保证出牌符合基本打牌常识。
+        boolean partnerWinning = rolloutAI.isPartnerWinning(player, engine);
+        if (partnerWinning) {
+            // 场景1：队友赢时应出小牌或分牌给队友，确定性策略足够
+            return fallbackAI.chooseCards(player, engine);
+        }
+        int trickPoints = rolloutAI.calculateCurrentTrickPoints(engine);
+        if (trickPoints == 0) {
+            // 场景2：无分墩不值得争，出最小即可，确定性策略足够
+            return fallbackAI.chooseCards(player, engine);
         }
 
         List<List<Card>> candidates = generateMultiCardCandidates(player, engine, requiredCount);
