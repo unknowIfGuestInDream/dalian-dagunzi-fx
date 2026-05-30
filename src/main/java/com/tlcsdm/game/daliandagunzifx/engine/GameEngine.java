@@ -34,7 +34,9 @@ import com.tlcsdm.game.daliandagunzifx.model.Suit;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class GameEngine {
 
@@ -626,7 +628,7 @@ public class GameEngine {
      * within the given list.
      */
     private int maxIdenticalCount(List<Card> cards) {
-        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+        Map<String, Integer> counts = new HashMap<>();
         int max = 0;
         for (Card card : cards) {
             String key = (card.getSuit() == null ? "JOKER" : card.getSuit().name())

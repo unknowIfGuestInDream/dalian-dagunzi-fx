@@ -762,10 +762,8 @@ class AIMultiCardTest {
         assertEquals(3, chosen.size());
         assertTrue(engine.isValidPlay(1, chosen),
             "EasyAI: 无三张有对子时应出合法的对子+单张组合");
-        long maxGroup = chosen.stream()
-            .filter(c -> c.getRank() == Rank.SEVEN && c.getSuit() == Suit.SPADE)
-            .count();
-        assertEquals(2, maxGroup, "EasyAI: 跟牌应保留对子完整");
+        assertTrue(chosen.containsAll(List.of(s7a, s7b)),
+            "EasyAI: 跟牌应保留手中的♠7对子完整");
 
         MediumAI mediumAI = new MediumAI(new CardTracker());
         List<Card> mediumChosen = mediumAI.chooseCards(p1, engine);

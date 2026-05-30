@@ -248,7 +248,7 @@ public class EasyAI implements AIStrategy {
         PlayType leadType = engine.getCurrentTrickPlayType();
         if ((leadType == PlayType.BANG || leadType == PlayType.GUNZI)
             && suitCards.size() >= requiredCount) {
-            List<Card> matchingGroup = buildSuitFollow(suitCards, leadType, requiredCount, trumpInfo);
+            List<Card> matchingGroup = buildSuitFollow(suitCards, leadType, trumpInfo);
             if (matchingGroup != null) {
                 return matchingGroup;
             }
@@ -410,14 +410,13 @@ public class EasyAI implements AIStrategy {
      * </ul>
      * 选择时优先打出最弱的牌，并保留特殊主牌。
      *
-     * @param suitCards     同花色（含主牌时为主牌）手牌，数量不少于 requiredCount
+     * @param suitCards     同花色（含主牌时为主牌）手牌，数量不少于领出张数
      * @param leadType      领出牌型（BANG 或 GUNZI）
-     * @param requiredCount 需要出的张数（2 或 3）
      * @param trumpInfo     主牌信息
-     * @return 合法的跟牌组合（恰好 requiredCount 张）
+     * @return 必须保持完整的牌组组合；若无强制组合（散牌情形）则返回 null，交由调用方处理
      */
     protected List<Card> buildSuitFollow(List<Card> suitCards, PlayType leadType,
-                                         int requiredCount, TrumpInfo trumpInfo) {
+                                         TrumpInfo trumpInfo) {
         if (leadType == PlayType.GUNZI) {
             List<Card> triple = findWeakestGroup(suitCards, PlayType.GUNZI, trumpInfo);
             if (triple != null) {

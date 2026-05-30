@@ -178,7 +178,7 @@ public class MediumAI implements AIStrategy {
         PlayType leadType = engine.getCurrentTrickPlayType();
         if ((leadType == PlayType.BANG || leadType == PlayType.GUNZI)
             && suitCards.size() >= requiredCount) {
-            List<Card> matchingGroup = easyAI.buildSuitFollow(suitCards, leadType, requiredCount, trumpInfo);
+            List<Card> matchingGroup = easyAI.buildSuitFollow(suitCards, leadType, trumpInfo);
             if (matchingGroup != null) {
                 return matchingGroup;
             }
