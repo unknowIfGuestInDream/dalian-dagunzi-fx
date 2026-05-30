@@ -337,13 +337,76 @@ class GameEngineTest {
     }
 
     @Test
+    void testLeadSuitTwoBeatsLeadSuitAce() {
+        // 同花色内 2 最大（2 > A）：领出花色的 2 应胜过领出花色的 A
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
+        engine.setKitty(kittyCards);
+
+        for (Player p : players) {
+            p.getHand().clear();
+        }
+
+        Card spade5 = new Card(Suit.SPADE, Rank.FIVE, 410);
+        Card spadeAce = new Card(Suit.SPADE, Rank.ACE, 411);
+        Card spade2 = new Card(Suit.SPADE, Rank.TWO, 412);
+        Card spade6 = new Card(Suit.SPADE, Rank.SIX, 413);
+
+        players[0].addCards(List.of(spade5));
+        players[1].addCards(List.of(spadeAce));
+        players[2].addCards(List.of(spade2));
+        players[3].addCards(List.of(spade6));
+
+        engine.playCard(0, spade5);
+        engine.playCard(1, spadeAce);
+        engine.playCard(2, spade2);
+        engine.playCard(3, spade6);
+
+        // Player 2 played ♠2, which is the highest spade (2 > A)
+        assertEquals(2, engine.evaluateTrick());
+    }
+
+    @Test
+    void testOffSuitTwoDoesNotBeatTrump() {
+        // 副花色的 2 不是主牌，不能盖过主牌
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
+        engine.setKitty(kittyCards);
+
+        for (Player p : players) {
+            p.getHand().clear();
+        }
+
+        // Player 0 leads a spade; player 1 trumps with a heart; player 2 throws an off-suit club 2
+        Card spadeKing = new Card(Suit.SPADE, Rank.KING, 420);
+        Card heart4 = new Card(Suit.HEART, Rank.FOUR, 421);
+        Card club2 = new Card(Suit.CLUB, Rank.TWO, 422);
+        Card spade6 = new Card(Suit.SPADE, Rank.SIX, 423);
+
+        players[0].addCards(List.of(spadeKing));
+        players[1].addCards(List.of(heart4));
+        players[2].addCards(List.of(club2));
+        players[3].addCards(List.of(spade6));
+
+        engine.playCard(0, spadeKing);
+        engine.playCard(1, heart4);
+        engine.playCard(2, club2);
+        engine.playCard(3, spade6);
+
+        // Player 1's heart (trump) wins; the off-suit club 2 cannot beat a trump
+        assertEquals(1, engine.evaluateTrick());
+    }
+
+    @Test
     void testCannotPlayTwoWhenHavingSuitCards() {
         engine.startNewRound();
         engine.declareTrump(0, Suit.HEART);
         List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
         engine.setKitty(kittyCards);
 
-        // Set up player 1 with spade cards AND a 2 (which is trump)
+        // Set up player 1 with spade cards AND a club 2 (a normal side card)
         players[1].getHand().clear();
         Card spadeAce = new Card(Suit.SPADE, Rank.ACE, 600);
         Card twoOfClub = new Card(Suit.CLUB, Rank.TWO, 601);
@@ -355,9 +418,9 @@ class GameEngineTest {
         players[0].addCards(List.of(spadeKing));
         engine.playCard(0, spadeKing);
 
-        // Player 1 has a spade (ace), so must follow suit - cannot play 2 (trump)
+        // Player 1 has a spade (ace), so must follow suit - cannot play the off-suit club 2
         assertFalse(engine.isValidPlay(1, twoOfClub),
-            "Should not be allowed to play 2 when player has cards of the led suit");
+            "Should not be allowed to play an off-suit 2 when player has cards of the led suit");
         assertTrue(engine.isValidPlay(1, spadeAce),
             "Should be allowed to follow suit with spade ace");
     }

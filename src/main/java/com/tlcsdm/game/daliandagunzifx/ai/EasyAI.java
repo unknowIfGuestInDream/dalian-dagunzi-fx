@@ -704,12 +704,14 @@ public class EasyAI implements AIStrategy {
     }
 
     /**
-     * 判断是否为高价值特殊主牌（王、2、主牌级），这些牌不应轻易丢弃。
+     * 判断是否为高价值特殊主牌（王、主牌级、主花色2），这些牌不应轻易丢弃。
+     * 注意：2 不是常主，只有主花色的 2 才属于特殊主牌。
      */
     protected boolean isSpecialTrump(Card card, TrumpInfo trumpInfo) {
         Rank rank = card.getRank();
         return rank == Rank.BIG_JOKER || rank == Rank.SMALL_JOKER
-            || rank == Rank.TWO || rank == trumpInfo.getTrumpRank();
+            || rank == trumpInfo.getTrumpRank()
+            || (rank == Rank.TWO && trumpInfo.isTrump(card));
     }
 
     protected boolean isPartnerWinning(Player player, GameEngine engine) {

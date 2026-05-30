@@ -1805,8 +1805,8 @@ public class DaGunZiApp extends Application {
                 // Jokers - Big Joker first
                 return Integer.compare(b.getRank().getValue(), a.getRank().getValue());
             }
-            if (ga == 1 || ga == 2) {
-                // Trump rank or TWO cards - trump suit first, then by suit ordinal
+            if (ga == 1) {
+                // Trump rank cards - trump suit first, then by suit ordinal
                 boolean aTS = ts != null && a.getSuit() == ts;
                 boolean bTS = ts != null && b.getSuit() == ts;
                 if (aTS != bTS) return aTS ? -1 : 1;
@@ -1815,12 +1815,12 @@ public class DaGunZiApp extends Application {
                     b.getSuit() == null ? 99 : suitDisplayOrder(b.getSuit()));
             }
             if (ga == 3) {
-                // Trump suit remaining cards - by rank descending
+                // Trump suit remaining cards - by rank descending (trump-suit 2 is highest)
                 return Integer.compare(
                     TrumpInfo.effectiveRankStrength(b.getRank()),
                     TrumpInfo.effectiveRankStrength(a.getRank()));
             }
-            // Non-trump, non-2 cards - by suit then rank descending
+            // Non-trump cards - by suit then rank descending (2 is highest within a suit)
             int suitCmp = Integer.compare(
                 a.getSuit() == null ? 99 : suitDisplayOrder(a.getSuit()),
                 b.getSuit() == null ? 99 : suitDisplayOrder(b.getSuit()));
@@ -1851,7 +1851,6 @@ public class DaGunZiApp extends Application {
         Rank rank = card.getRank();
         if (rank == Rank.BIG_JOKER || rank == Rank.SMALL_JOKER) return 0;
         if (rank == trumpInfo.getTrumpRank()) return 1;
-        if (rank == Rank.TWO) return 2;
         if (trumpInfo.getTrumpSuit() != null && card.getSuit() == trumpInfo.getTrumpSuit()) return 3;
         return 4;
     }

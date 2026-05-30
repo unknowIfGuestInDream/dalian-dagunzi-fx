@@ -35,7 +35,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class TrumpInfoTest {
 
-    private final TrumpInfo trumpInfo = new TrumpInfo(Suit.HEART, Rank.TWO);
+    // 主花色 HEART，主牌级 THREE（实际对局中级别从 3 开始，2 永远不会是主牌级）。
+    private final TrumpInfo trumpInfo = new TrumpInfo(Suit.HEART, Rank.THREE);
 
     @Test
     void testJokersAreTrump() {
@@ -53,9 +54,9 @@ class TrumpInfoTest {
 
     @Test
     void testTrumpRankIsTrump() {
-        // Trump rank is TWO; a TWO of spades should be trump
-        Card twoSpades = new Card(Suit.SPADE, Rank.TWO, 20);
-        assertTrue(trumpInfo.isTrump(twoSpades));
+        // Trump rank is THREE; a THREE of any suit should be trump
+        Card threeSpades = new Card(Suit.SPADE, Rank.THREE, 20);
+        assertTrue(trumpInfo.isTrump(threeSpades));
     }
 
     @Test
@@ -65,74 +66,70 @@ class TrumpInfoTest {
     }
 
     @Test
+    void testTwoIsNotTrumpUnlessTrumpSuit() {
+        // 在大连打滚子中，2 不是常主，只是最大的普通牌。
+        Card twoSpades = new Card(Suit.SPADE, Rank.TWO, 40);
+        Card twoHearts = new Card(Suit.HEART, Rank.TWO, 41);
+
+        // 副花色的 2 不是主牌
+        assertFalse(trumpInfo.isTrump(twoSpades));
+        assertEquals(Suit.SPADE, trumpInfo.getEffectiveSuit(twoSpades));
+
+        // 主花色的 2 才是主牌（属于主花色）
+        assertTrue(trumpInfo.isTrump(twoHearts));
+        assertNull(trumpInfo.getEffectiveSuit(twoHearts));
+    }
+
+    @Test
     void testCardStrengthOrder() {
         Card bigJoker = new Card(null, Rank.BIG_JOKER, 200);
         Card smallJoker = new Card(null, Rank.SMALL_JOKER, 201);
-        Card trumpRankInTrumpSuit = new Card(Suit.HEART, Rank.TWO, 202);
-        Card trumpRankOtherSuit = new Card(Suit.SPADE, Rank.TWO, 203);
-        Card trumpSuitAce = new Card(Suit.HEART, Rank.ACE, 204);
-        Card nonTrumpAce = new Card(Suit.SPADE, Rank.ACE, 205);
+        Card trumpRankInTrumpSuit = new Card(Suit.HEART, Rank.THREE, 202);
+        Card trumpRankOtherSuit = new Card(Suit.SPADE, Rank.THREE, 203);
+        Card trumpSuitTwo = new Card(Suit.HEART, Rank.TWO, 204);
+        Card trumpSuitAce = new Card(Suit.HEART, Rank.ACE, 205);
+        Card nonTrumpTwo = new Card(Suit.SPADE, Rank.TWO, 206);
+        Card nonTrumpAce = new Card(Suit.SPADE, Rank.ACE, 207);
 
         assertTrue(trumpInfo.getCardStrength(bigJoker) > trumpInfo.getCardStrength(smallJoker));
         assertTrue(trumpInfo.getCardStrength(smallJoker) > trumpInfo.getCardStrength(trumpRankInTrumpSuit));
         assertTrue(trumpInfo.getCardStrength(trumpRankInTrumpSuit) > trumpInfo.getCardStrength(trumpRankOtherSuit));
-        assertTrue(trumpInfo.getCardStrength(trumpRankOtherSuit) > trumpInfo.getCardStrength(trumpSuitAce));
-        assertTrue(trumpInfo.getCardStrength(trumpSuitAce) > trumpInfo.getCardStrength(nonTrumpAce));
+        // 主花色的 2 是最大的主花色普通牌（高于主花色 A），但低于主牌级
+        assertTrue(trumpInfo.getCardStrength(trumpRankOtherSuit) > trumpInfo.getCardStrength(trumpSuitTwo));
+        assertTrue(trumpInfo.getCardStrength(trumpSuitTwo) > trumpInfo.getCardStrength(trumpSuitAce));
+        // 任意主牌都大于副牌
+        assertTrue(trumpInfo.getCardStrength(trumpSuitAce) > trumpInfo.getCardStrength(nonTrumpTwo));
+        // 副牌中 2 最大，高于 A
+        assertTrue(trumpInfo.getCardStrength(nonTrumpTwo) > trumpInfo.getCardStrength(nonTrumpAce));
     }
 
     @Test
     void testEffectiveSuit() {
         Card bigJoker = new Card(null, Rank.BIG_JOKER, 200);
         Card trumpSuitCard = new Card(Suit.HEART, Rank.ACE, 204);
-        Card trumpRankCard = new Card(Suit.SPADE, Rank.TWO, 203);
+        Card trumpRankCard = new Card(Suit.SPADE, Rank.THREE, 203);
         Card nonTrumpCard = new Card(Suit.SPADE, Rank.ACE, 205);
+        Card nonTrumpTwo = new Card(Suit.SPADE, Rank.TWO, 208);
 
         assertNull(trumpInfo.getEffectiveSuit(bigJoker));
         assertNull(trumpInfo.getEffectiveSuit(trumpSuitCard));
         assertNull(trumpInfo.getEffectiveSuit(trumpRankCard));
         assertEquals(Suit.SPADE, trumpInfo.getEffectiveSuit(nonTrumpCard));
+        // 副花色的 2 跟普通副牌一样，按本花色跟牌
+        assertEquals(Suit.SPADE, trumpInfo.getEffectiveSuit(nonTrumpTwo));
     }
 
     @Test
-    void testTwoAlwaysTrump() {
-        // TWO is always trump, even when trump rank is not TWO
-        TrumpInfo threesTrump = new TrumpInfo(Suit.HEART, Rank.THREE);
-
-        Card twoSpades = new Card(Suit.SPADE, Rank.TWO, 300);
-        Card twoClubs = new Card(Suit.CLUB, Rank.TWO, 303);
-
-        // All 2s should be trump regardless of suit
-        assertTrue(threesTrump.isTrump(twoSpades));
-        assertTrue(threesTrump.isTrump(twoClubs));
-        assertNull(threesTrump.getEffectiveSuit(twoSpades));
-        assertNull(threesTrump.getEffectiveSuit(twoClubs));
-
-        // 2 should still be stronger than non-trump A and K
-        Card nonTrumpAce = new Card(Suit.SPADE, Rank.ACE, 301);
-        Card nonTrumpKing = new Card(Suit.SPADE, Rank.KING, 302);
-        assertTrue(threesTrump.getCardStrength(twoSpades)
-            > threesTrump.getCardStrength(nonTrumpAce));
-        assertTrue(threesTrump.getCardStrength(nonTrumpAce)
-            > threesTrump.getCardStrength(nonTrumpKing));
-    }
-
-    @Test
-    void testTwoRanksAboveAceInTrumpSuit() {
-        // Trump suit HEART, trump rank THREE; 2 of trump suit ranks higher than 2 of other suits
-        TrumpInfo threesTrump = new TrumpInfo(Suit.HEART, Rank.THREE);
-
+    void testTwoOfTrumpSuitIsHighestTrumpSuitCard() {
+        // 主花色 HEART，主牌级 THREE；主花色的 2 是最大的主花色普通牌
         Card trumpSuitTwo = new Card(Suit.HEART, Rank.TWO, 310);
-        Card otherSuitTwo = new Card(Suit.SPADE, Rank.TWO, 313);
         Card trumpSuitAce = new Card(Suit.HEART, Rank.ACE, 311);
         Card trumpSuitKing = new Card(Suit.HEART, Rank.KING, 312);
 
-        // 2 of trump suit > 2 of other suits > trump suit A > trump suit K
-        assertTrue(threesTrump.getCardStrength(trumpSuitTwo)
-            > threesTrump.getCardStrength(otherSuitTwo));
-        assertTrue(threesTrump.getCardStrength(otherSuitTwo)
-            > threesTrump.getCardStrength(trumpSuitAce));
-        assertTrue(threesTrump.getCardStrength(trumpSuitAce)
-            > threesTrump.getCardStrength(trumpSuitKing));
+        assertTrue(trumpInfo.getCardStrength(trumpSuitTwo)
+            > trumpInfo.getCardStrength(trumpSuitAce));
+        assertTrue(trumpInfo.getCardStrength(trumpSuitAce)
+            > trumpInfo.getCardStrength(trumpSuitKing));
     }
 
     @Test

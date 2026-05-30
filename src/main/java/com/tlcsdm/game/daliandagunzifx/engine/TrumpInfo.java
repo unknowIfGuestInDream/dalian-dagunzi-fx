@@ -53,9 +53,8 @@ public class TrumpInfo {
         if (rank == Rank.BIG_JOKER || rank == Rank.SMALL_JOKER) {
             return true;
         }
-        if (rank == Rank.TWO) {
-            return true;
-        }
+        // 在大连打滚子中，2 不是常主，只是最大的普通牌（2 > A）。
+        // 只有主牌级或主花色的牌（含主花色的 2）才是主牌。
         if (rank == trumpRank) {
             return true;
         }
@@ -80,18 +79,12 @@ public class TrumpInfo {
         if (rank == trumpRank) {
             return 997;
         }
-        // TWO is always trump, ranked below trump rank but above other trump suit cards
-        if (rank == Rank.TWO) {
-            if (trumpSuit != null && suit == trumpSuit) {
-                return 996;
-            }
-            return 995;
-        }
-        // Trump suit cards (excluding trump rank and TWO, already handled)
+        // Trump suit cards (excluding trump rank, including the trump-suit 2 which is
+        // the strongest trump-suit card because effectiveRankStrength ranks 2 above A)
         if (trumpSuit != null && suit == trumpSuit) {
             return 900 + effectiveRankStrength(rank);
         }
-        // Non-trump cards: A > K > Q > J > 10 > ... > 3
+        // Non-trump cards: 2 > A > K > Q > J > 10 > ... > 3
         return effectiveRankStrength(rank);
     }
 
