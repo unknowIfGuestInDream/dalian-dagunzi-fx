@@ -26,8 +26,8 @@ Push-Location $StagingDir
 try {
 
 # see https://api.adoptium.net/q/swagger-ui/#/Binary/getBinaryByVersion
-$jdkVersion = 'jdk-21.0.10%2B7'
-$jdkDir = 'jdk-21.0.10+7'
+$jdkVersion = 'jdk-25.0.3%2B9'
+$jdkDir = 'jdk-25.0.3+9'
 $winApi = "https://api.adoptium.net/v3/binary/version/$jdkVersion/windows/x64/jdk/hotspot/normal/eclipse?project=jdk"
 
 # Download and extract JDK
@@ -49,7 +49,7 @@ Write-Host "Analyzing module dependencies for $($jar.Name)..." -ForegroundColor 
 $modules = $null
 $jdepsErr = $null
 try {
-    $modules = & $jdepsCmd --ignore-missing-deps --multi-release 21 --print-module-deps $jar.Name 2>&1 |
+    $modules = & $jdepsCmd --ignore-missing-deps --multi-release 25 --print-module-deps $jar.Name 2>&1 |
         Where-Object { $_ -is [string] } | Select-Object -Last 1
     if ($LASTEXITCODE -ne 0) { $modules = $null }
 } catch {
