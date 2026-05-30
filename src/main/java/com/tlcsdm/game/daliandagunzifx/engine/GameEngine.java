@@ -524,6 +524,11 @@ public class GameEngine {
                     return false;
                 }
             }
+            // Keep groups together: when a pair (BANG) or triple (GUNZI) is led,
+            // a follower holding a matching same-suit pair/triple must use it.
+            if (!isValidGroupedFollow(cards, suitCardsInHand)) {
+                return false;
+            }
 
         } else if (!suitCardsInHand.isEmpty()) {
             // Has some suit cards but not enough — must play all suit cards
@@ -578,6 +583,60 @@ public class GameEngine {
             case PAIR, BANG -> 2;
             case GUNZI -> 3;
         };
+    }
+
+    /**
+     * Enforces the "keep groups together" follow rule for BANG (pair) and GUNZI
+     * (triple) leads. Only applies when the follower plays exclusively lead-suit
+     * cards (i.e. has at least as many lead-suit cards as required).
+     * <ul>
+     *   <li>Lead is a pair: if the follower holds a same-suit pair, the played
+     *       cards must form a pair.</li>
+     *   <li>Lead is a triple: if the follower holds a same-suit triple, the played
+     *       cards must form a triple; otherwise if the follower holds a pair, the
+     *       played cards must contain a pair (pair + single).</li>
+     * </ul>
+     *
+     * @param cards           the cards the follower wants to play (all lead suit)
+     * @param suitCardsInHand all lead-suit cards currently in the follower's hand
+     * @return true if the play respects the grouping rule
+     */
+    private boolean isValidGroupedFollow(List<Card> cards, List<Card> suitCardsInHand) {
+        if (currentTrickPlayType != PlayType.BANG && currentTrickPlayType != PlayType.GUNZI) {
+            return true;
+        }
+        int maxAvailable = maxIdenticalCount(suitCardsInHand);
+        if (currentTrickPlayType == PlayType.BANG) {
+            // Holding a pair forces a pair to be played
+            return maxAvailable < 2 || determinePlayType(cards) == PlayType.BANG;
+        }
+        // GUNZI lead
+        if (maxAvailable >= 3) {
+            return determinePlayType(cards) == PlayType.GUNZI;
+        }
+        if (maxAvailable == 2) {
+            // No triple but a pair available — played cards must contain a pair
+            return maxIdenticalCount(cards) >= 2;
+        }
+        return true;
+    }
+
+    /**
+     * Returns the size of the largest group of identical cards (same suit and rank)
+     * within the given list.
+     */
+    private int maxIdenticalCount(List<Card> cards) {
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+        int max = 0;
+        for (Card card : cards) {
+            String key = (card.getSuit() == null ? "JOKER" : card.getSuit().name())
+                + "_" + card.getRank().name();
+            int value = counts.merge(key, 1, Integer::sum);
+            if (value > max) {
+                max = value;
+            }
+        }
+        return max;
     }
 
     public void playCard(int playerIndex, Card card) {

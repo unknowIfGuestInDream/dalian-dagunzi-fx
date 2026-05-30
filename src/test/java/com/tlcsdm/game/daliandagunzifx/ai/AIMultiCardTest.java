@@ -528,13 +528,14 @@ class AIMultiCardTest {
     }
 
     /**
-     * 棒子跟牌规则：出棒子时有同花色棒子，也允许出散牌（只需跟花色）。
+     * 棒子跟牌规则：出棒子时若有同花色棒子(对子)，必须出对子，不能拆散成单牌。
      * 场景：主牌花色HEART，打3级。Player 0出主牌棒子（♥4对），
-     * Player 1手中有♥7棒子和两张单主牌（♥6, ♥8），出♥6+♥8散牌也合法，出♥7棒子也合法。
-     * AI策略上仍然优先出棒子。
+     * Player 1手中有♥7棒子和两张单主牌（♥6, ♥8）。
+     * 拆散出♥6+♥8散牌不合法（必须保持对子完整），出♥7棒子才合法。
+     * AI策略上也应出棒子。
      */
     @Test
-    void testBangFollowAllowsSinglesEvenWhenBangAvailable() {
+    void testBangFollowMustPlayPairWhenBangAvailable() {
         Player[] players = new Player[]{
             new Player(0, "P0", false),
             new Player(1, "P1", false),
@@ -565,11 +566,11 @@ class AIMultiCardTest {
         Card heart8 = new Card(Suit.HEART, Rank.EIGHT, 913);
         players[1].addCards(List.of(heart7a, heart7b, heart6, heart8));
 
-        // 有棒子时出散牌也合法（只需跟花色）
-        assertTrue(engine.isValidPlay(1, List.of(heart6, heart8)),
-            "有同花色棒子时，也允许出散牌");
+        // 有♥7棒子时拆散出♥6+♥8散牌不合法（必须保持对子完整）
+        assertFalse(engine.isValidPlay(1, List.of(heart6, heart8)),
+            "有同花色棒子时，拆散出散牌不合法，必须出对子");
 
-        // 出棒子也合法
+        // 出棒子合法
         assertTrue(engine.isValidPlay(1, List.of(heart7a, heart7b)),
             "出同花色棒子应合法");
 
@@ -626,10 +627,10 @@ class AIMultiCardTest {
     }
 
     /**
-     * 主牌棒子跟牌：出散牌也合法，但AI策略上优先出棒子、避免拆散级牌。
+     * 主牌棒子跟牌：有同花色棒子(对子)时必须出对子，不能拆散；AI策略上应出普通棒子、避免拆散级牌。
      * 场景：主牌花色SPADE，打3级。Player 0出♠5棒子，
      * Player 1有♠7棒子（普通主牌）+ 黑桃3 + 红桃3（两张不同花色的级牌），
-     * 出♠3+♥3散牌合法，AI策略上应出♠7棒子。
+     * 出♠3+♥3散牌不合法（必须保持对子完整），AI策略上应出♠7棒子。
      */
     @Test
     void testTrumpBangFollowDoesNotWasteSpecialTrump() {
@@ -666,9 +667,9 @@ class AIMultiCardTest {
         TrumpInfo trumpInfo = engine.getTrumpInfo();
         EasyAI easyAI = new EasyAI();
 
-        // 有♠7棒子时，出♠3+♥3散牌也合法（只需跟花色，两张都是主牌）
-        assertTrue(engine.isValidPlay(1, List.of(spade3, heart3)),
-            "有同花色棒子时，也允许出两张主牌散牌");
+        // 有♠7棒子时，拆散出♠3+♥3散牌不合法（必须保持对子完整）
+        assertFalse(engine.isValidPlay(1, List.of(spade3, heart3)),
+            "有同花色棒子时，拆散出两张主牌散牌不合法，必须出对子");
 
         // 应出♠7棒子
         List<Card> easyChosen = easyAI.chooseCards(players[1], engine);
@@ -679,5 +680,117 @@ class AIMultiCardTest {
             assertFalse(easyAI.isSpecialTrump(card, trumpInfo),
                 "EasyAI: 有普通主牌棒子时应出普通棒子，不应出特殊主牌。实际出了: " + card.getDisplayName());
         }
+    }
+
+    private GameEngine setupGunziLead(Suit trumpSuit, List<Card> leaderGunzi) {
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, trumpSuit);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+        players[0].getHand().clear();
+        players[0].addCards(leaderGunzi);
+        engine.playCards(0, leaderGunzi);
+        return engine;
+    }
+
+    /**
+     * 滚子跟牌规则：领出滚子(三张)时，若手中有同花色三张(夯)，必须出三张，不能拆散。
+     */
+    @Test
+    void testGunziFollowMustPlayTripleWhenAvailable() {
+        GameEngine engine = setupGunziLead(Suit.HEART, List.of(
+            new Card(Suit.SPADE, Rank.FOUR, 700),
+            new Card(Suit.SPADE, Rank.FOUR, 701),
+            new Card(Suit.SPADE, Rank.FOUR, 702)));
+
+        Player p1 = engine.getPlayers()[1];
+        p1.getHand().clear();
+        Card s7a = new Card(Suit.SPADE, Rank.SEVEN, 710);
+        Card s7b = new Card(Suit.SPADE, Rank.SEVEN, 711);
+        Card s7c = new Card(Suit.SPADE, Rank.SEVEN, 712);
+        Card s6 = new Card(Suit.SPADE, Rank.SIX, 713);
+        p1.addCards(List.of(s7a, s7b, s7c, s6));
+
+        // 有♠7三张时，必须出三张，拆散出对子+单张不合法
+        assertFalse(engine.isValidPlay(1, List.of(s7a, s7b, s6)),
+            "有同花色三张时，拆散出对子+单张不合法");
+        assertTrue(engine.isValidPlay(1, List.of(s7a, s7b, s7c)),
+            "出同花色三张应合法");
+
+        EasyAI easyAI = new EasyAI();
+        List<Card> chosen = easyAI.chooseCards(p1, engine);
+        assertEquals(PlayType.GUNZI, engine.determinePlayType(chosen),
+            "EasyAI: 有三张时跟滚子应出三张");
+    }
+
+    /**
+     * 滚子跟牌规则：领出滚子时，没三张但有对子，必须出一个对子+一张单张。
+     */
+    @Test
+    void testGunziFollowMustIncludePairWhenNoTriple() {
+        GameEngine engine = setupGunziLead(Suit.HEART, List.of(
+            new Card(Suit.SPADE, Rank.FOUR, 700),
+            new Card(Suit.SPADE, Rank.FOUR, 701),
+            new Card(Suit.SPADE, Rank.FOUR, 702)));
+
+        Player p1 = engine.getPlayers()[1];
+        p1.getHand().clear();
+        Card s7a = new Card(Suit.SPADE, Rank.SEVEN, 720);
+        Card s7b = new Card(Suit.SPADE, Rank.SEVEN, 721);
+        Card s6 = new Card(Suit.SPADE, Rank.SIX, 722);
+        Card s8 = new Card(Suit.SPADE, Rank.EIGHT, 723);
+        p1.addCards(List.of(s7a, s7b, s6, s8));
+
+        // 有♠7对子但无三张：出三张散牌不合法，必须包含对子
+        assertFalse(engine.isValidPlay(1, List.of(s7a, s6, s8)),
+            "无三张但有对子时，出三张散牌不合法");
+        assertTrue(engine.isValidPlay(1, List.of(s7a, s7b, s6)),
+            "出对子+单张应合法");
+
+        EasyAI easyAI = new EasyAI();
+        List<Card> chosen = easyAI.chooseCards(p1, engine);
+        assertEquals(3, chosen.size());
+        assertTrue(engine.isValidPlay(1, chosen),
+            "EasyAI: 无三张有对子时应出合法的对子+单张组合");
+        long maxGroup = chosen.stream()
+            .filter(c -> c.getRank() == Rank.SEVEN && c.getSuit() == Suit.SPADE)
+            .count();
+        assertEquals(2, maxGroup, "EasyAI: 跟牌应保留对子完整");
+
+        MediumAI mediumAI = new MediumAI(new CardTracker());
+        List<Card> mediumChosen = mediumAI.chooseCards(p1, engine);
+        assertTrue(engine.isValidPlay(1, mediumChosen),
+            "MediumAI: 无三张有对子时应出合法的对子+单张组合");
+    }
+
+    /**
+     * 滚子跟牌规则：手中没有三张也没有对子时，出三张同花色散牌合法。
+     */
+    @Test
+    void testGunziFollowSinglesAllowedWhenNoPair() {
+        GameEngine engine = setupGunziLead(Suit.HEART, List.of(
+            new Card(Suit.SPADE, Rank.FOUR, 700),
+            new Card(Suit.SPADE, Rank.FOUR, 701),
+            new Card(Suit.SPADE, Rank.FOUR, 702)));
+
+        Player p1 = engine.getPlayers()[1];
+        p1.getHand().clear();
+        Card s6 = new Card(Suit.SPADE, Rank.SIX, 730);
+        Card s7 = new Card(Suit.SPADE, Rank.SEVEN, 731);
+        Card s8 = new Card(Suit.SPADE, Rank.EIGHT, 732);
+        p1.addCards(List.of(s6, s7, s8));
+
+        assertTrue(engine.isValidPlay(1, List.of(s6, s7, s8)),
+            "无三张无对子时，出三张散牌应合法");
     }
 }

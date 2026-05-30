@@ -174,11 +174,11 @@ public class MediumAI implements AIStrategy {
             }
         }
 
-        // 棒子/滚子跟牌规则：有同花色棒子/滚子时必须出棒子/滚子
+        // 棒子/滚子跟牌规则：有足够同花色牌时必须按"保持牌组完整"原则出牌
         PlayType leadType = engine.getCurrentTrickPlayType();
         if ((leadType == PlayType.BANG || leadType == PlayType.GUNZI)
             && suitCards.size() >= requiredCount) {
-            List<Card> matchingGroup = easyAI.findWeakestGroup(suitCards, leadType, trumpInfo);
+            List<Card> matchingGroup = easyAI.buildSuitFollow(suitCards, leadType, requiredCount, trumpInfo);
             if (matchingGroup != null) {
                 return matchingGroup;
             }
