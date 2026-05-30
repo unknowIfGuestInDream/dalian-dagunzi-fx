@@ -243,11 +243,12 @@ public class EasyAI implements AIStrategy {
             }
         }
 
-        // 棒子/滚子跟牌规则：有同花色棒子/滚子时必须出棒子/滚子
+        // 棒子/滚子跟牌规则：有足够同花色牌时必须按"保持牌组完整"原则出牌
+        // (有同花色滚子必须出滚子；无滚子但有对子必须出对子或对子+单张)
         PlayType leadType = engine.getCurrentTrickPlayType();
         if ((leadType == PlayType.BANG || leadType == PlayType.GUNZI)
             && suitCards.size() >= requiredCount) {
-            List<Card> matchingGroup = findWeakestGroup(suitCards, leadType, trumpInfo);
+            List<Card> matchingGroup = buildSuitFollow(suitCards, leadType, trumpInfo);
             if (matchingGroup != null) {
                 return matchingGroup;
             }
@@ -398,6 +399,50 @@ public class EasyAI implements AIStrategy {
             }
         }
         return bestGroup;
+    }
+
+    /**
+     * 当同花色手牌足够跟出领出张数时，构造一个符合"保持牌组完整"规则的最弱跟牌组合。
+     * 用于领出棒子/滚子时的跟牌：
+     * <ul>
+     *   <li>领出滚子(3张)：有同花色滚子必须出滚子；无滚子但有对子时出对子+单张；否则出3张单牌。</li>
+     *   <li>领出棒子(2张)：有同花色对子必须出对子；否则出2张单牌。</li>
+     * </ul>
+     * 选择时优先打出最弱的牌，并保留特殊主牌。
+     *
+     * @param suitCards     同花色（含主牌时为主牌）手牌，数量不少于领出张数
+     * @param leadType      领出牌型（BANG 或 GUNZI）
+     * @param trumpInfo     主牌信息
+     * @return 必须保持完整的牌组组合；若无强制组合（散牌情形）则返回 null，交由调用方处理
+     */
+    protected List<Card> buildSuitFollow(List<Card> suitCards, PlayType leadType,
+                                         TrumpInfo trumpInfo) {
+        if (leadType == PlayType.GUNZI) {
+            List<Card> triple = findWeakestGroup(suitCards, PlayType.GUNZI, trumpInfo);
+            if (triple != null) {
+                return triple;
+            }
+            List<Card> pair = findWeakestGroup(suitCards, PlayType.PAIR, trumpInfo);
+            if (pair != null) {
+                // 无滚子但有对子：必须保留对子，再补一张最弱单牌（避免送分/特殊主牌）
+                List<Card> result = new ArrayList<>(pair);
+                List<Card> remaining = new ArrayList<>(suitCards);
+                remaining.removeAll(pair);
+                remaining.sort(Comparator.comparingInt(c -> {
+                    int strength = trumpInfo.getCardStrength(c);
+                    if (isSpecialTrump(c, trumpInfo)) return strength + SORT_PRIORITY_OFFSET;
+                    if (c.getPoints() > 0) return strength + POINT_CARD_PENALTY_OFFSET;
+                    return strength;
+                }));
+                result.add(remaining.get(0));
+                return result;
+            }
+            // 无对子无滚子：由调用方的常规逻辑处理散牌
+            return null;
+        }
+
+        // 领出棒子(对子)：有同花色对子必须出对子，否则交由常规逻辑出散牌
+        return findWeakestGroup(suitCards, PlayType.PAIR, trumpInfo);
     }
 
     protected Card chooseLead(Player player, List<Card> validCards, TrumpInfo trumpInfo) {
