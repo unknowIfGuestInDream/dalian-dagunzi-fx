@@ -16,6 +16,6 @@ if not %errorlevel% == 0 (
 set java_path=java
 )
 :START
-%java_path% -jar dalian-dagunzi.jar
+%java_path% --enable-native-access=ALL-UNNAMED -jar dalian-dagunzi.jar
 
 :END

@@ -128,8 +128,9 @@ public class DaGunZiApp extends Application {
     private boolean waitingForHumanPlay;
     private boolean waitingForKitty;
     private boolean waitingForTributeReturn;
-    private int tributeGiverIndex;
-    private int tributeRemainingCount;
+    private int tributeReturnCount;
+    private final List<Integer> pendingTributeGivers = new ArrayList<>();
+    private final List<Card> pendingTributeGiveCards = new ArrayList<>();
     private StringBuilder tributeMessages;
     private Runnable tributeOnComplete;
     private final List<Card> selectedKittyCards = new ArrayList<>();
@@ -761,73 +762,64 @@ public class DaGunZiApp extends Application {
     // ======================== Tribute Flow (上贡/回贡) ========================
 
     /**
-     * 处理进贡/回贡流程。先进贡再叫主，如果接收方是人类玩家则允许选择回贡牌。
+     * 处理进贡/回贡流程。先一次性完成所有进贡（给牌），再处理回贡：
+     * 如果接收方是人类玩家，则允许一次性选择多张牌回贡；否则由AI自动回贡。
      */
     private void handleTributeFlow(Runnable onComplete) {
         tributeMessages = new StringBuilder();
-        tributeRemainingCount = engine.getPreviousTributeCount();
         tributeOnComplete = onComplete;
-        processNextTribute();
-    }
+        pendingTributeGivers.clear();
+        pendingTributeGiveCards.clear();
 
-    /**
-     * 处理下一个进贡交换。
-     */
-    private void processNextTribute() {
-        if (tributeRemainingCount <= 0) {
-            // 所有进贡完成
-            engine.finishTribute();
-            updateHumanHand();
-            updateAIPlayerPanes();
-            if (!tributeMessages.isEmpty()) {
-                String msg = tributeMessages.toString();
-                statusLabel.setText("进贡：" + msg);
-                Alert tributeAlert = new Alert(Alert.AlertType.INFORMATION);
-                tributeAlert.setTitle("进贡");
-                tributeAlert.setHeaderText("进贡/回贡");
-                tributeAlert.setContentText(msg);
-                Stage alertStage = (Stage) tributeAlert.getDialogPane().getScene().getWindow();
-                alertStage.getIcons().add(createAppIcon());
-                tributeAlert.showAndWait();
+        int total = engine.getPreviousTributeCount();
+        List<int[]> gives = new ArrayList<>();
+        List<Card> giveCards = new ArrayList<>();
+        for (int i = 0; i < total; i++) {
+            int[] info = engine.findNextTributeGiverInfo();
+            if (info == null) {
+                break;
             }
-            tributeOnComplete.run();
+            int giverIdx = info[0];
+            int receiverIdx = info[1];
+            Card tributeCard = engine.getTributeCard(giverIdx);
+            if (tributeCard == null) {
+                break;
+            }
+            engine.executeTributeGive(giverIdx, tributeCard, receiverIdx);
+            gives.add(new int[]{giverIdx, receiverIdx});
+            giveCards.add(tributeCard);
+        }
+
+        if (gives.isEmpty()) {
+            finishTributeFlow();
             return;
         }
 
-        int[] info = engine.findNextTributeGiverInfo();
-        if (info == null) {
-            // 无法继续进贡
-            tributeRemainingCount = 0;
-            processNextTribute();
-            return;
-        }
+        updateHumanHand();
+        updateAIPlayerPanes();
 
-        int giverIdx = info[0];
-        int receiverIdx = info[1];
-        Card tributeCard = engine.getTributeCard(giverIdx);
-        if (tributeCard == null) {
-            tributeRemainingCount = 0;
-            processNextTribute();
-            return;
-        }
+        boolean humanReceives = gives.get(0)[1] == 0;
+        if (humanReceives) {
+            // 人类是接收方 → 让人类一次性选择多张牌回贡
+            for (int[] g : gives) {
+                pendingTributeGivers.add(g[0]);
+            }
+            pendingTributeGiveCards.addAll(giveCards);
+            tributeReturnCount = gives.size();
 
-        // 执行进贡（给的步骤）
-        engine.executeTributeGive(giverIdx, tributeCard, receiverIdx);
-        tributeRemainingCount--;
-
-        if (receiverIdx == 0) {
-            // 人类是接收方 → 让人类选择回贡牌
-            updateHumanHand();
-            statusLabel.setText(players[giverIdx].getName() + " 进贡 "
-                + tributeCard.getDisplayName() + "，请选择一张牌回贡");
+            selectedPlayCards.clear();
             waitingForTributeReturn = true;
-            tributeGiverIndex = giverIdx;
+            updateHumanHand();
 
-            // 记录进贡信息（回贡牌稍后确定）
-            if (!tributeMessages.isEmpty()) tributeMessages.append("；");
-            tributeMessages.append(players[giverIdx].getName()).append(" 进贡 ")
-                .append(tributeCard.getDisplayName()).append("，")
-                .append(players[0].getName()).append(" 还 ");
+            StringBuilder giverInfo = new StringBuilder();
+            for (int i = 0; i < gives.size(); i++) {
+                if (!giverInfo.isEmpty()) {
+                    giverInfo.append("、");
+                }
+                giverInfo.append(players[gives.get(i)[0]].getName())
+                    .append(" 进贡 ").append(giveCards.get(i).getDisplayName());
+            }
+            statusLabel.setText(giverInfo + "，请选择 " + tributeReturnCount + " 张牌回贡");
 
             // 显示确认按钮
             actionPane.getChildren().clear();
@@ -840,65 +832,113 @@ public class DaGunZiApp extends Application {
             actionPane.getChildren().add(confirmBtn);
         } else {
             // AI是接收方 → 自动选择回贡牌
-            Card returnCard = engine.autoSelectReturnCard(receiverIdx);
-            if (returnCard != null) {
-                engine.executeTributeReturn(receiverIdx, returnCard, giverIdx);
-                if (!tributeMessages.isEmpty()) tributeMessages.append("；");
-                tributeMessages.append(players[giverIdx].getName()).append(" 进贡 ")
-                    .append(tributeCard.getDisplayName()).append("，")
-                    .append(players[receiverIdx].getName()).append(" 还 ")
-                    .append(returnCard.getDisplayName());
+            for (int i = 0; i < gives.size(); i++) {
+                int giverIdx = gives.get(i)[0];
+                int receiverIdx = gives.get(i)[1];
+                Card tributeCard = giveCards.get(i);
+                Card returnCard = engine.autoSelectReturnCard(receiverIdx);
+                if (returnCard != null) {
+                    engine.executeTributeReturn(receiverIdx, returnCard, giverIdx);
+                    appendTributeMessage(giverIdx, tributeCard, receiverIdx, returnCard);
+                }
             }
             updateHumanHand();
-            // 延迟处理下一个进贡
-            Timeline delay = new Timeline(new KeyFrame(Duration.millis(300),
-                e -> processNextTribute()));
-            delay.play();
+            updateAIPlayerPanes();
+            finishTributeFlow();
         }
     }
 
     /**
-     * 处理人类点击手牌选择回贡牌。
+     * 记录一条进贡/回贡信息。
+     */
+    private void appendTributeMessage(int giverIdx, Card tributeCard, int receiverIdx, Card returnCard) {
+        if (!tributeMessages.isEmpty()) {
+            tributeMessages.append("；");
+        }
+        tributeMessages.append(players[giverIdx].getName()).append(" 进贡 ")
+            .append(tributeCard.getDisplayName()).append("，")
+            .append(players[receiverIdx].getName()).append(" 还 ")
+            .append(returnCard.getDisplayName());
+    }
+
+    /**
+     * 处理人类点击手牌选择回贡牌（多选，最多 tributeReturnCount 张）。
      */
     private void handleTributeReturnCardClick(Card card) {
-        if (!waitingForTributeReturn) return;
+        if (!waitingForTributeReturn) {
+            return;
+        }
 
-        // 单选：只能选一张
-        selectedPlayCards.clear();
-        selectedPlayCards.add(card);
+        // 多选：可选最多 tributeReturnCount 张，再次点击取消选择
+        if (selectedPlayCards.contains(card)) {
+            selectedPlayCards.remove(card);
+        } else if (selectedPlayCards.size() < tributeReturnCount) {
+            selectedPlayCards.add(card);
+        }
         updateHumanHand();
 
-        // 更新按钮状态
+        // 更新按钮状态：选满所需张数后才允许确认
         Node btn = actionPane.getChildren().stream()
             .filter(n -> TRIBUTE_RETURN_BTN_ID.equals(n.getId()))
             .findFirst().orElse(null);
         if (btn instanceof Button tributeBtn) {
-            tributeBtn.setDisable(false);
+            tributeBtn.setDisable(selectedPlayCards.size() != tributeReturnCount);
         }
     }
 
     /**
-     * 确认回贡牌。
+     * 确认回贡牌（一次性回贡多张）。
      */
     private void confirmTributeReturn() {
-        if (!waitingForTributeReturn || selectedPlayCards.isEmpty()) return;
+        if (!waitingForTributeReturn || selectedPlayCards.size() != tributeReturnCount) {
+            return;
+        }
 
-        Card returnCard = selectedPlayCards.get(0);
+        List<Card> returnCards = new ArrayList<>(selectedPlayCards);
         waitingForTributeReturn = false;
         selectedPlayCards.clear();
         actionPane.getChildren().clear();
 
-        // 执行回贡
-        engine.executeTributeReturn(0, returnCard, tributeGiverIndex);
-        tributeMessages.append(returnCard.getDisplayName());
+        // 执行回贡：依次将所选回贡牌还给各进贡方
+        int returnCount = Math.min(returnCards.size(),
+            Math.min(pendingTributeGivers.size(), pendingTributeGiveCards.size()));
+        for (int i = 0; i < returnCount; i++) {
+            int giverIdx = pendingTributeGivers.get(i);
+            Card tributeCard = pendingTributeGiveCards.get(i);
+            Card returnCard = returnCards.get(i);
+            engine.executeTributeReturn(0, returnCard, giverIdx);
+            appendTributeMessage(giverIdx, tributeCard, 0, returnCard);
+        }
 
         updateHumanHand();
         updateAIPlayerPanes();
+        finishTributeFlow();
+    }
 
-        // 继续处理下一个进贡
-        Timeline delay = new Timeline(new KeyFrame(Duration.millis(300),
-            e -> processNextTribute()));
-        delay.play();
+    /**
+     * 结束进贡流程：进入发牌阶段并显示进贡结果。
+     * 使用 {@link Platform#runLater} 延迟弹窗，避免在动画/布局处理过程中调用
+     * {@code showAndWait} 导致 IllegalStateException。
+     */
+    private void finishTributeFlow() {
+        engine.finishTribute();
+        updateHumanHand();
+        updateAIPlayerPanes();
+
+        Platform.runLater(() -> {
+            if (tributeMessages != null && !tributeMessages.isEmpty()) {
+                String msg = tributeMessages.toString();
+                statusLabel.setText("进贡：" + msg);
+                Alert tributeAlert = new Alert(Alert.AlertType.INFORMATION);
+                tributeAlert.setTitle("进贡");
+                tributeAlert.setHeaderText("进贡/回贡");
+                tributeAlert.setContentText(msg);
+                Stage alertStage = (Stage) tributeAlert.getDialogPane().getScene().getWindow();
+                alertStage.getIcons().add(createAppIcon());
+                tributeAlert.showAndWait();
+            }
+            tributeOnComplete.run();
+        });
     }
 
     // ======================== Trump Declaration ========================
