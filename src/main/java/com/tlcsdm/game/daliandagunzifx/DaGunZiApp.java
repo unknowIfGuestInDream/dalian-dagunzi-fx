@@ -411,6 +411,7 @@ public class DaGunZiApp extends Application {
             case HARD -> new HardAI(cardTracker);
         };
         engine = new GameEngine(players);
+        engine.setLiveBang(AppSettings.getInstance().isLiveBang());
         engine.getTeamLevels()[0] = oldLevels[0];
         engine.getTeamLevels()[1] = oldLevels[1];
 
@@ -510,6 +511,7 @@ public class DaGunZiApp extends Application {
             case HARD -> new HardAI(cardTracker);
         };
         engine = new GameEngine(players);
+        engine.setLiveBang(AppSettings.getInstance().isLiveBang());
 
         initGameBoard();
         startNewRound();

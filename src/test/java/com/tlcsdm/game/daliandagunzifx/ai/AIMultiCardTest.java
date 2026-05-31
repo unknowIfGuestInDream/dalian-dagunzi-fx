@@ -543,6 +543,7 @@ class AIMultiCardTest {
             new Player(3, "P3", false)
         };
         GameEngine engine = new GameEngine(players);
+        engine.setLiveBang(false);
         engine.startNewRound();
         engine.declareTrump(0, Suit.HEART);
         List<Card> kittyCards = players[0].getHand().stream()
@@ -641,6 +642,7 @@ class AIMultiCardTest {
             new Player(3, "P3", false)
         };
         GameEngine engine = new GameEngine(players);
+        engine.setLiveBang(false);
         engine.startNewRound();
         engine.declareTrump(0, Suit.SPADE);
         List<Card> kittyCards = players[0].getHand().stream()
@@ -690,6 +692,7 @@ class AIMultiCardTest {
             new Player(3, "P3", false)
         };
         GameEngine engine = new GameEngine(players);
+        engine.setLiveBang(false);
         engine.startNewRound();
         engine.declareTrump(0, trumpSuit);
         List<Card> kittyCards = players[0].getHand().stream()
@@ -790,5 +793,51 @@ class AIMultiCardTest {
 
         assertTrue(engine.isValidPlay(1, List.of(s6, s7, s8)),
             "无三张无对子时，出三张散牌应合法");
+    }
+
+    /**
+     * 活棒（默认）：领出棒子时，即使跟牌方手中有同花色棒子(对子)，也不强制保持牌组完整，
+     * 可以拆散出两张同花色单牌。
+     */
+    @Test
+    void testLiveBangDefaultAllowsSplittingPair() {
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        // 默认应为活棒
+        assertTrue(engine.isLiveBang(), "GameEngine 默认应为活棒模式");
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0 出♥4棒子（主牌棒子）
+        players[0].getHand().clear();
+        Card heart4a = new Card(Suit.HEART, Rank.FOUR, 950);
+        Card heart4b = new Card(Suit.HEART, Rank.FOUR, 951);
+        players[0].addCards(List.of(heart4a, heart4b));
+        engine.playCards(0, List.of(heart4a, heart4b));
+
+        // Player 1 有♥7棒子 + 单♥6 + 单♥8
+        players[1].getHand().clear();
+        Card heart7a = new Card(Suit.HEART, Rank.SEVEN, 952);
+        Card heart7b = new Card(Suit.HEART, Rank.SEVEN, 953);
+        Card heart6 = new Card(Suit.HEART, Rank.SIX, 954);
+        Card heart8 = new Card(Suit.HEART, Rank.EIGHT, 955);
+        players[1].addCards(List.of(heart7a, heart7b, heart6, heart8));
+
+        // 活棒下，即使有♥7棒子，也可以拆散出♥6+♥8散牌
+        assertTrue(engine.isValidPlay(1, List.of(heart6, heart8)),
+            "活棒模式下，有同花色棒子时也可拆散出散牌");
+        // 出棒子同样合法
+        assertTrue(engine.isValidPlay(1, List.of(heart7a, heart7b)),
+            "活棒模式下，出同花色棒子仍合法");
     }
 }

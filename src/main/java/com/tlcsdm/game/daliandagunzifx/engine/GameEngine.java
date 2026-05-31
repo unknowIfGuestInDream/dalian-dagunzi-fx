@@ -59,6 +59,9 @@ public class GameEngine {
     private int previousTributeCount;
     private boolean lastTrickWonByDefender;
     private int nextDealerIndex;
+    // 活棒（true）：领出棒子/滚子时，跟牌方不强制拆/保持牌组，可自由出同花色单张等。
+    // 死棒（false）：跟牌方手中有同花色对子/三条时必须保持牌组完整。默认活棒。
+    private boolean liveBang = true;
 
     public GameEngine(Player[] players) {
         if (players.length != 4) {
@@ -73,6 +76,20 @@ public class GameEngine {
         this.previousTributeCount = 0;
         this.lastTrickWonByDefender = false;
         this.nextDealerIndex = -1;
+    }
+
+    /**
+     * 是否为活棒模式。活棒（默认）下，领出棒子/滚子时跟牌方不强制保持同花色牌组完整。
+     */
+    public boolean isLiveBang() {
+        return liveBang;
+    }
+
+    /**
+     * 设置活棒/死棒模式。{@code true} 为活棒（不强制保持牌组），{@code false} 为死棒（强制保持牌组）。
+     */
+    public void setLiveBang(boolean liveBang) {
+        this.liveBang = liveBang;
     }
 
     public void startNewRound() {
@@ -526,9 +543,9 @@ public class GameEngine {
                     return false;
                 }
             }
-            // Keep groups together: when a pair (BANG) or triple (GUNZI) is led,
-            // a follower holding a matching same-suit pair/triple must use it.
-            if (!isValidGroupedFollow(cards, suitCardsInHand)) {
+            // 保持牌组完整（仅死棒模式）：领出棒子(BANG)或滚子(GUNZI)时，跟牌方持有同
+            // 花色对子/三条时必须使用；活棒模式（默认）下不做此要求。
+            if (!liveBang && !isValidGroupedFollow(cards, suitCardsInHand)) {
                 return false;
             }
 
@@ -915,6 +932,7 @@ public class GameEngine {
         copy.previousTributeCount = this.previousTributeCount;
         copy.lastTrickWonByDefender = this.lastTrickWonByDefender;
         copy.nextDealerIndex = this.nextDealerIndex;
+        copy.liveBang = this.liveBang;
         return copy;
     }
 }
