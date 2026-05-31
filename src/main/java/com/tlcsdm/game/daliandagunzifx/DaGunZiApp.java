@@ -900,7 +900,9 @@ public class DaGunZiApp extends Application {
         actionPane.getChildren().clear();
 
         // 执行回贡：依次将所选回贡牌还给各进贡方
-        for (int i = 0; i < returnCards.size(); i++) {
+        int returnCount = Math.min(returnCards.size(),
+            Math.min(pendingTributeGivers.size(), pendingTributeGiveCards.size()));
+        for (int i = 0; i < returnCount; i++) {
             int giverIdx = pendingTributeGivers.get(i);
             Card tributeCard = pendingTributeGiveCards.get(i);
             Card returnCard = returnCards.get(i);
