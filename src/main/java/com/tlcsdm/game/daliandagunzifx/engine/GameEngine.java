@@ -543,9 +543,8 @@ public class GameEngine {
                     return false;
                 }
             }
-            // Keep groups together: when a pair (BANG) or triple (GUNZI) is led,
-            // a follower holding a matching same-suit pair/triple must use it.
-            // Only enforced in 死棒 mode; in 活棒 mode (default) it is not required.
+            // 保持牌组完整（仅死棒模式）：领出棒子(BANG)或滚子(GUNZI)时，跟牌方持有同
+            // 花色对子/三条时必须使用；活棒模式（默认）下不做此要求。
             if (!liveBang && !isValidGroupedFollow(cards, suitCardsInHand)) {
                 return false;
             }
