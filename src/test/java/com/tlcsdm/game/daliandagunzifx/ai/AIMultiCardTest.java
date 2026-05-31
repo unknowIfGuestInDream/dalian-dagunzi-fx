@@ -840,4 +840,61 @@ class AIMultiCardTest {
         assertTrue(engine.isValidPlay(1, List.of(heart7a, heart7b)),
             "活棒模式下，出同花色棒子仍合法");
     }
+
+    /**
+     * 活棒模式（默认）下，管不上棒子且无分可争时，AI 应打出几张最小的散牌，
+     * 而不是把成对的大牌（棒子）丢出去。
+     */
+    @Test
+    void testLiveBangFollowPlaysSmallSinglesInsteadOfPair() {
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        // 默认应为活棒
+        assertTrue(engine.isLiveBang(), "GameEngine 默认应为活棒模式");
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0 出♥4棒子（主牌棒子，无分）
+        players[0].getHand().clear();
+        Card heart4a = new Card(Suit.HEART, Rank.FOUR, 960);
+        Card heart4b = new Card(Suit.HEART, Rank.FOUR, 961);
+        players[0].addCards(List.of(heart4a, heart4b));
+        engine.playCards(0, List.of(heart4a, heart4b));
+
+        // Player 1 有♥7棒子 + 单♥6 + 单♥8（均无分，且管不上♥7以上）
+        players[1].getHand().clear();
+        Card heart7a = new Card(Suit.HEART, Rank.SEVEN, 962);
+        Card heart7b = new Card(Suit.HEART, Rank.SEVEN, 963);
+        Card heart6 = new Card(Suit.HEART, Rank.SIX, 964);
+        Card heart8 = new Card(Suit.HEART, Rank.EIGHT, 965);
+        players[1].addCards(List.of(heart7a, heart7b, heart6, heart8));
+
+        EasyAI easyAI = new EasyAI();
+        List<Card> easyChosen = easyAI.chooseCards(players[1], engine);
+        assertEquals(2, easyChosen.size());
+        assertNotEquals(PlayType.BANG, engine.determinePlayType(easyChosen),
+            "EasyAI: 活棒模式下管不上时应出散牌而非棒子");
+        assertTrue(easyChosen.contains(heart6),
+            "EasyAI: 应优先打出最小的散牌(♥6)");
+        assertTrue(engine.isValidPlay(1, easyChosen), "EasyAI 出牌应合法");
+
+        MediumAI mediumAI = new MediumAI(new CardTracker());
+        List<Card> mediumChosen = mediumAI.chooseCards(players[1], engine);
+        assertEquals(2, mediumChosen.size());
+        assertNotEquals(PlayType.BANG, engine.determinePlayType(mediumChosen),
+            "MediumAI: 活棒模式下管不上时应出散牌而非棒子");
+        assertTrue(mediumChosen.contains(heart6),
+            "MediumAI: 应优先打出最小的散牌(♥6)");
+        assertTrue(engine.isValidPlay(1, mediumChosen), "MediumAI 出牌应合法");
+    }
 }

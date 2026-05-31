@@ -67,6 +67,9 @@
 # 构建
 mvn clean compile
 
+# 运行（模块路径下已启用 JavaFX 本地访问，避免启动告警）
+mvn javafx:run
+
 # 运行测试
 mvn test
 
