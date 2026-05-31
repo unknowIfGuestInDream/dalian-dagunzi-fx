@@ -58,6 +58,7 @@ public final class AppSettings {
     private static final String PREF_TRACKER_ENABLED = "trackerEnabled";
     private static final String PREF_AI_LEVEL = "aiLevel";
     private static final String PREF_CHECK_UPDATE = "checkUpdateEnabled";
+    private static final String PREF_LIVE_BANG = "liveBang";
 
     private static final AppSettings INSTANCE = new AppSettings();
 
@@ -65,6 +66,7 @@ public final class AppSettings {
     private final BooleanProperty trackerEnabledProperty;
     private final ObjectProperty<AILevel> aiLevelProperty;
     private final BooleanProperty checkUpdateEnabledProperty;
+    private final BooleanProperty liveBangProperty;
 
     private PreferencesFx preferencesFx;
 
@@ -91,6 +93,8 @@ public final class AppSettings {
         aiLevelProperty = new SimpleObjectProperty<>(level);
         checkUpdateEnabledProperty = new SimpleBooleanProperty(
             PREFS != null ? PREFS.getBoolean(PREF_CHECK_UPDATE, true) : true);
+        liveBangProperty = new SimpleBooleanProperty(
+            PREFS != null ? PREFS.getBoolean(PREF_LIVE_BANG, true) : true);
 
         darkThemeProperty.addListener((obs, oldVal, newVal) -> {
             if (PREFS != null) {
@@ -113,6 +117,12 @@ public final class AppSettings {
         checkUpdateEnabledProperty.addListener((obs, oldVal, newVal) -> {
             if (PREFS != null) {
                 PREFS.putBoolean(PREF_CHECK_UPDATE, newVal);
+                flushQuietly();
+            }
+        });
+        liveBangProperty.addListener((obs, oldVal, newVal) -> {
+            if (PREFS != null) {
+                PREFS.putBoolean(PREF_LIVE_BANG, newVal);
                 flushQuietly();
             }
         });
@@ -154,6 +164,14 @@ public final class AppSettings {
         return checkUpdateEnabledProperty.get();
     }
 
+    public BooleanProperty liveBangProperty() {
+        return liveBangProperty;
+    }
+
+    public boolean isLiveBang() {
+        return liveBangProperty.get();
+    }
+
     /**
      * Get the PreferencesFx instance. Creates it on first call.
      */
@@ -181,6 +199,7 @@ public final class AppSettings {
         boolean savedTracker = trackerEnabledProperty.get();
         AILevel savedLevel = aiLevelProperty.get();
         boolean savedUpdate = checkUpdateEnabledProperty.get();
+        boolean savedLiveBang = liveBangProperty.get();
 
         preferencesFx = PreferencesFx.of(AppSettings.class,
             Category.of("游戏设置",
@@ -189,6 +208,7 @@ public final class AppSettings {
                 ),
                 Group.of("游戏",
                     Setting.of("开启记牌器", trackerEnabledProperty),
+                    Setting.of("活棒", liveBangProperty),
                     Setting.of("AI难度",
                         FXCollections.observableArrayList(Arrays.asList(AILevel.values())),
                         aiLevelProperty)
@@ -212,5 +232,6 @@ public final class AppSettings {
         trackerEnabledProperty.set(savedTracker);
         aiLevelProperty.set(savedLevel);
         checkUpdateEnabledProperty.set(savedUpdate);
+        liveBangProperty.set(savedLiveBang);
     }
 }
