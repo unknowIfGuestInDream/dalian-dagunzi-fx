@@ -174,9 +174,11 @@ public class MediumAI implements AIStrategy {
             }
         }
 
-        // 棒子/滚子跟牌规则：有足够同花色牌时必须按"保持牌组完整"原则出牌
+        // 棒子/滚子跟牌规则：仅死棒模式下管不上时需按"保持牌组完整"原则出牌。
+        // 活棒模式（默认）下不强制保持牌组，管不上时改为打出几张最小的散牌。
         PlayType leadType = engine.getCurrentTrickPlayType();
-        if ((leadType == PlayType.BANG || leadType == PlayType.GUNZI)
+        if (!engine.isLiveBang()
+            && (leadType == PlayType.BANG || leadType == PlayType.GUNZI)
             && suitCards.size() >= requiredCount) {
             List<Card> matchingGroup = easyAI.buildSuitFollow(suitCards, leadType, trumpInfo);
             if (matchingGroup != null) {
