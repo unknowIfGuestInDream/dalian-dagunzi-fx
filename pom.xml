@@ -230,6 +230,7 @@
                             <Bundle-ManifestVersion>2</Bundle-ManifestVersion>
                             <Bundle-SymbolicName>${project.groupId}.${project.artifactId}</Bundle-SymbolicName>
                             <Bundle-Vendor>${project.organization.name}</Bundle-Vendor>
+                            <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
                         </manifestEntries>
                         <manifest>
                             <addClasspath>true</addClasspath>
