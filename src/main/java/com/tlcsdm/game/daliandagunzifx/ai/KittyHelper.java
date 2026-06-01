@@ -88,6 +88,8 @@ final class KittyHelper {
         for (Card card : hand) {
             if (card.getRank() == Rank.SMALL_JOKER) {
                 hasSmallJoker = true;
+                // 小王本身也是主牌，但判断“是否依赖小王”时应将其排除
+                continue;
             }
             if (trumpInfo.isTrump(card)) {
                 trumpCount++;
