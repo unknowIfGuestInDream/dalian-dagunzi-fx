@@ -366,6 +366,10 @@ public class MediumAI implements AIStrategy {
             // 检查非主牌中是否有无分牌可以安全垫
             boolean hasNonPointNonTrump = nonTrumpCards.stream()
                 .anyMatch(c -> c.getPoints() == 0 && !easyAI.isSpecialTrump(c, trumpInfo));
+            // 冒险策略：无花色可跟时，仅在本墩有分（trickPoints > 0）时才用主牌毙，
+            // 无分墩没有抢的价值，仍按常规垫牌，避免无谓浪费主牌。
+            // 注意此处与 chooseSuitFollow 中"有同花色可跟时即便无分也争墩"的判断不同：
+            // 跟花色用的是副牌、成本低，值得为夺取控制权而争；毙分需消耗主牌，仅在有分时才划算。
             if (trickPoints >= 10 || engine.getTrickCardsPlayed() == 3
                 || !hasNonPointNonTrump || (easyAI.isAggressive() && trickPoints > 0)) {
                 // 检查后续对手是否也缺该花色（会用主牌毙），需要选更大的主牌

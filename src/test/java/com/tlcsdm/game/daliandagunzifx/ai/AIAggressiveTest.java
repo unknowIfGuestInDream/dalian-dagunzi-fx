@@ -137,7 +137,7 @@ class AIAggressiveTest {
         players[0].addCards(List.of(spadeK));
         engine.playCard(0, spadeK);
 
-        // P1（对手）无 ♠ 可跟：有安全垫牌 ♣3（0分）与非特殊主牌 ♥4
+        // P1（对手）无 ♠ 可跟：有安全垫牌 ♣7（0分）与非特殊主牌 ♥4
         players[1].getHand().clear();
         Card club7 = new Card(Suit.CLUB, Rank.SEVEN, 901);
         Card heart4 = new Card(Suit.HEART, Rank.FOUR, 902);
