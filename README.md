@@ -86,9 +86,9 @@ mvn license:format
 mvn license:remove
 ```
 
-> 在 IDE 中直接运行/调试时，请为启动添加 VM 参数 `--enable-native-access=javafx.graphics`
-> 以消除 JavaFX 的本地访问警告。仓库已内置 IntelliJ IDEA 运行配置（`DaGunZiApp`）与
-> VS Code 默认调试参数（`.vscode/settings.json`），无需手动配置。
+> 在 IDE 中直接运行/调试时，启动需要 VM 参数 `--enable-native-access=javafx.graphics`
+> 才能消除 JavaFX 的本地访问警告。仓库已内置 IntelliJ IDEA 运行配置（`DaGunZiApp`）与
+> VS Code 默认调试参数（`.vscode/settings.json`），开箱即用，无需手动配置。
 
 ## 联系方式
 
