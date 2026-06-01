@@ -414,6 +414,7 @@ public class DaGunZiApp extends Application {
             case MEDIUM -> new MediumAI(cardTracker);
             case HARD -> new HardAI(cardTracker);
         };
+        aiStrategy.setAggressive(AppSettings.getInstance().isAggressive());
         engine = new GameEngine(players);
         engine.setLiveBang(AppSettings.getInstance().isLiveBang());
         engine.getTeamLevels()[0] = oldLevels[0];
@@ -514,6 +515,7 @@ public class DaGunZiApp extends Application {
             case MEDIUM -> new MediumAI(cardTracker);
             case HARD -> new HardAI(cardTracker);
         };
+        aiStrategy.setAggressive(AppSettings.getInstance().isAggressive());
         engine = new GameEngine(players);
         engine.setLiveBang(AppSettings.getInstance().isLiveBang());
 
