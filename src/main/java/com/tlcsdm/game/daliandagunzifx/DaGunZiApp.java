@@ -1691,6 +1691,15 @@ public class DaGunZiApp extends Application {
 
     private void updateTrickArea() {
         List<Card>[] trickCards = engine.getCurrentTrickCards();
+        // 一旦开始出牌（桌面上出现任意牌），底牌就不再在中央显示，避免影响出牌区 UI。
+        if (kittyCenterNode != null && !kittyCenterNode.getChildren().isEmpty()) {
+            for (List<Card> played : trickCards) {
+                if (played != null && !played.isEmpty()) {
+                    kittyCenterNode.getChildren().clear();
+                    break;
+                }
+            }
+        }
         for (int i = 0; i < 4; i++) {
             if (trickCards[i] != null && !trickCards[i].isEmpty() && trickCardNodes[i].getChildren().isEmpty()) {
                 // Show all cards played by this player (supports BANG with 2 cards)
