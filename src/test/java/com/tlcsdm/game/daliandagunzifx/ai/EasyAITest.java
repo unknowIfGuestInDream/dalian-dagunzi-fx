@@ -394,6 +394,61 @@ class EasyAITest {
     }
 
     @Test
+    void testChooseKittyCardsKouWangWhenTrumpStrong() {
+        // 庄家扣牌时允许考虑扣王：主牌足够强（不依赖小王）时，应扣小王搏一个升级
+        TrumpInfo trumpInfo = new TrumpInfo(Suit.SPADE, Rank.THREE);
+        Player dealer = new Player(0, "P0", false);
+
+        int id = 0;
+        // 16 张主牌（黑桃，三副牌允许重复），主牌足够强
+        for (int i = 0; i < 16; i++) {
+            Rank rank = Rank.values()[4 + (i % 8)]; // 跳过 3（主牌级），避免计数歧义
+            dealer.addCards(List.of(new Card(Suit.SPADE, rank, id++)));
+        }
+        Card smallJoker = new Card(null, Rank.SMALL_JOKER, id++);
+        dealer.addCards(List.of(smallJoker));
+        // 一些低的非主牌
+        dealer.addCards(List.of(
+            new Card(Suit.HEART, Rank.FOUR, id++),
+            new Card(Suit.HEART, Rank.FIVE, id++),
+            new Card(Suit.HEART, Rank.SIX, id++),
+            new Card(Suit.HEART, Rank.SEVEN, id++)));
+
+        EasyAI ai = new EasyAI();
+        List<Card> kitty = ai.chooseKittyCards(dealer, List.of(), trumpInfo);
+
+        assertEquals(6, kitty.size(), "应该扣6张牌");
+        assertTrue(kitty.stream().anyMatch(c -> c.getRank() == Rank.SMALL_JOKER),
+            "主牌足够强时应考虑扣小王（扣王）");
+        assertTrue(kitty.stream().noneMatch(c -> c.getRank() == Rank.BIG_JOKER),
+            "大王价值过高，不应主动扣");
+    }
+
+    @Test
+    void testChooseKittyCardsNoKouWangWhenTrumpWeak() {
+        // 主牌不强时不应扣王，避免无谓的升级冒险
+        TrumpInfo trumpInfo = new TrumpInfo(Suit.SPADE, Rank.THREE);
+        Player dealer = new Player(0, "P0", false);
+
+        int id = 0;
+        dealer.addCards(List.of(
+            new Card(Suit.SPADE, Rank.FOUR, id++),
+            new Card(Suit.SPADE, Rank.FIVE, id++)));
+        dealer.addCards(List.of(new Card(null, Rank.SMALL_JOKER, id++)));
+        for (int i = 0; i < 8; i++) {
+            Rank rank = Rank.values()[4 + (i % 8)];
+            dealer.addCards(List.of(new Card(Suit.HEART, rank, id++)));
+        }
+
+        EasyAI ai = new EasyAI();
+        List<Card> kitty = ai.chooseKittyCards(dealer, List.of(), trumpInfo);
+
+        assertEquals(6, kitty.size(), "应该扣6张牌");
+        assertTrue(kitty.stream().noneMatch(c -> c.getRank() == Rank.SMALL_JOKER),
+            "主牌不强时不应扣王");
+    }
+
+    @Test
     void testPlayLowProtectsSpecialTrumps() {
         // playLow应该优先出非特殊主牌的小牌
         var trumpInfo = new TrumpInfo(Suit.HEART, Rank.THREE);

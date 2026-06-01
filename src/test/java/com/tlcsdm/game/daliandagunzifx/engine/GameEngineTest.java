@@ -530,6 +530,55 @@ class GameEngineTest {
     }
 
     @Test
+    void testTributeReceiverIsDealer() {
+        // 上贡应给庄家：完整打完一局后，下一局庄家（赢方）应为进贡接收方
+        playFullRound(engine, players);
+
+        RoundResult result = engine.calculateRoundResult();
+        int nextDealer = engine.getNextDealerIndex();
+        assertEquals(result.getWinningTeam(), players[nextDealer].getTeam(),
+            "下一局庄家应来自上一局赢方队伍");
+
+        engine.startNewRound();
+        engine.declareTrump(nextDealer, Suit.SPADE);
+
+        assertEquals(nextDealer, engine.getTributeReceiverIndex(),
+            "进贡接收方应为庄家");
+        assertEquals(result.getWinningTeam(), engine.getPreviousWinningTeam());
+    }
+
+    /**
+     * 简单地用“首张合法牌”策略打完一整局，使局面进入 ROUND_END。
+     */
+    private static void playFullRound(GameEngine engine, Player[] players) {
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.SPADE);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        int guard = 0;
+        while (engine.getPhase() != GamePhase.ROUND_END && guard++ < 1000) {
+            int cur = engine.getCurrentPlayerIndex();
+            Card toPlay = null;
+            for (Card c : new ArrayList<>(players[cur].getHand())) {
+                if (engine.isValidPlay(cur, c)) {
+                    toPlay = c;
+                    break;
+                }
+            }
+            assertNotNull(toPlay, "每位玩家总应有一张合法牌可出");
+            engine.playCard(cur, toPlay);
+            if (engine.getTrickCardsPlayed() == 4) {
+                engine.evaluateTrick();
+            }
+        }
+        assertEquals(GamePhase.ROUND_END, engine.getPhase(), "应能打完整局");
+    }
+
+    @Test
     void testAutoSelectReturnCard() {
         engine.startNewRound();
         // Player 0 手里有各种牌

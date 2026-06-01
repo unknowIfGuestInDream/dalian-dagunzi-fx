@@ -82,15 +82,7 @@ public class EasyAI implements AIStrategy {
         List<Card> hand = new ArrayList<>(player.getHand());
         // Sort by keep priority ascending: lowest priority cards are discarded first
         hand.sort(Comparator.comparingInt(c -> getKeepPriority(c, trumpInfo)));
-
-        List<Card> result = new ArrayList<>();
-        for (Card card : hand) {
-            if (result.size() >= 6) break;
-            if (card.getRank() != Rank.SMALL_JOKER && card.getRank() != Rank.BIG_JOKER) {
-                result.add(card);
-            }
-        }
-        return result;
+        return KittyHelper.selectKitty(hand, trumpInfo);
     }
 
     private int getKeepPriority(Card card, TrumpInfo trumpInfo) {

@@ -134,14 +134,8 @@ public class GameEngine {
             throw new IllegalArgumentException("Giver does not have the tribute card");
         }
 
-        // Find a player on the winning team to receive tribute
-        int receiverIndex = -1;
-        for (int i = 0; i < 4; i++) {
-            if (players[i].getTeam() == previousWinningTeam) {
-                receiverIndex = i;
-                break;
-            }
-        }
+        // Find a player on the winning team to receive tribute (the dealer/banker)
+        int receiverIndex = getTributeReceiverIndex();
         Player receiver = players[receiverIndex];
         if (!receiver.hasCards(List.of(returnCard))) {
             throw new IllegalArgumentException("Receiver does not have the return card");
@@ -188,14 +182,9 @@ public class GameEngine {
             }
             if (giver == null || bestCard == null) break;
 
-            // Find a winning team player to receive
-            Player receiver = null;
-            for (Player p : players) {
-                if (p.getTeam() == previousWinningTeam) {
-                    receiver = p;
-                    break;
-                }
-            }
+            // Find the winning team player to receive (the dealer/banker)
+            int receiverIndex = getTributeReceiverIndex();
+            Player receiver = receiverIndex >= 0 ? players[receiverIndex] : null;
             if (receiver == null) break;
 
             // Receiver returns their lowest non-joker card
@@ -257,16 +246,27 @@ public class GameEngine {
         }
         if (giver == null || bestCard == null) return null;
 
-        int receiverIndex = -1;
-        for (int i = 0; i < 4; i++) {
-            if (players[i].getTeam() == previousWinningTeam) {
-                receiverIndex = i;
-                break;
-            }
-        }
+        int receiverIndex = getTributeReceiverIndex();
         if (receiverIndex < 0) return null;
 
         return new int[]{giver.getId(), receiverIndex};
+    }
+
+    /**
+     * 进贡的接收方为庄家。若庄家尚未确定或不在上轮赢家队伍，则退回为赢家队伍的首位玩家。
+     *
+     * @return 接收进贡的玩家索引，无法确定时返回 -1
+     */
+    public int getTributeReceiverIndex() {
+        if (dealerIndex >= 0 && players[dealerIndex].getTeam() == previousWinningTeam) {
+            return dealerIndex;
+        }
+        for (int i = 0; i < 4; i++) {
+            if (players[i].getTeam() == previousWinningTeam) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**

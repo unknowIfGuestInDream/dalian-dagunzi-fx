@@ -92,15 +92,7 @@ public class MediumAI implements AIStrategy {
 
         // Sort by keep score ascending: lowest score cards are discarded first
         hand.sort(Comparator.comparingInt(c -> getKeepScore(c, trumpInfo, suitCounts)));
-
-        List<Card> result = new ArrayList<>();
-        for (Card card : hand) {
-            if (result.size() >= 6) break;
-            if (card.getRank() != Rank.SMALL_JOKER && card.getRank() != Rank.BIG_JOKER) {
-                result.add(card);
-            }
-        }
-        return result;
+        return KittyHelper.selectKitty(hand, trumpInfo);
     }
 
     private int getKeepScore(Card card, TrumpInfo trumpInfo, Map<Suit, Integer> suitCounts) {
