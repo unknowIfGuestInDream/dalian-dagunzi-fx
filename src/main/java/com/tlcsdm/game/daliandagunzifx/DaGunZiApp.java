@@ -538,12 +538,9 @@ public class DaGunZiApp extends Application {
         actionPane.setAlignment(Pos.CENTER);
         actionPane.setPadding(new Insets(5));
 
-        // Top: menu bar + Player 2 (partner)
+        // Top: Player 2 (partner). 菜单栏放在最外层 VBox 顶部，避免被牌桌布局压缩或裁剪。
         VBox topPlayerPane = createAIPlayerPane("搭档小红", 2);
         topPlayerPane.setPadding(new Insets(8));
-
-        VBox topArea = new VBox();
-        topArea.getChildren().addAll(createMenuBar(true), topPlayerPane);
 
         // Left: Player 1
         VBox leftPlayerPane = createAIPlayerPane("小明", 1);
@@ -569,17 +566,25 @@ public class DaGunZiApp extends Application {
         // Bottom: human player
         VBox bottomArea = buildHumanArea();
 
-        gameBoard.setTop(topArea);
+        gameBoard.setTop(topPlayerPane);
         gameBoard.setLeft(leftPlayerPane);
         gameBoard.setRight(rightSide);
         gameBoard.setCenter(centerBox);
         gameBoard.setBottom(bottomArea);
 
-        BorderPane.setAlignment(topArea, Pos.CENTER);
+        BorderPane.setAlignment(topPlayerPane, Pos.CENTER);
         BorderPane.setAlignment(leftPlayerPane, Pos.CENTER_LEFT);
         BorderPane.setMargin(leftPlayerPane, new Insets(0, 0, 0, 10));
 
-        rootPane.getChildren().add(gameBoard);
+        // 菜单栏固定在窗口最顶部，牌桌占据剩余空间；即使牌桌内容较高也不会压缩或遮挡菜单栏。
+        MenuBar menuBar = createMenuBar(true);
+        VBox gameRoot = new VBox();
+        gameRoot.getChildren().addAll(menuBar, gameBoard);
+        VBox.setVgrow(gameBoard, Priority.ALWAYS);
+
+        rootPane.getChildren().add(gameRoot);
+        // 牌桌内容高于窗口时，让其顶部对齐，保证菜单栏始终显示在最顶部而不会被裁剪。
+        StackPane.setAlignment(gameRoot, Pos.TOP_LEFT);
         // 延迟到下一个 JavaFX 脉冲执行，确保场景图完全提交后再进行布局计算，避免菜单栏不显示的问题
         Platform.runLater(() -> {
             rootPane.applyCss();

@@ -169,7 +169,34 @@ public class HardAI implements AIStrategy {
         if (candidates.size() == 1) {
             return candidates.get(0);
         }
+        // 场景3：若不存在"不动用特殊主牌(2/王/主牌级)即可赢墩"的出法，说明管不上或不值得用大牌去管，
+        // 交由确定性策略出最小的牌，避免 PIMC 随机采样把大小王等特殊主牌白白垫掉（掉主跟棒子/滚子时尤为常见）。
+        if (!hasNonSpecialWinningPlay(engine, candidates)) {
+            return fallbackAI.chooseCards(player, engine);
+        }
         return evaluateBestAction(player, engine, candidates);
+    }
+
+    /**
+     * 判断候选出牌中是否存在"不使用特殊主牌(2/王/主牌级)即可赢下当前墩"的出法。
+     * 只有能用普通牌赢墩时才值得用 PIMC 去权衡是否争分；否则应保留特殊主牌、出最小牌。
+     */
+    private boolean hasNonSpecialWinningPlay(GameEngine engine, List<List<Card>> candidates) {
+        TrumpInfo trumpInfo = engine.getTrumpInfo();
+        PlayType trickType = engine.getCurrentTrickPlayType();
+        int currentWinStrength = rolloutAI.getCurrentTrickWinnerStrength(engine);
+        for (List<Card> candidate : candidates) {
+            if (candidate.stream().anyMatch(c -> rolloutAI.isSpecialTrump(c, trumpInfo))) {
+                continue;
+            }
+            if (engine.determinePlayType(candidate) != trickType) {
+                continue;
+            }
+            if (trumpInfo.getCardStrength(candidate.get(0)) > currentWinStrength) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private List<Card> pruneEquivalentCards(List<Card> cards, TrumpInfo trumpInfo) {
