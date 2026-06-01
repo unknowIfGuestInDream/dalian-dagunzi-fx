@@ -507,6 +507,65 @@ class AIMultiCardTest {
         }
     }
 
+    /**
+     * Issue 2: 掉主（领出主牌滚子/棒子）且墩中有分时，AI 管不上（手中无能赢的同型牌组）时，
+     * 应优先垫出最小的主牌散牌，保留大小王等特殊主牌，而不是把它们白白丢出去。
+     * HardAI 在分墩 + 队友未赢的场景会走 PIMC，需保证管不上时不浪费特殊主牌。
+     */
+    @Test
+    void testHardAITrumpGunziFollowKeepsJokersWhenCannotWin() {
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.setLiveBang(true);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0 掉主：出♥5滚子（主牌滚子，含15分）
+        players[0].getHand().clear();
+        Card heart5a = new Card(Suit.HEART, Rank.FIVE, 900);
+        Card heart5b = new Card(Suit.HEART, Rank.FIVE, 901);
+        Card heart5c = new Card(Suit.HEART, Rank.FIVE, 902);
+        players[0].addCards(List.of(heart5a, heart5b, heart5c));
+        engine.playCards(0, List.of(heart5a, heart5b, heart5c));
+
+        // Player 1（对手方）：一堆红桃小散牌 + 大小王，但凑不出能赢的滚子/夯
+        players[1].getHand().clear();
+        Card heart3 = new Card(Suit.HEART, Rank.THREE, 910);
+        Card heart4 = new Card(Suit.HEART, Rank.FOUR, 911);
+        Card heart6 = new Card(Suit.HEART, Rank.SIX, 912);
+        Card heart7 = new Card(Suit.HEART, Rank.SEVEN, 913);
+        Card bigJoker = new Card(null, Rank.BIG_JOKER, 914);
+        Card smallJoker = new Card(null, Rank.SMALL_JOKER, 915);
+        players[1].addCards(List.of(heart3, heart4, heart6, heart7, bigJoker, smallJoker));
+
+        TrumpInfo trumpInfo = engine.getTrumpInfo();
+        EasyAI easyAI = new EasyAI();
+
+        HardAI hardAI = new HardAI(new CardTracker());
+        // PIMC 含随机采样，多跑几次确保稳定不浪费大小王
+        for (int i = 0; i < 5; i++) {
+            List<Card> hardChosen = hardAI.chooseCards(players[1], engine);
+            assertEquals(3, hardChosen.size());
+            assertTrue(engine.isValidPlay(1, hardChosen),
+                "HardAI: 跟滚子应出合法的3张牌");
+            for (Card card : hardChosen) {
+                assertFalse(easyAI.isSpecialTrump(card, trumpInfo),
+                    "HardAI: 掉主跟滚子管不上时不应浪费特殊主牌(大小王/2/主牌级)。实际出了: "
+                        + card.getDisplayName());
+            }
+        }
+    }
+
     private List<Card> findGunziInHand(Player player, TrumpInfo trumpInfo) {
         List<Card> hand = player.getHand();
         for (int i = 0; i < hand.size(); i++) {
