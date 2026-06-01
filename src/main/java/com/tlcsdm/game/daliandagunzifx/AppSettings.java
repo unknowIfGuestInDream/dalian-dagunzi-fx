@@ -59,6 +59,7 @@ public final class AppSettings {
     private static final String PREF_AI_LEVEL = "aiLevel";
     private static final String PREF_CHECK_UPDATE = "checkUpdateEnabled";
     private static final String PREF_LIVE_BANG = "liveBang";
+    private static final String PREF_AGGRESSIVE = "aggressive";
 
     private static final AppSettings INSTANCE = new AppSettings();
 
@@ -67,6 +68,7 @@ public final class AppSettings {
     private final ObjectProperty<AILevel> aiLevelProperty;
     private final BooleanProperty checkUpdateEnabledProperty;
     private final BooleanProperty liveBangProperty;
+    private final BooleanProperty aggressiveProperty;
 
     private PreferencesFx preferencesFx;
 
@@ -95,6 +97,8 @@ public final class AppSettings {
             PREFS != null ? PREFS.getBoolean(PREF_CHECK_UPDATE, true) : true);
         liveBangProperty = new SimpleBooleanProperty(
             PREFS != null ? PREFS.getBoolean(PREF_LIVE_BANG, true) : true);
+        aggressiveProperty = new SimpleBooleanProperty(
+            PREFS != null ? PREFS.getBoolean(PREF_AGGRESSIVE, false) : false);
 
         darkThemeProperty.addListener((obs, oldVal, newVal) -> {
             if (PREFS != null) {
@@ -123,6 +127,12 @@ public final class AppSettings {
         liveBangProperty.addListener((obs, oldVal, newVal) -> {
             if (PREFS != null) {
                 PREFS.putBoolean(PREF_LIVE_BANG, newVal);
+                flushQuietly();
+            }
+        });
+        aggressiveProperty.addListener((obs, oldVal, newVal) -> {
+            if (PREFS != null) {
+                PREFS.putBoolean(PREF_AGGRESSIVE, newVal);
                 flushQuietly();
             }
         });
@@ -172,6 +182,14 @@ public final class AppSettings {
         return liveBangProperty.get();
     }
 
+    public BooleanProperty aggressiveProperty() {
+        return aggressiveProperty;
+    }
+
+    public boolean isAggressive() {
+        return aggressiveProperty.get();
+    }
+
     /**
      * Get the PreferencesFx instance. Creates it on first call.
      */
@@ -200,6 +218,7 @@ public final class AppSettings {
         AILevel savedLevel = aiLevelProperty.get();
         boolean savedUpdate = checkUpdateEnabledProperty.get();
         boolean savedLiveBang = liveBangProperty.get();
+        boolean savedAggressive = aggressiveProperty.get();
 
         preferencesFx = PreferencesFx.of(AppSettings.class,
             Category.of("游戏设置",
@@ -209,6 +228,7 @@ public final class AppSettings {
                 Group.of("游戏",
                     Setting.of("开启记牌器", trackerEnabledProperty),
                     Setting.of("活棒", liveBangProperty),
+                    Setting.of("冒险出牌", aggressiveProperty),
                     Setting.of("AI难度",
                         FXCollections.observableArrayList(Arrays.asList(AILevel.values())),
                         aiLevelProperty)
@@ -233,5 +253,6 @@ public final class AppSettings {
         aiLevelProperty.set(savedLevel);
         checkUpdateEnabledProperty.set(savedUpdate);
         liveBangProperty.set(savedLiveBang);
+        aggressiveProperty.set(savedAggressive);
     }
 }

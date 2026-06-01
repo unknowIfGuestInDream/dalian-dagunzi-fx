@@ -59,6 +59,12 @@ public class HardAI implements AIStrategy {
     }
 
     @Override
+    public void setAggressive(boolean aggressive) {
+        rolloutAI.setAggressive(aggressive);
+        fallbackAI.setAggressive(aggressive);
+    }
+
+    @Override
     public Suit chooseTrumpSuit(Player player, Rank trumpRank) {
         return fallbackAI.chooseTrumpSuit(player, trumpRank);
     }

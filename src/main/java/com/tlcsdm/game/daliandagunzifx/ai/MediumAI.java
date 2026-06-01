@@ -49,6 +49,11 @@ public class MediumAI implements AIStrategy {
     }
 
     @Override
+    public void setAggressive(boolean aggressive) {
+        easyAI.setAggressive(aggressive);
+    }
+
+    @Override
     public Suit chooseTrumpSuit(Player player, Rank trumpRank) {
         // Pick strongest suit: most cards of suit + trump rank cards in that suit
         Map<Suit, Integer> trumpRankCounts = new EnumMap<>(Suit.class);
@@ -274,6 +279,12 @@ public class MediumAI implements AIStrategy {
             }
         }
 
+        // 冒险策略：主动领出最大的非分副牌争夺控制权（赌它够大），而非保守掉小牌
+        if (easyAI.isAggressive()) {
+            Card gamble = easyAI.chooseAggressiveLead(suitCards, trumpInfo);
+            if (gamble != null) return gamble;
+        }
+
         // Score each suit considering tracked void information
         // 同时考虑短套策略（制造缺门）
         Suit bestSuit = null;
@@ -356,7 +367,7 @@ public class MediumAI implements AIStrategy {
             boolean hasNonPointNonTrump = nonTrumpCards.stream()
                 .anyMatch(c -> c.getPoints() == 0 && !easyAI.isSpecialTrump(c, trumpInfo));
             if (trickPoints >= 10 || engine.getTrickCardsPlayed() == 3
-                || !hasNonPointNonTrump) {
+                || !hasNonPointNonTrump || (easyAI.isAggressive() && trickPoints > 0)) {
                 // 检查后续对手是否也缺该花色（会用主牌毙），需要选更大的主牌
                 boolean hasSubsequentOpponentVoid = isSubsequentOpponentVoid(player, engine, leadSuit);
 
@@ -416,10 +427,11 @@ public class MediumAI implements AIStrategy {
         }
 
         // 有分值得争，或手中只剩分牌时尝试压牌，保护特殊主牌（2/王/主牌级）
+        // 冒险策略：即使本墩暂无分，也主动争墩夺取控制权
         int trickPoints = calculateCurrentTrickPoints(engine);
         boolean hasNonPointCard = suitCards.stream()
             .anyMatch(c -> c.getPoints() == 0 && !easyAI.isSpecialTrump(c, trumpInfo));
-        if (trickPoints > 0 || !hasNonPointCard) {
+        if (trickPoints > 0 || !hasNonPointCard || easyAI.isAggressive()) {
             int currentWinStrength = getCurrentWinningStrength(engine);
             Card bestWinner = null;
             for (Card card : suitCards) {

@@ -51,6 +51,19 @@ public class EasyAI implements AIStrategy {
     // 用主牌管上的最低分值门槛：当前墩分值达到此值以上才考虑用主牌棒子/滚子管上
     protected static final int MIN_POINTS_FOR_TRUMP_OVERRIDE = 10;
 
+    // 冒险出牌策略开关：开启后 AI 会在不确定牌是否最大时主动争墩、用主牌毙分（赌博心理）。
+    // 默认关闭，保持稳健保守的出牌风格。
+    protected boolean aggressive = false;
+
+    @Override
+    public void setAggressive(boolean aggressive) {
+        this.aggressive = aggressive;
+    }
+
+    public boolean isAggressive() {
+        return aggressive;
+    }
+
     @Override
     public Suit chooseTrumpSuit(Player player, Rank trumpRank) {
         Map<Suit, Integer> trumpRankCounts = new EnumMap<>(Suit.class);
@@ -460,6 +473,13 @@ public class EasyAI implements AIStrategy {
             }
         }
 
+        // 冒险策略：不确定牌是否最大时主动领出最大的非分副牌争夺控制权（赌它够大），
+        // 而非保守地垫小牌掉主。若无非分副牌可领则回退到常规保守逻辑。
+        if (aggressive) {
+            Card gamble = chooseAggressiveLead(suitCards, trumpInfo);
+            if (gamble != null) return gamble;
+        }
+
         // 2. 考虑出短套副牌（1-2张），制造缺门以便后续用主牌杀分
         Suit shortSuit = null;
         int shortSize = Integer.MAX_VALUE;
@@ -519,6 +539,28 @@ public class EasyAI implements AIStrategy {
             .orElse(validCards.get(0));
     }
 
+    /**
+     * 冒险领出：从所有副牌（非主牌）中选出牌力最大的非分牌主动领出，
+     * 赌它足够大以赢得本墩、夺取控制权。无非分副牌可领时返回 null，交由调用方回退。
+     *
+     * @param suitCards 按副牌花色分组的手牌（不含主牌）
+     * @param trumpInfo 主牌信息
+     * @return 冒险领出的牌；无合适牌时返回 null
+     */
+    protected Card chooseAggressiveLead(Map<Suit, List<Card>> suitCards, TrumpInfo trumpInfo) {
+        Card best = null;
+        for (List<Card> cards : suitCards.values()) {
+            for (Card card : cards) {
+                if (card.getPoints() != 0) continue;
+                if (best == null
+                    || trumpInfo.getCardStrength(card) > trumpInfo.getCardStrength(best)) {
+                    best = card;
+                }
+            }
+        }
+        return best;
+    }
+
     protected Card chooseFollow(Player player, List<Card> validCards, GameEngine engine) {
         TrumpInfo trumpInfo = engine.getTrumpInfo();
         Card leadCard = engine.getCurrentTrick()[engine.getCurrentTrickLeader()];
@@ -547,7 +589,8 @@ public class EasyAI implements AIStrategy {
             int trickPoints = calculateCurrentTrickPoints(engine);
             boolean hasNonPointCard = suitCards.stream()
                 .anyMatch(c -> c.getPoints() == 0 && !isSpecialTrump(c, trumpInfo));
-            if (trickPoints > 0 || !hasNonPointCard) {
+            // 冒险策略：即使本墩暂无分，也主动争墩夺取控制权（赌自己的牌够大）
+            if (trickPoints > 0 || !hasNonPointCard || aggressive) {
                 // 有分可争，或手中只剩分牌（避免白送对方分数）→ 尝试赢墩
                 int currentWinStrength = getCurrentTrickWinnerStrength(engine);
                 Card bestWinner = null;
@@ -582,6 +625,17 @@ public class EasyAI implements AIStrategy {
 
         // 队友没赢，考虑是否值得用主牌
         int trickPoints = calculateCurrentTrickPoints(engine);
+        // 冒险策略：本墩有分时主动用非特殊主牌毙掉，抢分而非保守垫牌掉分
+        if (aggressive && trickPoints > 0 && !trumpCards.isEmpty()) {
+            int currentWinStrength = getCurrentTrickWinnerStrength(engine);
+            Optional<Card> ruff = trumpCards.stream()
+                .filter(c -> !isSpecialTrump(c, trumpInfo))
+                .filter(c -> trumpInfo.getCardStrength(c) > currentWinStrength)
+                .min(Comparator.comparingInt(trumpInfo::getCardStrength));
+            if (ruff.isPresent()) {
+                return ruff.get();
+            }
+        }
         // 检查是否有无分非主牌可以安全垫
         boolean hasNonPointNonTrump = nonTrumpCards.stream()
             .anyMatch(c -> c.getPoints() == 0 && !isSpecialTrump(c, trumpInfo));

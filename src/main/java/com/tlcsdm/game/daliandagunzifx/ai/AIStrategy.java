@@ -46,4 +46,14 @@ public interface AIStrategy {
     default List<Card> chooseCards(Player player, GameEngine engine) {
         return List.of(chooseCard(player, engine));
     }
+
+    /**
+     * 开启/关闭冒险出牌策略。开启后 AI 会在不确定手中牌是否最大时进行一定程度的
+     * 冒险/赌博式出牌（主动争墩、用主牌毙分），以减少过度保守地掉主弃墩。
+     * 默认实现为空操作，由具体策略按需实现。
+     *
+     * @param aggressive 是否开启冒险出牌
+     */
+    default void setAggressive(boolean aggressive) {
+    }
 }
