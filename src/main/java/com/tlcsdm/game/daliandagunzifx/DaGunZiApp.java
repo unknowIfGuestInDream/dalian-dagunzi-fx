@@ -133,6 +133,7 @@ public class DaGunZiApp extends Application {
     private final List<Card> pendingTributeGiveCards = new ArrayList<>();
     private StringBuilder tributeMessages;
     private Runnable tributeOnComplete;
+    private final List<Card> tributeDisplayCards = new ArrayList<>();
     private final List<Card> selectedKittyCards = new ArrayList<>();
     private final List<Card> selectedPlayCards = new ArrayList<>();
 
@@ -148,11 +149,13 @@ public class DaGunZiApp extends Application {
     private HBox actionPane;
     private Label trumpLabel;
     private Label scoreLabel;
+    private Label tributeLabel;
     private Label teamLevelLabel;
     private Label roundLabel;
     private Label dealerLabel;
     private final StackPane[] trickCardNodes = new StackPane[4];
     private final Label[] playerNameLabels = new Label[4];
+    private StackPane kittyCenterNode;
 
     public static void main(String[] args) {
         launch(args);
@@ -605,9 +608,11 @@ public class DaGunZiApp extends Application {
         trumpLabel = createInfoLabel("主牌：未定");
         dealerLabel = createInfoLabel("庄家：未定");
         scoreLabel = createInfoLabel("防守方得分：0");
+        tributeLabel = createInfoLabel("本局进贡：无");
         teamLevelLabel = createInfoLabel("队伍级别：3 / 3");
 
-        infoPanel.getChildren().addAll(roundLabel, trumpLabel, dealerLabel, scoreLabel, teamLevelLabel);
+        infoPanel.getChildren().addAll(roundLabel, trumpLabel, dealerLabel, scoreLabel,
+            tributeLabel, teamLevelLabel);
 
         trackerGrid = new GridPane();
         trackerGrid.setHgap(3);
@@ -649,6 +654,50 @@ public class DaGunZiApp extends Application {
         trickArea.add(trickCardNodes[3], 2, 1);
         // Player 0 (human) bottom-center
         trickArea.add(trickCardNodes[0], 1, 2);
+
+        // 桌面中央：底牌 / 进贡展示区
+        kittyCenterNode = new StackPane();
+        kittyCenterNode.setMinSize(CARD_WIDTH, CARD_HEIGHT);
+        kittyCenterNode.setPrefSize(CARD_WIDTH, CARD_HEIGHT);
+        trickArea.add(kittyCenterNode, 1, 1);
+    }
+
+    /**
+     * 在桌面中央展示一组牌（底牌或进贡）。faceUp 为 false 时展示牌背（不可见）。
+     */
+    private void displayCenterCards(String title, List<Card> cards, boolean faceUp) {
+        if (kittyCenterNode == null) {
+            return;
+        }
+        kittyCenterNode.getChildren().clear();
+        if (cards == null || cards.isEmpty()) {
+            return;
+        }
+        VBox box = new VBox(2);
+        box.setAlignment(Pos.CENTER);
+        Label titleLabel = new Label(title);
+        titleLabel.setStyle("-fx-text-fill: #ffdd57; -fx-font-size: 12px; -fx-font-weight: bold;");
+        HBox row = new HBox(-52);
+        row.setAlignment(Pos.CENTER);
+        for (Card card : cards) {
+            row.getChildren().add(faceUp ? createCardFace(card) : createCardBack());
+        }
+        // 缩小整体以适配中央区域
+        row.setScaleX(0.55);
+        row.setScaleY(0.55);
+        box.getChildren().addAll(titleLabel, row);
+        kittyCenterNode.getChildren().add(box);
+    }
+
+    /**
+     * 扣牌完成后展示底牌：若扣了王（向底牌扣王）则正面展示，否则展示牌背（不可见）。
+     */
+    private void displayBuriedKitty() {
+        if (engine.getKittyBloods() > 0) {
+            displayCenterCards("扣王", engine.getKitty(), true);
+        } else if (kittyCenterNode != null) {
+            displayCenterCards("底牌", engine.getKitty(), false);
+        }
     }
 
     private VBox buildHumanArea() {
@@ -693,15 +742,12 @@ public class DaGunZiApp extends Application {
         updateInfoPanel();
         updateAIPlayerPanes();
         clearTrickArea();
+        if (kittyCenterNode != null) {
+            kittyCenterNode.getChildren().clear();
+        }
 
-        // 先发牌动画，然后处理进贡，最后叫主
-        animateDealing(() -> {
-            if (engine.isTributeRequired()) {
-                handleTributeFlow(() -> beginTrumpDeclaration());
-            } else {
-                beginTrumpDeclaration();
-            }
-        });
+        // 先发牌动画，再亮主，亮主确定庄家后进贡，最后翻底牌决定扣牌
+        animateDealing(this::beginTrumpDeclaration);
     }
 
     private void animateDealing(Runnable onComplete) {
@@ -770,6 +816,7 @@ public class DaGunZiApp extends Application {
         tributeOnComplete = onComplete;
         pendingTributeGivers.clear();
         pendingTributeGiveCards.clear();
+        tributeDisplayCards.clear();
 
         int total = engine.getPreviousTributeCount();
         List<int[]> gives = new ArrayList<>();
@@ -794,6 +841,10 @@ public class DaGunZiApp extends Application {
             finishTributeFlow();
             return;
         }
+
+        tributeDisplayCards.addAll(giveCards);
+        // 在桌面中央展示上贡的牌（所有人可见）
+        displayCenterCards("进贡", tributeDisplayCards, true);
 
         updateHumanHand();
         updateAIPlayerPanes();
@@ -916,9 +967,7 @@ public class DaGunZiApp extends Application {
     }
 
     /**
-     * 结束进贡流程：进入发牌阶段并显示进贡结果。
-     * 使用 {@link Platform#runLater} 延迟弹窗，避免在动画/布局处理过程中调用
-     * {@code showAndWait} 导致 IllegalStateException。
+     * 结束进贡流程：进入扣牌阶段并在桌面中央显示进贡结果（不再弹窗）。
      */
     private void finishTributeFlow() {
         engine.finishTribute();
@@ -927,21 +976,44 @@ public class DaGunZiApp extends Application {
 
         Platform.runLater(() -> {
             if (tributeMessages != null && !tributeMessages.isEmpty()) {
-                String msg = tributeMessages.toString();
-                statusLabel.setText("进贡：" + msg);
-                Alert tributeAlert = new Alert(Alert.AlertType.INFORMATION);
-                tributeAlert.setTitle("进贡");
-                tributeAlert.setHeaderText("进贡/回贡");
-                tributeAlert.setContentText(msg);
-                Stage alertStage = (Stage) tributeAlert.getDialogPane().getScene().getWindow();
-                alertStage.getIcons().add(createAppIcon());
-                tributeAlert.showAndWait();
+                statusLabel.setText("进贡：" + tributeMessages);
+                if (!tributeDisplayCards.isEmpty()) {
+                    displayCenterCards("进贡", tributeDisplayCards, true);
+                }
             }
             tributeOnComplete.run();
         });
     }
 
     // ======================== Trump Declaration ========================
+
+    /**
+     * 亮主完成、庄家确定后的统一处理：先在桌面中央展示初始底牌（所有人可见），
+     * 若需要进贡则先进贡给庄家，最后再由庄家翻底牌决定扣牌。
+     *
+     * @param dealerIdx 本局庄家索引
+     */
+    private void afterTrumpDeclared(int dealerIdx) {
+        // 展示初始底牌（桌面中央，所有人可见）
+        displayCenterCards("底牌", engine.getKitty(), true);
+        updateInfoPanel();
+        if (engine.isTributeRequired()) {
+            handleTributeFlow(() -> proceedToKittySelection(dealerIdx));
+        } else {
+            proceedToKittySelection(dealerIdx);
+        }
+    }
+
+    /**
+     * 进贡结束后进入扣牌阶段：人类庄家手动选底牌，AI 庄家自动扣牌。
+     */
+    private void proceedToKittySelection(int dealerIdx) {
+        if (dealerIdx == 0) {
+            beginKittySelection();
+        } else {
+            handleAIKitty(dealerIdx);
+        }
+    }
 
     private void beginTrumpDeclaration() {
         updateHumanHand();
@@ -968,7 +1040,7 @@ public class DaGunZiApp extends Application {
                 Suit randomSuit = engine.declareTrumpRandomSuit(0);
                 statusLabel.setText("你亮王定庄，随机主牌：" + randomSuit.getSymbol() + randomSuit.getDisplayName());
                 updateInfoPanel();
-                beginKittySelection();
+                afterTrumpDeclared(engine.getDealerIndex());
             });
             actionPane.getChildren().add(declareBtn);
 
@@ -1032,7 +1104,7 @@ public class DaGunZiApp extends Application {
                     + chosenSuit.getSymbol() + chosenSuit.getDisplayName());
                 updateInfoPanel();
                 updateHumanHand();
-                handleAIKitty(nextDealer);
+                afterTrumpDeclared(nextDealer);
             } else {
                 // AI庄家没有可叫的花色，从底牌确定
                 declareTrumpFromKittyForDealer(nextDealer);
@@ -1045,7 +1117,7 @@ public class DaGunZiApp extends Application {
         engine.declareTrump(0, suit);
         statusLabel.setText("你叫了主牌：" + suit.getSymbol() + suit.getDisplayName());
         updateInfoPanel();
-        beginKittySelection();
+        afterTrumpDeclared(engine.getDealerIndex());
     }
 
     private void humanPassTrump() {
@@ -1072,7 +1144,7 @@ public class DaGunZiApp extends Application {
                     + randomSuit.getSymbol() + randomSuit.getDisplayName());
                 updateInfoPanel();
                 updateHumanHand();
-                handleAIKitty(idx);
+                afterTrumpDeclared(idx);
             });
             timeline.getKeyFrames().add(kf);
         }
@@ -1099,11 +1171,7 @@ public class DaGunZiApp extends Application {
                 + ti.getTrumpSuit().getDisplayName() + "，庄家：" + players[newDealer].getName());
             updateInfoPanel();
             updateHumanHand();
-            if (newDealer == 0) {
-                beginKittySelection();
-            } else {
-                handleAIKitty(newDealer);
-            }
+            afterTrumpDeclared(newDealer);
         }));
         kittyDelay.play();
     }
@@ -1121,11 +1189,7 @@ public class DaGunZiApp extends Application {
                 + ti.getTrumpSuit().getDisplayName() + "，庄家：" + players[newDealer].getName());
             updateInfoPanel();
             updateHumanHand();
-            if (newDealer == 0) {
-                beginKittySelection();
-            } else {
-                handleAIKitty(newDealer);
-            }
+            afterTrumpDeclared(newDealer);
         }));
         kittyDelay.play();
     }
@@ -1173,6 +1237,7 @@ public class DaGunZiApp extends Application {
         updateHumanHand();
         updateAIPlayerPanes();
         updateInfoPanel();
+        displayBuriedKitty();
 
         Timeline delay = new Timeline(new KeyFrame(Duration.millis(500), e -> processCurrentPlayer()));
         delay.play();
@@ -1185,6 +1250,7 @@ public class DaGunZiApp extends Application {
             engine.setKitty(kittyCards);
             updateHumanHand();
             updateAIPlayerPanes();
+            displayBuriedKitty();
             statusLabel.setText("游戏开始！");
 
             Timeline startDelay = new Timeline(new KeyFrame(Duration.millis(500), ev -> processCurrentPlayer()));
@@ -1526,6 +1592,14 @@ public class DaGunZiApp extends Application {
         List<Card> hand = sortForDisplay(players[0].getHand(), engine.getTrumpInfo());
 
         double startX = 10;
+        int n = hand.size();
+        // 计算单行所需宽度，超出可用宽度时改为两行显示（进贡/收底后手牌较多时）
+        double available = WINDOW_WIDTH - 40.0;
+        double singleRowWidth = startX * 2 + (n > 0 ? (n - 1) * CARD_OVERLAP + CARD_WIDTH : 0);
+        int rows = (n > 0 && singleRowWidth > available) ? 2 : 1;
+        int perRow = (rows == 1) ? Math.max(n, 1) : (int) Math.ceil(n / 2.0);
+        double rowGap = CARD_HEIGHT * 0.66;
+
         for (int i = 0; i < hand.size(); i++) {
             Card card = hand.get(i);
             StackPane cardNode = createCardFace(card);
@@ -1534,14 +1608,16 @@ public class DaGunZiApp extends Application {
             boolean isPlaySelected = selectedPlayCards.contains(card);
             boolean isSelected = isKittySelected || isPlaySelected;
 
-            double baseY = isSelected ? 5.0 : 25.0;
+            int rowIndex = i / perRow;
+            int colIndex = i % perRow;
+            double baseY = (isSelected ? 5.0 : 25.0) + rowIndex * rowGap;
 
             if (isPlaySelected) {
                 cardNode.setStyle(cardNode.getStyle()
                     + " -fx-border-color: #ffd700; -fx-border-width: 2;");
             }
 
-            cardNode.setLayoutX(startX + i * CARD_OVERLAP);
+            cardNode.setLayoutX(startX + colIndex * CARD_OVERLAP);
             cardNode.setLayoutY(baseY);
 
             final Card c = card;
@@ -1605,7 +1681,12 @@ public class DaGunZiApp extends Application {
             humanHandPane.getChildren().add(cardNode);
         }
 
-        humanHandPane.setPrefWidth(startX + hand.size() * CARD_OVERLAP + CARD_WIDTH);
+        int widestRow = Math.min(perRow, Math.max(n, 1));
+        humanHandPane.setPrefWidth(startX * 2 + widestRow * CARD_OVERLAP + CARD_WIDTH);
+        double neededHeight = 25 + (rows - 1) * rowGap + CARD_HEIGHT + 10;
+        double paneHeight = Math.max(140, neededHeight);
+        humanHandPane.setMinHeight(paneHeight);
+        humanHandPane.setPrefHeight(paneHeight);
     }
 
     private void updateTrickArea() {
@@ -1723,6 +1804,17 @@ public class DaGunZiApp extends Application {
         }
 
         scoreLabel.setText("防守方得分：" + engine.getDefenderPoints());
+
+        if (tributeLabel != null) {
+            int tributeCount = engine.getPreviousTributeCount();
+            if (engine.isTributeRequired() && tributeCount > 0) {
+                tributeLabel.setText("本局进贡：" + tributeCount + " 个（上贡给庄家）");
+                tributeLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 13px; -fx-font-weight: bold;");
+            } else {
+                tributeLabel.setText("本局进贡：无");
+                tributeLabel.setStyle("-fx-text-fill: white; -fx-font-size: 13px;");
+            }
+        }
 
         // Update dealer label and player name labels with dealer indicator
         if (engine.getTrumpInfo() != null) {
