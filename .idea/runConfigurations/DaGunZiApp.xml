@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="DaGunZiApp" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="com.tlcsdm.game.daliandagunzifx.DaGunZiApp" />
+    <module name="dalian-dagunzi-fx" />
+    <!-- 在 IDE 中直接运行/调试时启用 JavaFX 本地访问，消除启动时的本地访问警告 -->
+    <option name="VM_PARAMETERS" value="--enable-native-access=javafx.graphics" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
