@@ -163,24 +163,22 @@ public class GameEngine {
         if (!isTributeRequired()) {
             return null;
         }
-        int losingTeam = 1 - previousWinningTeam;
         StringBuilder messages = new StringBuilder();
 
+        // 进贡只由一名玩家进行：庄家的上家（坐在庄家前一位的闲家）向庄家进贡。
+        int giverIndex = getTributeGiverIndex();
+        if (giverIndex < 0) return null;
+        Player giver = players[giverIndex];
+
         for (int t = 0; t < previousTributeCount; t++) {
-            // Find the losing team player with the highest card
-            Player giver = null;
+            // 由固定的进贡方（庄家上家）取其当前最大的牌进贡
             Card bestCard = null;
-            for (Player p : players) {
-                if (p.getTeam() == losingTeam) {
-                    for (Card c : p.getHand()) {
-                        if (bestCard == null || cardSortValue(c) > cardSortValue(bestCard)) {
-                            bestCard = c;
-                            giver = p;
-                        }
-                    }
+            for (Card c : giver.getHand()) {
+                if (bestCard == null || cardSortValue(c) > cardSortValue(bestCard)) {
+                    bestCard = c;
                 }
             }
-            if (giver == null || bestCard == null) break;
+            if (bestCard == null) break;
 
             // Find the winning team player to receive (the dealer/banker)
             int receiverIndex = getTributeReceiverIndex();
@@ -224,32 +222,47 @@ public class GameEngine {
     }
 
     /**
-     * 查找下一个需要进贡的玩家及其对应的接收者。
+     * 查找进贡的玩家及其对应的接收者。进贡由一名玩家进行：庄家的上家向庄家进贡。
      * 返回长度为2的数组：[进贡方索引, 接收方索引]，
      * 或null表示无法进贡。
      */
     public int[] findNextTributeGiverInfo() {
         if (!isTributeRequired()) return null;
-        int losingTeam = 1 - previousWinningTeam;
 
-        Player giver = null;
-        Card bestCard = null;
-        for (Player p : players) {
-            if (p.getTeam() == losingTeam) {
-                for (Card c : p.getHand()) {
-                    if (bestCard == null || cardSortValue(c) > cardSortValue(bestCard)) {
-                        bestCard = c;
-                        giver = p;
-                    }
-                }
-            }
-        }
-        if (giver == null || bestCard == null) return null;
+        int giverIndex = getTributeGiverIndex();
+        if (giverIndex < 0) return null;
+        // 进贡方需仍有牌可进
+        if (players[giverIndex].getHand().isEmpty()) return null;
 
         int receiverIndex = getTributeReceiverIndex();
         if (receiverIndex < 0) return null;
 
-        return new int[]{giver.getId(), receiverIndex};
+        return new int[]{giverIndex, receiverIndex};
+    }
+
+    /**
+     * 进贡方为庄家的上家（按出牌顺序排在庄家前一位的闲家）。只有这一名玩家向庄家进贡，
+     * 而非两名闲家都进贡。
+     *
+     * @return 进贡方玩家索引，无法确定时返回 -1
+     */
+    public int getTributeGiverIndex() {
+        if (!isTributeRequired()) return -1;
+        int receiverIndex = getTributeReceiverIndex();
+        if (receiverIndex < 0) return -1;
+        int losingTeam = 1 - previousWinningTeam;
+        // 庄家的上家 = 出牌顺序中庄家的前一位 = (庄家索引 + 3) % 4
+        int upstream = (receiverIndex + 3) % 4;
+        if (players[upstream].getTeam() == losingTeam) {
+            return upstream;
+        }
+        // 兜底：若上家不在输方队伍（理论上不会发生），退回为任一输方玩家
+        for (int i = 0; i < 4; i++) {
+            if (players[i].getTeam() == losingTeam) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**

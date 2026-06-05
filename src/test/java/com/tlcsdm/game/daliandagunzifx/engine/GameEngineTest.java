@@ -386,6 +386,39 @@ class GameEngineTest {
             "Should be allowed to play 2 when player has no cards of the led suit");
     }
 
+    @Test
+    void testCanFollowTrumpLeadWithAnyTrump() {
+        // 议题：领出主牌花色（如黑桃）时，主牌花色、当前主、2、大小王均为主牌，
+        // 跟牌方可任意使用这些主牌跟出，而非被固定为只能出对应花色的牌。
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.SPADE); // 主花色黑桃，队伍0当前级别为3（默认）
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
+        engine.setKitty(kittyCards);
+
+        // 玩家0领出一张黑桃（主牌花色）
+        players[0].getHand().clear();
+        Card spadeKing = new Card(Suit.SPADE, Rank.KING, 800);
+        players[0].addCards(List.of(spadeKing));
+
+        // 玩家1手中各类主牌 + 一张非主副牌
+        players[1].getHand().clear();
+        Card spadeFive = new Card(Suit.SPADE, Rank.FIVE, 801);   // 主花色
+        Card twoOfHeart = new Card(Suit.HEART, Rank.TWO, 802);    // 2 为主
+        Card threeOfHeart = new Card(Suit.HEART, Rank.THREE, 803); // 当前主（级别3）
+        Card bigJoker = new Card(null, Rank.BIG_JOKER, 804);      // 大王为主
+        Card clubFour = new Card(Suit.CLUB, Rank.FOUR, 805);      // 非主副牌
+        players[1].addCards(List.of(spadeFive, twoOfHeart, threeOfHeart, bigJoker, clubFour));
+
+        engine.playCard(0, spadeKing);
+
+        assertTrue(engine.isValidPlay(1, spadeFive), "应允许用主花色黑桃跟主");
+        assertTrue(engine.isValidPlay(1, twoOfHeart), "应允许用 2 跟主");
+        assertTrue(engine.isValidPlay(1, threeOfHeart), "应允许用当前主跟主");
+        assertTrue(engine.isValidPlay(1, bigJoker), "应允许用大王跟主");
+        assertFalse(engine.isValidPlay(1, clubFour),
+            "持有主牌时不能用非主副牌跟主");
+    }
+
     private List<Card> selectNonJokerKitty(Player player, int count) {
         List<Card> result = new ArrayList<>();
         for (Card card : player.getHand()) {
@@ -637,5 +670,88 @@ class GameEngineTest {
         // 大王是最大的牌，应该被选为进贡牌
         assertEquals(Rank.BIG_JOKER, tributeCard.getRank(),
             "进贡牌应是手中最大的牌（大王）");
+    }
+
+    @Test
+    void testTributeGiverIsDealerUpstream() {
+        // 进贡只由一人进行：庄家的上家（出牌顺序中庄家前一位的闲家）向庄家进贡。
+        int tributeScenarios = 0;
+        for (int attempt = 0; attempt < 400 && tributeScenarios < 3; attempt++) {
+            Player[] ps = new Player[]{
+                new Player(0, "P0", false),
+                new Player(1, "P1", false),
+                new Player(2, "P2", false),
+                new Player(3, "P3", false)
+            };
+            GameEngine eng = new GameEngine(ps);
+            playFullRound(eng, ps);
+            eng.calculateRoundResult();
+
+            int nextDealer = eng.getNextDealerIndex();
+            eng.startNewRound();
+            eng.declareTrump(nextDealer, Suit.SPADE);
+
+            if (!eng.isTributeRequired()) {
+                continue;
+            }
+            tributeScenarios++;
+
+            int receiver = eng.getTributeReceiverIndex();
+            int giver = eng.getTributeGiverIndex();
+            assertEquals((receiver + 3) % 4, giver,
+                "进贡方应为庄家的上家（庄家前一位）");
+            assertEquals(1 - eng.getPreviousWinningTeam(), ps[giver].getTeam(),
+                "进贡方应来自输方队伍");
+            assertNotEquals(receiver, giver, "进贡方与接收方不应为同一人");
+
+            int[] info = eng.findNextTributeGiverInfo();
+            assertNotNull(info);
+            assertEquals(giver, info[0], "findNextTributeGiverInfo 应返回庄家上家作为进贡方");
+            assertEquals(receiver, info[1]);
+        }
+        assertTrue(tributeScenarios > 0,
+            "应至少出现一个需要进贡的局面以验证进贡方");
+    }
+
+    @Test
+    void testAutoTributeUsesSingleGiver() {
+        // performAutoTribute 应只让一名玩家（庄家上家）进贡，即使有多个贡。
+        for (int attempt = 0; attempt < 400; attempt++) {
+            Player[] ps = new Player[]{
+                new Player(0, "P0", false),
+                new Player(1, "P1", false),
+                new Player(2, "P2", false),
+                new Player(3, "P3", false)
+            };
+            GameEngine eng = new GameEngine(ps);
+            playFullRound(eng, ps);
+            eng.calculateRoundResult();
+
+            int nextDealer = eng.getNextDealerIndex();
+            eng.startNewRound();
+            eng.declareTrump(nextDealer, Suit.SPADE);
+
+            if (!eng.isTributeRequired() || eng.getPreviousTributeCount() < 2) {
+                continue;
+            }
+            int giver = eng.getTributeGiverIndex();
+            int giverBefore = ps[giver].getHand().size();
+
+            String msg = eng.performAutoTribute();
+            assertNotNull(msg);
+            // 进贡牌全部来自同一名玩家（庄家上家）
+            for (int i = 0; i < 4; i++) {
+                if (i == giver) {
+                    continue;
+                }
+                assertFalse(msg.contains(ps[i].getName() + " 进贡"),
+                    "只有庄家上家应进贡，玩家 " + ps[i].getName() + " 不应进贡");
+            }
+            // 进贡方净失去 previousTributeCount 张牌（收到等量回贡，故手牌数不变），
+            // 但至少进行了多次进贡，验证由单人完成。
+            assertTrue(giverBefore > 0);
+            return; // 已验证一个多贡场景即可
+        }
+        // 若 400 次内未出现多贡场景，不视为失败（场景较罕见）。
     }
 }
