@@ -103,6 +103,7 @@ public class DaGunZiApp extends Application {
     private static final int CARD_HEIGHT = 106;
     private static final int CARD_OVERLAP = 25;
     private static final int DRAG_SELECT_THRESHOLD = 20;
+    private static final double AI_BIDDING_DELAY_MS = 500.0;
     private static final String TABLE_COLOR = "#2d8a4e";
     private static final String DARK_TABLE_COLOR = "#1a1a2e";
     private static final String SPADE_COLOR = "#1a1a1a";
@@ -1121,7 +1122,7 @@ public class DaGunZiApp extends Application {
                 continue; // 人类已决定（叫或不叫）
             }
             step++;
-            KeyFrame kf = new KeyFrame(Duration.millis(500.0 * step), e -> {
+            KeyFrame kf = new KeyFrame(Duration.millis(AI_BIDDING_DELAY_MS * step), e -> {
                 if (declared[0]) {
                     return;
                 }
@@ -1144,7 +1145,7 @@ public class DaGunZiApp extends Application {
         }
 
         final int designatedDealer = start;
-        KeyFrame finalKf = new KeyFrame(Duration.millis(500.0 * (step + 1)), e -> {
+        KeyFrame finalKf = new KeyFrame(Duration.millis(AI_BIDDING_DELAY_MS * (step + 1)), e -> {
             if (!declared[0]) {
                 // 无人叫主，从底牌确定主牌，保持预定庄家
                 declareTrumpFromKittyForDealer(designatedDealer);
