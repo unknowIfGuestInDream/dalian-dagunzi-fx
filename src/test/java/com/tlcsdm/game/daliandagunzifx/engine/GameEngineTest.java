@@ -386,6 +386,39 @@ class GameEngineTest {
             "Should be allowed to play 2 when player has no cards of the led suit");
     }
 
+    @Test
+    void testCanFollowTrumpLeadWithAnyTrump() {
+        // 议题：领出主牌花色（如黑桃）时，主牌花色、当前主、2、大小王均为主牌，
+        // 跟牌方可任意使用这些主牌跟出，而非被固定为只能出对应花色的牌。
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.SPADE); // 主花色黑桃，队伍0当前级别为3（默认）
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
+        engine.setKitty(kittyCards);
+
+        // 玩家0领出一张黑桃（主牌花色）
+        players[0].getHand().clear();
+        Card spadeKing = new Card(Suit.SPADE, Rank.KING, 800);
+        players[0].addCards(List.of(spadeKing));
+
+        // 玩家1手中各类主牌 + 一张非主副牌
+        players[1].getHand().clear();
+        Card spadeFive = new Card(Suit.SPADE, Rank.FIVE, 801);   // 主花色
+        Card twoOfHeart = new Card(Suit.HEART, Rank.TWO, 802);    // 2 为主
+        Card threeOfHeart = new Card(Suit.HEART, Rank.THREE, 803); // 当前主（级别3）
+        Card bigJoker = new Card(null, Rank.BIG_JOKER, 804);      // 大王为主
+        Card clubFour = new Card(Suit.CLUB, Rank.FOUR, 805);      // 非主副牌
+        players[1].addCards(List.of(spadeFive, twoOfHeart, threeOfHeart, bigJoker, clubFour));
+
+        engine.playCard(0, spadeKing);
+
+        assertTrue(engine.isValidPlay(1, spadeFive), "应允许用主花色黑桃跟主");
+        assertTrue(engine.isValidPlay(1, twoOfHeart), "应允许用 2 跟主");
+        assertTrue(engine.isValidPlay(1, threeOfHeart), "应允许用当前主跟主");
+        assertTrue(engine.isValidPlay(1, bigJoker), "应允许用大王跟主");
+        assertFalse(engine.isValidPlay(1, clubFour),
+            "持有主牌时不能用非主副牌跟主");
+    }
+
     private List<Card> selectNonJokerKitty(Player player, int count) {
         List<Card> result = new ArrayList<>();
         for (Card card : player.getHand()) {
