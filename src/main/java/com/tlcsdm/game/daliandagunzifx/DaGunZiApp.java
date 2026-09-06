@@ -1041,47 +1041,21 @@ public class DaGunZiApp extends Application {
         }
 
         if (isFirstRound) {
-            // 首局：有大王才能叫主，可选择自己有2张以上当前级别的花色作为主牌
-            Rank firstRoundRank = engine.getTeamLevels()[players[0].getTeam()];
-            Map<Suit, Integer> firstRoundSuitCounts = new EnumMap<>(Suit.class);
-            for (Card card : players[0].getHand()) {
-                if (card.getRank() == firstRoundRank && card.getSuit() != null) {
-                    firstRoundSuitCounts.merge(card.getSuit(), 1, Integer::sum);
-                }
-            }
-            boolean hasValidSuit = firstRoundSuitCounts.values().stream().anyMatch(c -> c >= 2);
-            if (hasValidSuit) {
-                statusLabel.setText("第一局：你有大王，请选择主牌花色（需有2张以上当前级别牌），或选择不叫");
-            } else {
-                statusLabel.setText("第一局：你有大王，请选择主牌花色（灰色花色表示当前级别牌不足2张，仍可选择），或选择不叫");
-            }
+            // 首局：有大王才能叫主，花色随机分配
+            statusLabel.setText("第一局：你有大王，可亮王定庄（主牌花色将随机分配），或选择不叫");
             actionPane.getChildren().clear();
-            for (Suit suit : Suit.values()) {
-                int count = firstRoundSuitCounts.getOrDefault(suit, 0);
-                Button btn = new Button("叫" + suit.getSymbol() + suit.getDisplayName());
-                String suitColor = suit.getColor().equals("red") ? "#cc0000" : "#333333";
-                btn.setStyle("-fx-font-size: 14px; -fx-padding: 8 16; "
-                    + "-fx-background-color: white; -fx-text-fill: " + suitColor
-                    + "; -fx-font-weight: bold;");
-                if (!hasValidSuit) {
-                    // 没有任何花色有2张以上，所有花色按钮均可点（随机有利于体验），但标为灰色提示
-                    btn.setStyle("-fx-font-size: 14px; -fx-padding: 8 16; "
-                        + "-fx-background-color: #f0f0f0; -fx-text-fill: " + suitColor
-                        + "; -fx-font-weight: bold;");
-                } else {
-                    btn.setDisable(count < 2);
-                }
-                final Suit s = suit;
-                btn.setOnAction(e -> {
-                    actionPane.getChildren().clear();
-                    engine.declareTrump(0, s);
-                    statusLabel.setText("你亮王定庄，主牌：" + s.getSymbol() + s.getDisplayName());
-                    updateInfoPanel();
-                    updateHumanHand();
-                    afterTrumpDeclared(engine.getDealerIndex());
-                });
-                actionPane.getChildren().add(btn);
-            }
+            Button declareBtn = new Button("亮王定庄");
+            declareBtn.setStyle("-fx-font-size: 14px; -fx-padding: 8 16; "
+                + "-fx-background-color: #cc0000; -fx-text-fill: white; -fx-font-weight: bold;");
+            declareBtn.setOnAction(e -> {
+                actionPane.getChildren().clear();
+                Suit randomSuit = engine.declareTrumpRandomSuit(0);
+                statusLabel.setText("你亮王定庄，主牌：" + randomSuit.getSymbol() + randomSuit.getDisplayName());
+                updateInfoPanel();
+                updateHumanHand();
+                afterTrumpDeclared(engine.getDealerIndex());
+            });
+            actionPane.getChildren().add(declareBtn);
             Button passBtn = new Button("不叫");
             passBtn.setStyle("-fx-font-size: 14px; -fx-padding: 8 16; "
                 + "-fx-background-color: #888888; -fx-text-fill: white;");
