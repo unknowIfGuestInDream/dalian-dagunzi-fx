@@ -62,6 +62,16 @@ jobs:
           JDEPS_MULTI_RELEASE: ${{ env.JAVA_VERSION }}
         shell: bash
         run: |
+          CONSERVATIVE_MODULES=java.base,java.desktop,java.logging,java.management,java.naming,java.net.http,java.prefs,java.xml,jdk.unsupported
+          case "$(uname -s)" in
+            MINGW*|MSYS*|CYGWIN*) PATH_SEPARATOR=';' ;;
+            *) PATH_SEPARATOR=':' ;;
+          esac
+          JLINK_MODULE_PATH="$JAVA_HOME/jmods"
+          JDEPS_MODULE_PATH="$JLINK_MODULE_PATH"
+          if [ -d target/lib ]; then
+            JDEPS_MODULE_PATH="$JDEPS_MODULE_PATH${PATH_SEPARATOR}target/lib"
+          fi
           APP_JAR=target/dalian-dagunzi.jar
           if [ ! -f "$APP_JAR" ]; then
             echo "::error::未找到应用 Jar：$APP_JAR"
@@ -69,28 +79,25 @@ jobs:
           fi
           RAW_MODULES=
           JDEPS_STDERR=$(mktemp)
-          JDEPS_OUTPUT=$(jdeps --ignore-missing-deps --multi-release "$JDEPS_MULTI_RELEASE" --print-module-deps "$APP_JAR" 2>"$JDEPS_STDERR") || JDEPS_STATUS=$?
+          JDEPS_OUTPUT=$(jdeps --ignore-missing-deps --multi-release "$JDEPS_MULTI_RELEASE" --module-path "$JDEPS_MODULE_PATH" --print-module-deps "$APP_JAR" 2>"$JDEPS_STDERR") || JDEPS_STATUS=$?
           if [ "${JDEPS_STATUS:-0}" -eq 0 ]; then
             RAW_MODULES=$(printf '%s\n' "$JDEPS_OUTPUT" | grep -v '^unnamed$' || true)
           else
             echo "::warning::jdeps 分析失败：$(cat "$JDEPS_STDERR")"
           fi
           rm -f "$JDEPS_STDERR"
-          MODULES=
+          DETECTED_MODULES=
           if [[ "$RAW_MODULES" =~ ^[A-Za-z0-9_.-]+(,[A-Za-z0-9_.-]+)*$ ]]; then
-            MODULES=$(printf '%s' "$RAW_MODULES" | tr ',' '\n' | grep -E '^(java|jdk|javafx)\.' | paste -sd, - || true)
+            DETECTED_MODULES=$(printf '%s' "$RAW_MODULES" | tr ',' '\n' | grep -E '^(java|jdk|javafx)\.' | paste -sd, - || true)
           fi
-          if [ -z "$MODULES" ]; then
-            MODULES=java.base,java.desktop,java.logging,java.management,java.naming,java.net.http,java.prefs,java.xml,jdk.unsupported
+          if [ -z "$DETECTED_MODULES" ]; then
+            MODULES="$CONSERVATIVE_MODULES"
             echo "::warning::jdeps 分析失败，回退到保守模块集：$MODULES"
           else
-            echo "jdeps 检测到的模块：$MODULES"
+            MODULES=$(printf '%s\n%s\n' "$CONSERVATIVE_MODULES" "$DETECTED_MODULES" | tr ',' '\n' | awk 'NF && !seen[$0]++' | paste -sd, -)
+            echo "jdeps 检测到的模块：$DETECTED_MODULES"
+            echo "jlink 最终模块集合：$MODULES"
           fi
-          case "$(uname -s)" in
-            MINGW*|MSYS*|CYGWIN*) PATH_SEPARATOR=';' ;;
-            *) PATH_SEPARATOR=':' ;;
-          esac
-          JLINK_MODULE_PATH="$JAVA_HOME/jmods"
           if [[ "$MODULES" == *javafx.* ]]; then
             JLINK_MODULE_PATH="$JLINK_MODULE_PATH${PATH_SEPARATOR}target/lib"
           fi
