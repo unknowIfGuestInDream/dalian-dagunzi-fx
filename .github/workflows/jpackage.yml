@@ -61,15 +61,28 @@ jobs:
         shell: bash
         run: |
           APP_JAR=target/dalian-dagunzi.jar
-          MODULES=$(jdeps --ignore-missing-deps --multi-release ${{ env.JAVA_VERSION }} --print-module-deps "$APP_JAR" 2>/dev/null || true)
-          if [[ -z "$MODULES" || ! "$MODULES" =~ ^(java|jdk)\.[A-Za-z0-9_.-]+(,(java|jdk)\.[A-Za-z0-9_.-]+)*$ ]]; then
+          RAW_MODULES=$(jdeps --ignore-missing-deps --multi-release ${{ env.JAVA_VERSION }} --print-module-deps "$APP_JAR" 2>/dev/null || true)
+          MODULES=
+          if [[ "$RAW_MODULES" =~ ^[A-Za-z0-9_.-]+(,[A-Za-z0-9_.-]+)*$ ]]; then
+            MODULES=$(printf '%s' "$RAW_MODULES" | tr ',' '\n' | grep -E '^(java|jdk|javafx)\.' | paste -sd, - || true)
+          fi
+          if [ -z "$MODULES" ]; then
             MODULES=java.base,java.desktop,java.logging,java.management,java.naming,java.net.http,java.prefs,java.xml,jdk.unsupported
             echo "jdeps 分析失败，回退到保守模块集：$MODULES"
           else
             echo "jdeps 检测到的模块：$MODULES"
           fi
+          PATH_SEPARATOR=':'
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            PATH_SEPARATOR=';'
+          fi
+          JLINK_MODULE_PATH="$JAVA_HOME/jmods"
+          if [[ "$MODULES" == *javafx.* ]]; then
+            JLINK_MODULE_PATH="$JLINK_MODULE_PATH${PATH_SEPARATOR}target/lib"
+          fi
           rm -rf jpackage-jre
           jlink \
+            --module-path "$JLINK_MODULE_PATH" \
             --add-modules "$MODULES" \
             --strip-debug --no-header-files --no-man-pages --compress=zip-6 \
             --output jpackage-jre
