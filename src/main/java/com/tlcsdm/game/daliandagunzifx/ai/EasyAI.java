@@ -248,6 +248,17 @@ public class EasyAI implements AIStrategy {
             }
         }
 
+        // 大王优化：主牌墩中大王已赢（强度 1000），跟牌时不再浪费另一张大王。
+        // 若手中有非大王的主牌可选，则将大王排除在候选之外。
+        if (leadSuit == null && getCurrentTrickWinnerStrength(engine) >= 1000) {
+            List<Card> nonBigJoker = suitCards.stream()
+                .filter(c -> c.getRank() != Rank.BIG_JOKER)
+                .collect(Collectors.toList());
+            if (!nonBigJoker.isEmpty()) {
+                suitCards = nonBigJoker;
+            }
+        }
+
         // 棒子/滚子跟牌规则：仅死棒模式下管不上时需按"保持牌组完整"原则出牌
         // (有同花色滚子必须出滚子；无滚子但有对子必须出对子或对子+单张)。
         // 活棒模式（默认）下不强制保持牌组，管不上时改为打出几张最小的散牌，
@@ -575,6 +586,17 @@ public class EasyAI implements AIStrategy {
                 suitCards.add(card);
             } else if (trumpInfo.isTrump(card)) {
                 trumpCards.add(card);
+            }
+        }
+
+        // 大王优化：主牌墩中大王已赢（强度 1000），跟牌时不再浪费另一张大王。
+        // 若手中有非大王的主牌可选，则将大王排除在候选之外；若只剩大王则别无选择。
+        if (leadSuit == null && getCurrentTrickWinnerStrength(engine) >= 1000) {
+            List<Card> nonBigJoker = suitCards.stream()
+                .filter(c -> c.getRank() != Rank.BIG_JOKER)
+                .collect(Collectors.toList());
+            if (!nonBigJoker.isEmpty()) {
+                suitCards = nonBigJoker;
             }
         }
 

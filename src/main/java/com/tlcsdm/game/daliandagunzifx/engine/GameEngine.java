@@ -148,7 +148,8 @@ public class GameEngine {
     }
 
     public void finishTribute() {
-        phase = GamePhase.DEALING;
+        // 进贡完成后恢复到 PREPARING_KITTY 阶段，庄家可继续扣牌
+        phase = GamePhase.PREPARING_KITTY;
     }
 
     public int getPreviousWinningTeam() {
