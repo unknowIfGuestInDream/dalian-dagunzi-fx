@@ -98,7 +98,7 @@ public final class AppSettings {
         liveBangProperty = new SimpleBooleanProperty(
             PREFS != null ? PREFS.getBoolean(PREF_LIVE_BANG, true) : true);
         aggressiveProperty = new SimpleBooleanProperty(
-            PREFS != null ? PREFS.getBoolean(PREF_AGGRESSIVE, false) : false);
+            PREFS != null ? PREFS.getBoolean(PREF_AGGRESSIVE, true) : true);
 
         darkThemeProperty.addListener((obs, oldVal, newVal) -> {
             if (PREFS != null) {
