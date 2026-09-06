@@ -128,9 +128,25 @@ jobs:
             --java-options "-Dfile.encoding=UTF-8" \
             "${PACKAGE_ARGS[@]}"
 
+      - name: Prepare artifact
+        shell: bash
+        run: |
+          rm -rf artifact
+          mkdir -p artifact
+          if [ -d dist ]; then
+            find dist -maxdepth 1 -type f -name "*.${{ matrix.package-type }}" -exec cp {} artifact/ \;
+          fi
+          if [ "${{ matrix.platform }}" = "windows" ] && [ -z "$(find artifact -maxdepth 1 -type f -name "*.${{ matrix.package-type }}" -print -quit)" ]; then
+            find . -maxdepth 1 -type f -name "*.${{ matrix.package-type }}" -exec cp {} artifact/ \;
+          fi
+          if [ -z "$(find artifact -maxdepth 1 -type f -name "*.${{ matrix.package-type }}" -print -quit)" ]; then
+            echo "::error::未找到 ${{ matrix.platform }} 的 jpackage 产物"
+            exit 1
+          fi
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: dalian-dagunzi-jpackage-${{ matrix.os }}
-          path: dist/
+          path: artifact/
           retention-days: 7
