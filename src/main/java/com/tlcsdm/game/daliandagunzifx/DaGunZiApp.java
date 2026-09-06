@@ -28,6 +28,7 @@ package com.tlcsdm.game.daliandagunzifx;
 
 import com.tlcsdm.game.daliandagunzifx.ai.AILevel;
 import com.tlcsdm.game.daliandagunzifx.ai.AIStrategy;
+import com.tlcsdm.game.daliandagunzifx.ai.AdaptiveAI;
 import com.tlcsdm.game.daliandagunzifx.ai.EasyAI;
 import com.tlcsdm.game.daliandagunzifx.ai.HardAI;
 import com.tlcsdm.game.daliandagunzifx.ai.MediumAI;
@@ -122,6 +123,7 @@ public class DaGunZiApp extends Application {
     // Game state
     private GameEngine engine;
     private AIStrategy aiStrategy;
+    private AdaptiveAI adaptiveAI;
     private CardTracker cardTracker;
     private Player[] players;
 
@@ -412,12 +414,25 @@ public class DaGunZiApp extends Application {
             new Player(3, "小刚", false)
         };
         cardTracker = new CardTracker();
-        aiStrategy = switch (AppSettings.getInstance().getAiLevel()) {
-            case EASY -> new EasyAI();
-            case MEDIUM -> new MediumAI(cardTracker);
-            case HARD -> new HardAI(cardTracker);
-        };
-        aiStrategy.setAggressive(AppSettings.getInstance().isAggressive());
+        if (AppSettings.getInstance().getAiLevel() == AILevel.ADAPTIVE) {
+            if (adaptiveAI == null) {
+                adaptiveAI = new AdaptiveAI(cardTracker);
+            } else {
+                // 每局更新 cardTracker 引用，确保中等/困难委托绑定本局新数据
+                adaptiveAI.updateCardTracker(cardTracker);
+            }
+            adaptiveAI.setAggressive(AppSettings.getInstance().isAggressive());
+            aiStrategy = adaptiveAI;
+        } else {
+            adaptiveAI = null;
+            aiStrategy = switch (AppSettings.getInstance().getAiLevel()) {
+                case EASY -> new EasyAI();
+                case MEDIUM -> new MediumAI(cardTracker);
+                case HARD -> new HardAI(cardTracker);
+                default -> new MediumAI(cardTracker);
+            };
+            aiStrategy.setAggressive(AppSettings.getInstance().isAggressive());
+        }
         engine = new GameEngine(players);
         engine.setLiveBang(AppSettings.getInstance().isLiveBang());
         engine.getTeamLevels()[0] = oldLevels[0];
@@ -513,12 +528,25 @@ public class DaGunZiApp extends Application {
         };
 
         cardTracker = new CardTracker();
-        aiStrategy = switch (AppSettings.getInstance().getAiLevel()) {
-            case EASY -> new EasyAI();
-            case MEDIUM -> new MediumAI(cardTracker);
-            case HARD -> new HardAI(cardTracker);
-        };
-        aiStrategy.setAggressive(AppSettings.getInstance().isAggressive());
+        if (AppSettings.getInstance().getAiLevel() == AILevel.ADAPTIVE) {
+            if (adaptiveAI == null) {
+                adaptiveAI = new AdaptiveAI(cardTracker);
+            } else {
+                // 每局更新 cardTracker 引用，确保中等/困难委托绑定本局新数据
+                adaptiveAI.updateCardTracker(cardTracker);
+            }
+            adaptiveAI.setAggressive(AppSettings.getInstance().isAggressive());
+            aiStrategy = adaptiveAI;
+        } else {
+            adaptiveAI = null;
+            aiStrategy = switch (AppSettings.getInstance().getAiLevel()) {
+                case EASY -> new EasyAI();
+                case MEDIUM -> new MediumAI(cardTracker);
+                case HARD -> new HardAI(cardTracker);
+                default -> new MediumAI(cardTracker);
+            };
+            aiStrategy.setAggressive(AppSettings.getInstance().isAggressive());
+        }
         engine = new GameEngine(players);
         engine.setLiveBang(AppSettings.getInstance().isLiveBang());
 
@@ -1467,6 +1495,12 @@ public class DaGunZiApp extends Application {
         RoundResult result = engine.calculateRoundResult();
         clearTrickArea();
 
+        // 自适应AI：记录本局胜负以动态调整后续难度
+        if (adaptiveAI != null) {
+            boolean playerTeamWon = result.getWinningTeam() == players[0].getTeam();
+            adaptiveAI.recordResult(playerTeamWon);
+        }
+
         String resultText;
         String winner = (result.getWinningTeam() == players[0].getTeam()) ? "你的队伍" : "对方队伍";
         resultText = winner + "获胜！升 " + result.getLevelChange() + " 级";
@@ -1880,8 +1914,13 @@ public class DaGunZiApp extends Application {
         }
 
         Rank[] levels = engine.getTeamLevels();
-        teamLevelLabel.setText("你的队伍：" + levels[0].getDisplayName()
-            + " | 对方队伍：" + levels[1].getDisplayName());
+        String teamLevelText = "你的队伍：" + levels[0].getDisplayName()
+            + " | 对方队伍：" + levels[1].getDisplayName();
+        if (adaptiveAI != null) {
+            teamLevelText += " | AI当前难度：" + adaptiveAI.getCurrentLevelName()
+                + "（已玩" + adaptiveAI.getTotalRounds() + "局）";
+        }
+        teamLevelLabel.setText(teamLevelText);
     }
 
     private void updateCurrentPlayerHighlight(int currentIdx) {

@@ -30,7 +30,8 @@ public enum AILevel {
 
     EASY("简单"),
     MEDIUM("中等"),
-    HARD("困难");
+    HARD("困难"),
+    ADAPTIVE("自适应");
 
     private final String displayName;
 
