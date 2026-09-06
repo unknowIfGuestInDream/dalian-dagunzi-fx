@@ -71,7 +71,7 @@ jobs:
           JDEPS_STDERR=$(mktemp)
           JDEPS_OUTPUT=$(jdeps --ignore-missing-deps --multi-release "$JDEPS_MULTI_RELEASE" --print-module-deps "$APP_JAR" 2>"$JDEPS_STDERR") || JDEPS_STATUS=$?
           if [ "${JDEPS_STATUS:-0}" -eq 0 ]; then
-            RAW_MODULES=$JDEPS_OUTPUT
+            RAW_MODULES=$(printf '%s\n' "$JDEPS_OUTPUT" | grep -v '^unnamed$' || true)
           else
             echo "::warning::jdeps 分析失败：$(cat "$JDEPS_STDERR")"
           fi
@@ -86,14 +86,10 @@ jobs:
           else
             echo "jdeps 检测到的模块：$MODULES"
           fi
-          PATH_SEPARATOR=$(python - <<'PY'
-          import os
-          print(os.pathsep)
-          PY
-          )
-          if [ -z "$PATH_SEPARATOR" ]; then
-            PATH_SEPARATOR=':'
-          fi
+          case "$(uname -s)" in
+            MINGW*|MSYS*|CYGWIN*) PATH_SEPARATOR=';' ;;
+            *) PATH_SEPARATOR=':' ;;
+          esac
           JLINK_MODULE_PATH="$JAVA_HOME/jmods"
           if [[ "$MODULES" == *javafx.* ]]; then
             JLINK_MODULE_PATH="$JLINK_MODULE_PATH${PATH_SEPARATOR}target/lib"
