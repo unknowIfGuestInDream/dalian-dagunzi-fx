@@ -37,7 +37,7 @@ import java.util.List;
 
 public interface AIStrategy {
 
-    Suit chooseTrumpSuit(Player player, Rank trumpRank);
+    Suit chooseTrumpSuit(Player player, Rank trumpRank, int minRequired);
 
     List<Card> chooseKittyCards(Player player, List<Card> kitty, TrumpInfo trumpInfo);
 

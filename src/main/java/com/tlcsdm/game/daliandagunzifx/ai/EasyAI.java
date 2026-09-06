@@ -65,7 +65,7 @@ public class EasyAI implements AIStrategy {
     }
 
     @Override
-    public Suit chooseTrumpSuit(Player player, Rank trumpRank) {
+    public Suit chooseTrumpSuit(Player player, Rank trumpRank, int minRequired) {
         Map<Suit, Integer> trumpRankCounts = new EnumMap<>(Suit.class);
         Map<Suit, Integer> suitCounts = new EnumMap<>(Suit.class);
         for (Card card : player.getHand()) {
@@ -79,7 +79,7 @@ public class EasyAI implements AIStrategy {
         Suit bestSuit = null;
         int bestTotal = 0;
         for (Map.Entry<Suit, Integer> entry : trumpRankCounts.entrySet()) {
-            if (entry.getValue() >= 2) {
+            if (entry.getValue() >= minRequired) {
                 int total = suitCounts.getOrDefault(entry.getKey(), 0);
                 if (total > bestTotal) {
                     bestTotal = total;

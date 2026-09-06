@@ -1064,19 +1064,22 @@ public class DaGunZiApp extends Application {
             return;
         }
 
-        // 非首局：所有玩家都可以叫主（手中某花色当前级别主牌≥2张），人类可选择不叫。
+        // 非首局：所有玩家都可以叫主（手中某花色当前级别主牌≥1张），人类可选择不叫。
         // 先给人类叫主的机会，人类不叫或无法叫时，再由电脑依次叫主，最后由底牌确定。
+        // 抢主规则：无人亮主时≥1张可亮；已亮N张时需N+1张同花色才能抢主。
         Rank humanTrumpRank = engine.getTeamLevels()[players[0].getTeam()];
+        int minRequired = engine.getDeclaredTrumpCount() == 0 ? 1 : engine.getDeclaredTrumpCount() + 1;
         Map<Suit, Integer> suitCounts = new EnumMap<>(Suit.class);
         for (Card card : players[0].getHand()) {
             if (card.getRank() == humanTrumpRank && card.getSuit() != null) {
                 suitCounts.merge(card.getSuit(), 1, Integer::sum);
             }
         }
-        boolean humanCanDeclare = suitCounts.values().stream().anyMatch(c -> c >= 2);
+        boolean humanCanDeclare = suitCounts.values().stream().anyMatch(c -> c >= minRequired);
 
         if (humanCanDeclare) {
-            statusLabel.setText("你可以叫主，请选择主牌花色，或选择不叫");
+            String reqDesc = minRequired == 1 ? "1张即可叫主" : "需" + minRequired + "张同花色才能抢主";
+            statusLabel.setText("你可以叫主（" + reqDesc + "），请选择主牌花色，或选择不叫");
             actionPane.getChildren().clear();
             for (Suit suit : Suit.values()) {
                 int count = suitCounts.getOrDefault(suit, 0);
@@ -1084,9 +1087,10 @@ public class DaGunZiApp extends Application {
                 String suitColor = suit.getColor().equals("red") ? "#cc0000" : "#333333";
                 btn.setStyle("-fx-font-size: 14px; -fx-padding: 8 16; "
                     + "-fx-background-color: white; -fx-text-fill: " + suitColor + "; -fx-font-weight: bold;");
-                btn.setDisable(count < 2);
+                btn.setDisable(count < minRequired);
                 final Suit s = suit;
-                btn.setOnAction(e -> humanDeclareTrump(s));
+                final int cardCount = count;
+                btn.setOnAction(e -> humanDeclareTrump(s, cardCount));
                 actionPane.getChildren().add(btn);
             }
             Button passBtn = new Button("不叫");
@@ -1105,8 +1109,9 @@ public class DaGunZiApp extends Application {
     }
 
     /**
-     * 非首局电脑叫主流程：按出牌顺序（从预定庄家起）依次让有条件叫主的电脑叫主，
-     * 第一个叫主的电脑成为庄家；若无人叫主，则由底牌确定主牌并保持预定庄家。
+     * 非首局电脑叫主流程（竞争性叫主）：
+     * 所有电脑玩家依次获得一次叫主/抢主机会，每个电脑读取当前已亮张数以判断是否能叫/抢。
+     * 全部电脑叫完后：若有人叫主则调用 finalizeTrumpDeclaration 完成；否则从底牌确定主牌。
      */
     private void aiTrumpBidding() {
         int start = engine.getNextDealerIndex();
@@ -1116,7 +1121,6 @@ public class DaGunZiApp extends Application {
         actionPane.getChildren().clear();
 
         Timeline timeline = new Timeline();
-        final boolean[] declared = {false};
         int step = 0;
         for (int k = 0; k < 4; k++) {
             final int idx = (start + k) % 4;
@@ -1125,20 +1129,20 @@ public class DaGunZiApp extends Application {
             }
             step++;
             KeyFrame kf = new KeyFrame(Duration.millis(AI_BIDDING_DELAY_MS * step), e -> {
-                if (declared[0]) {
-                    return;
-                }
+                // 每个 AI 读取当前已亮张数，决定是否能叫/抢主
+                int curCount = engine.getDeclaredTrumpCount();
+                int minReq = curCount == 0 ? 1 : curCount + 1;
                 Player ai = players[idx];
                 Rank rank = engine.getTeamLevels()[ai.getTeam()];
-                Suit chosenSuit = aiStrategy.chooseTrumpSuit(ai, rank);
+                Suit chosenSuit = aiStrategy.chooseTrumpSuit(ai, rank, minReq);
                 if (chosenSuit != null) {
-                    declared[0] = true;
-                    engine.declareTrump(idx, chosenSuit);
+                    int aiCount = countTrumpRankCards(ai, rank, chosenSuit);
+                    engine.tentativeDeclareTrump(idx, chosenSuit, aiCount);
                     statusLabel.setText(ai.getName() + " 叫了主牌："
-                        + chosenSuit.getSymbol() + chosenSuit.getDisplayName());
+                        + chosenSuit.getSymbol() + chosenSuit.getDisplayName()
+                        + "（" + aiCount + "张）");
                     updateInfoPanel();
                     updateHumanHand();
-                    afterTrumpDeclared(idx);
                 } else {
                     statusLabel.setText(ai.getName() + " 不叫");
                 }
@@ -1148,7 +1152,11 @@ public class DaGunZiApp extends Application {
 
         final int designatedDealer = start;
         KeyFrame finalKf = new KeyFrame(Duration.millis(AI_BIDDING_DELAY_MS * (step + 1)), e -> {
-            if (!declared[0]) {
+            if (engine.getDeclaredTrumpCount() > 0) {
+                // 有人叫主，完成叫主阶段
+                engine.finalizeTrumpDeclaration();
+                afterTrumpDeclared(engine.getDealerIndex());
+            } else {
                 // 无人叫主，从底牌确定主牌，保持预定庄家
                 declareTrumpFromKittyForDealer(designatedDealer);
             }
@@ -1157,12 +1165,29 @@ public class DaGunZiApp extends Application {
         timeline.play();
     }
 
-    private void humanDeclareTrump(Suit suit) {
+    /**
+     * 统计玩家手牌中指定花色、指定级别的牌张数。
+     */
+    private int countTrumpRankCards(Player player, Rank rank, Suit suit) {
+        int count = 0;
+        for (Card c : player.getHand()) {
+            if (c.getRank() == rank && c.getSuit() == suit) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+
+    private void humanDeclareTrump(Suit suit, int count) {
         actionPane.getChildren().clear();
-        engine.declareTrump(0, suit);
-        statusLabel.setText("你叫了主牌：" + suit.getSymbol() + suit.getDisplayName());
+        engine.tentativeDeclareTrump(0, suit, count);
+        statusLabel.setText("你叫了主牌：" + suit.getSymbol() + suit.getDisplayName()
+            + "（" + count + "张）");
         updateInfoPanel();
-        afterTrumpDeclared(engine.getDealerIndex());
+        updateHumanHand();
+        // 让其他电脑玩家有机会抢主
+        aiTrumpBidding();
     }
 
     private void humanPassTrump() {

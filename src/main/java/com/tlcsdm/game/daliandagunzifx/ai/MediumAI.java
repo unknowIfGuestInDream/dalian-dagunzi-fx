@@ -54,7 +54,7 @@ public class MediumAI implements AIStrategy {
     }
 
     @Override
-    public Suit chooseTrumpSuit(Player player, Rank trumpRank) {
+    public Suit chooseTrumpSuit(Player player, Rank trumpRank, int minRequired) {
         // Pick strongest suit: most cards of suit + trump rank cards in that suit
         Map<Suit, Integer> trumpRankCounts = new EnumMap<>(Suit.class);
         Map<Suit, Integer> suitCounts = new EnumMap<>(Suit.class);
@@ -71,7 +71,7 @@ public class MediumAI implements AIStrategy {
         int bestScore = 0;
         for (Suit suit : Suit.values()) {
             int trumpRankCount = trumpRankCounts.getOrDefault(suit, 0);
-            if (trumpRankCount < 2) continue;
+            if (trumpRankCount < minRequired) continue;
             // Score = total cards in suit + bonus for trump rank cards in suit
             int score = suitCounts.getOrDefault(suit, 0) + trumpRankCount;
             if (score > bestScore) {
