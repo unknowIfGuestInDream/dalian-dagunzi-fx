@@ -62,7 +62,7 @@ jobs:
         run: |
           APP_JAR=target/dalian-dagunzi.jar
           MODULES=$(jdeps --ignore-missing-deps --multi-release ${{ env.JAVA_VERSION }} --print-module-deps "$APP_JAR" 2>/dev/null || true)
-          if [ -z "$MODULES" ]; then
+          if [[ -z "$MODULES" || ! "$MODULES" =~ ^(java|jdk)\.[A-Za-z0-9_.-]+(,(java|jdk)\.[A-Za-z0-9_.-]+)*$ ]]; then
             MODULES=java.base,java.desktop,java.logging,java.management,java.naming,java.net.http,java.prefs,java.xml,jdk.unsupported
             echo "jdeps 分析失败，回退到保守模块集：$MODULES"
           else
