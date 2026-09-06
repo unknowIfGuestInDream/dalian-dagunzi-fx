@@ -58,10 +58,12 @@ jobs:
         run: echo "version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> "$GITHUB_OUTPUT"
 
       - name: Create custom JRE with jlink
+        env:
+          JAVA_VERSION: ${{ env.JAVA_VERSION }}
         shell: bash
         run: |
           APP_JAR=target/dalian-dagunzi.jar
-          RAW_MODULES=$(jdeps --ignore-missing-deps --multi-release ${{ env.JAVA_VERSION }} --print-module-deps "$APP_JAR" 2>/dev/null || true)
+          RAW_MODULES=$(jdeps --ignore-missing-deps --multi-release "$JAVA_VERSION" --print-module-deps "$APP_JAR" 2>/dev/null || true)
           MODULES=
           if [[ "$RAW_MODULES" =~ ^[A-Za-z0-9_.-]+(,[A-Za-z0-9_.-]+)*$ ]]; then
             MODULES=$(printf '%s' "$RAW_MODULES" | tr ',' '\n' | grep -E '^(java|jdk|javafx)\.' | paste -sd, - || true)
