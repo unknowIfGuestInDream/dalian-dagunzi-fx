@@ -59,18 +59,22 @@ jobs:
 
       - name: Create custom JRE with jlink
         env:
-          JAVA_VERSION: ${{ env.JAVA_VERSION }}
+          JDEPS_MULTI_RELEASE: ${{ env.JAVA_VERSION }}
         shell: bash
         run: |
           APP_JAR=target/dalian-dagunzi.jar
-          RAW_MODULES=$(jdeps --ignore-missing-deps --multi-release "$JAVA_VERSION" --print-module-deps "$APP_JAR" 2>/dev/null || true)
+          if [ ! -f "$APP_JAR" ]; then
+            echo "::error::未找到应用 Jar：$APP_JAR"
+            exit 1
+          fi
+          RAW_MODULES=$(jdeps --ignore-missing-deps --multi-release "$JDEPS_MULTI_RELEASE" --print-module-deps "$APP_JAR" 2>/dev/null || true)
           MODULES=
           if [[ "$RAW_MODULES" =~ ^[A-Za-z0-9_.-]+(,[A-Za-z0-9_.-]+)*$ ]]; then
             MODULES=$(printf '%s' "$RAW_MODULES" | tr ',' '\n' | grep -E '^(java|jdk|javafx)\.' | paste -sd, - || true)
           fi
           if [ -z "$MODULES" ]; then
             MODULES=java.base,java.desktop,java.logging,java.management,java.naming,java.net.http,java.prefs,java.xml,jdk.unsupported
-            echo "jdeps 分析失败，回退到保守模块集：$MODULES"
+            echo "::warning::jdeps 分析失败，回退到保守模块集：$MODULES"
           else
             echo "jdeps 检测到的模块：$MODULES"
           fi
