@@ -85,14 +85,7 @@ public class AdaptiveAI implements AIStrategy {
 
     /** 根据当前统计数据重新选择底层AI策略并更新冒险模式。 */
     private void updateDelegate() {
-        AILevel targetLevel;
-        if (totalRounds < MEDIUM_THRESHOLD) {
-            targetLevel = AILevel.EASY;
-        } else if (totalRounds < HARD_THRESHOLD) {
-            targetLevel = AILevel.MEDIUM;
-        } else {
-            targetLevel = AILevel.HARD;
-        }
+        AILevel targetLevel = resolveTargetLevel();
 
         // 仅在阈值跨越时重新创建委托，避免每局重复构造
         boolean needNew = (delegate == null)
@@ -108,6 +101,19 @@ public class AdaptiveAI implements AIStrategy {
             };
         }
         delegate.setAggressive(isAggressiveMode());
+    }
+
+    /**
+     * 根据已累计的对局轮数解析当前应使用的底层AI等级。
+     */
+    private AILevel resolveTargetLevel() {
+        if (totalRounds < MEDIUM_THRESHOLD) {
+            return AILevel.EASY;
+        } else if (totalRounds < HARD_THRESHOLD) {
+            return AILevel.MEDIUM;
+        } else {
+            return AILevel.HARD;
+        }
     }
 
     /**
@@ -152,13 +158,7 @@ public class AdaptiveAI implements AIStrategy {
      * @return "简单"、"中等" 或 "困难"
      */
     public String getCurrentLevelName() {
-        if (totalRounds < MEDIUM_THRESHOLD) {
-            return AILevel.EASY.getDisplayName();
-        } else if (totalRounds < HARD_THRESHOLD) {
-            return AILevel.MEDIUM.getDisplayName();
-        } else {
-            return AILevel.HARD.getDisplayName();
-        }
+        return resolveTargetLevel().getDisplayName();
     }
 
     @Override

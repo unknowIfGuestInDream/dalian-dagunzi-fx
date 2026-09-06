@@ -444,7 +444,8 @@ public class DaGunZiApp extends Application {
                 case EASY -> new EasyAI();
                 case MEDIUM -> new MediumAI(cardTracker);
                 case HARD -> new HardAI(cardTracker);
-                default -> new MediumAI(cardTracker);
+                default -> throw new IllegalStateException(
+                    "未处理的AI难度等级：" + AppSettings.getInstance().getAiLevel());
             };
             aiStrategy.setAggressive(AppSettings.getInstance().isAggressive());
         }
