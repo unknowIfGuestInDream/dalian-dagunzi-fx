@@ -6,6 +6,9 @@ on:
 permissions:
   contents: read
 
+env:
+  JAVA_VERSION: '25'
+
 jobs:
   jpackage:
     name: JPackage on ${{ matrix.os }}
@@ -35,7 +38,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 25
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Cache Maven packages
         uses: actions/cache@v5
@@ -58,7 +61,7 @@ jobs:
         shell: bash
         run: |
           APP_JAR=target/dalian-dagunzi.jar
-          MODULES=$(jdeps --ignore-missing-deps --multi-release 25 --print-module-deps "$APP_JAR" 2>/dev/null || true)
+          MODULES=$(jdeps --ignore-missing-deps --multi-release "$JAVA_VERSION" --print-module-deps "$APP_JAR" 2>/dev/null || true)
           if [ -z "$MODULES" ]; then
             MODULES=java.base,java.desktop,java.logging,java.management,java.naming,java.net.http,java.prefs,java.xml,jdk.unsupported
             echo "jdeps 分析失败，回退到保守模块集：$MODULES"
