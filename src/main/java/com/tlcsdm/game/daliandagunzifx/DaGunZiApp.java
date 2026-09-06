@@ -412,12 +412,7 @@ public class DaGunZiApp extends Application {
             new Player(3, "小刚", false)
         };
         cardTracker = new CardTracker();
-        aiStrategy = switch (AppSettings.getInstance().getAiLevel()) {
-            case EASY -> new EasyAI();
-            case MEDIUM -> new MediumAI(cardTracker);
-            case HARD -> new HardAI(cardTracker);
-        };
-        aiStrategy.setAggressive(AppSettings.getInstance().isAggressive());
+        initAIStrategy();
         engine = new GameEngine(players);
         engine.setLiveBang(AppSettings.getInstance().isLiveBang());
         engine.getTeamLevels()[0] = oldLevels[0];
@@ -425,6 +420,18 @@ public class DaGunZiApp extends Application {
 
         initGameBoard();
         startNewRound();
+    }
+
+    /**
+     * 根据当前AI难度设置初始化 {@link #aiStrategy}。
+     */
+    private void initAIStrategy() {
+        aiStrategy = switch (AppSettings.getInstance().getAiLevel()) {
+            case EASY -> new EasyAI();
+            case MEDIUM -> new MediumAI(cardTracker);
+            case HARD -> new HardAI(cardTracker);
+        };
+        aiStrategy.setAggressive(AppSettings.getInstance().isAggressive());
     }
 
     private void toggleTrackerDisplay(boolean enabled) {
@@ -513,12 +520,7 @@ public class DaGunZiApp extends Application {
         };
 
         cardTracker = new CardTracker();
-        aiStrategy = switch (AppSettings.getInstance().getAiLevel()) {
-            case EASY -> new EasyAI();
-            case MEDIUM -> new MediumAI(cardTracker);
-            case HARD -> new HardAI(cardTracker);
-        };
-        aiStrategy.setAggressive(AppSettings.getInstance().isAggressive());
+        initAIStrategy();
         engine = new GameEngine(players);
         engine.setLiveBang(AppSettings.getInstance().isLiveBang());
 
@@ -1579,7 +1581,8 @@ public class DaGunZiApp extends Application {
         } else if (card.getRank() == Rank.SMALL_JOKER) {
             topText = "小\n王";
         } else {
-            topText = card.getSuit().getSymbol() + "\n" + card.getRank().getDisplayName();
+            topText = (card.getSuit() != null ? card.getSuit().getSymbol() : "")
+                + "\n" + card.getRank().getDisplayName();
         }
         Label topLeft = new Label(topText);
         topLeft.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 14px; "
@@ -1880,8 +1883,9 @@ public class DaGunZiApp extends Application {
         }
 
         Rank[] levels = engine.getTeamLevels();
-        teamLevelLabel.setText("你的队伍：" + levels[0].getDisplayName()
-            + " | 对方队伍：" + levels[1].getDisplayName());
+        String teamLevelText = "你的队伍：" + levels[0].getDisplayName()
+            + " | 对方队伍：" + levels[1].getDisplayName();
+        teamLevelLabel.setText(teamLevelText);
     }
 
     private void updateCurrentPlayerHighlight(int currentIdx) {

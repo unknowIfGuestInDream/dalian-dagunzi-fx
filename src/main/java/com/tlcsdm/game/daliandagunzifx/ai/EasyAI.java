@@ -52,7 +52,7 @@ public class EasyAI implements AIStrategy {
     protected static final int MIN_POINTS_FOR_TRUMP_OVERRIDE = 10;
 
     // 冒险出牌策略开关：开启后 AI 会在不确定牌是否最大时主动争墩、用主牌毙分（赌博心理）。
-    // 默认关闭，保持稳健保守的出牌风格。
+    // 默认关闭，保持稳健保守的出牌风格；游戏层面通过 AppSettings 默认开启冒险模式。
     protected boolean aggressive = false;
 
     @Override
@@ -585,10 +585,16 @@ public class EasyAI implements AIStrategy {
                 // 队友赢时，优先给分牌
                 return playPointsForPartner(suitCards, trumpInfo);
             }
-            // 队友没赢，看看这墩是否有分值得争，或者是否被迫出分牌
+            // 保守模式下：若队友尚未出牌且AI不是最后出牌，且手中有非分牌可选，
+            // 出小牌保留大牌，让队友决定是否管上（"让队友接管"策略）
             int trickPoints = calculateCurrentTrickPoints(engine);
             boolean hasNonPointCard = suitCards.stream()
                 .anyMatch(c -> c.getPoints() == 0 && !isSpecialTrump(c, trumpInfo));
+            if (!aggressive && hasNonPointCard
+                    && !hasPartnerPlayed(player, engine) && !isLastToPlay(player, engine)) {
+                return playLow(suitCards, trumpInfo);
+            }
+            // 队友已出牌但未赢，或AI为最后出牌：看看这墩是否有分值得争，或者是否被迫出分牌
             // 冒险策略：即使本墩暂无分，也主动争墩夺取控制权（赌自己的牌够大）
             if (trickPoints > 0 || !hasNonPointCard || aggressive) {
                 // 有分可争，或手中只剩分牌（避免白送对方分数）→ 尝试赢墩
@@ -720,7 +726,7 @@ public class EasyAI implements AIStrategy {
 
         int highestStrength = -1;
         // 从领出者开始按出牌顺序遍历，确保同牌力时先出者赢
-        for (int offset = 0; offset < 4; offset++) {
+        for (int offset = 0; offset < trick.length; offset++) {
             int i = (leader + offset) % 4;
             Card card = trick[i];
             if (card == null) continue;
@@ -806,14 +812,40 @@ public class EasyAI implements AIStrategy {
             || rank == Rank.TWO || rank == trumpInfo.getTrumpRank();
     }
 
+    /**
+     * 返回当前玩家的队友索引（基于4人游戏中0↔2、1↔3的固定对位关系）。
+     */
+    protected int getPartnerIndex(Player player) {
+        return (player.getId() + 2) % 4;
+    }
+
+    /**
+     * 判断队友是否已在本墩出牌。
+     */
+    protected boolean hasPartnerPlayed(Player player, GameEngine engine) {
+        return engine.getCurrentTrick()[getPartnerIndex(player)] != null;
+    }
+
+    /**
+     * 判断当前玩家是否是本墩最后出牌的人（其余三家均已出牌）。
+     */
+    protected boolean isLastToPlay(Player player, GameEngine engine) {
+        Card[] trick = engine.getCurrentTrick();
+        for (int i = 0; i < trick.length; i++) {
+            if (i != player.getId() && trick[i] == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     protected boolean isPartnerWinning(Player player, GameEngine engine) {
-        int partnerIndex = (player.getId() + 2) % 4;
-        return getCurrentTrickWinner(engine) == partnerIndex;
+        return getCurrentTrickWinner(engine) == getPartnerIndex(player);
     }
 
     protected boolean isTeamWinning(Player player, GameEngine engine) {
         int winnerIndex = getCurrentTrickWinner(engine);
-        return winnerIndex == player.getId() || winnerIndex == (player.getId() + 2) % 4;
+        return winnerIndex == player.getId() || winnerIndex == getPartnerIndex(player);
     }
 
     protected int getCurrentTrickWinner(GameEngine engine) {
@@ -830,7 +862,7 @@ public class EasyAI implements AIStrategy {
         int highestStrength = -1;
 
         // 从领出者开始按出牌顺序遍历，确保同牌力时先出者赢
-        for (int offset = 0; offset < 4; offset++) {
+        for (int offset = 0; offset < trick.length; offset++) {
             int i = (leader + offset) % 4;
             Card card = trick[i];
             if (card == null) continue;

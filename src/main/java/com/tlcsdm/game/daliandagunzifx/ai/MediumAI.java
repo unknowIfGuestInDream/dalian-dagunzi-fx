@@ -430,11 +430,18 @@ public class MediumAI implements AIStrategy {
             return easyAI.playPointsForPartner(suitCards, trumpInfo);
         }
 
-        // 有分值得争，或手中只剩分牌时尝试压牌，保护特殊主牌（2/王/主牌级）
-        // 冒险策略：即使本墩暂无分，也主动争墩夺取控制权
+        // 保守模式下：若队友尚未出牌且AI不是最后出牌，且手中有非分牌可选，
+        // 出小牌保留大牌，让队友决定是否管上（"让队友接管"策略）
         int trickPoints = calculateCurrentTrickPoints(engine);
         boolean hasNonPointCard = suitCards.stream()
             .anyMatch(c -> c.getPoints() == 0 && !easyAI.isSpecialTrump(c, trumpInfo));
+        if (!easyAI.isAggressive() && hasNonPointCard
+                && !easyAI.hasPartnerPlayed(player, engine) && !easyAI.isLastToPlay(player, engine)) {
+            return easyAI.playLow(suitCards, trumpInfo);
+        }
+
+        // 有分值得争，或手中只剩分牌时尝试压牌，保护特殊主牌（2/王/主牌级）
+        // 冒险策略：即使本墩暂无分，也主动争墩夺取控制权
         if (trickPoints > 0 || !hasNonPointCard || easyAI.isAggressive()) {
             int currentWinStrength = getCurrentWinningStrength(engine);
             Card bestWinner = null;
