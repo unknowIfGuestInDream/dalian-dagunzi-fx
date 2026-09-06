@@ -414,6 +414,21 @@ public class DaGunZiApp extends Application {
             new Player(3, "小刚", false)
         };
         cardTracker = new CardTracker();
+        initAIStrategy();
+        engine = new GameEngine(players);
+        engine.setLiveBang(AppSettings.getInstance().isLiveBang());
+        engine.getTeamLevels()[0] = oldLevels[0];
+        engine.getTeamLevels()[1] = oldLevels[1];
+
+        initGameBoard();
+        startNewRound();
+    }
+
+    /**
+     * 根据当前AI难度设置初始化或更新 {@link #aiStrategy}。
+     * 自适应模式下复用已有实例并更新 {@link CardTracker}；非自适应模式下重建策略实例。
+     */
+    private void initAIStrategy() {
         if (AppSettings.getInstance().getAiLevel() == AILevel.ADAPTIVE) {
             if (adaptiveAI == null) {
                 adaptiveAI = new AdaptiveAI(cardTracker);
@@ -433,13 +448,6 @@ public class DaGunZiApp extends Application {
             };
             aiStrategy.setAggressive(AppSettings.getInstance().isAggressive());
         }
-        engine = new GameEngine(players);
-        engine.setLiveBang(AppSettings.getInstance().isLiveBang());
-        engine.getTeamLevels()[0] = oldLevels[0];
-        engine.getTeamLevels()[1] = oldLevels[1];
-
-        initGameBoard();
-        startNewRound();
     }
 
     private void toggleTrackerDisplay(boolean enabled) {
@@ -528,25 +536,7 @@ public class DaGunZiApp extends Application {
         };
 
         cardTracker = new CardTracker();
-        if (AppSettings.getInstance().getAiLevel() == AILevel.ADAPTIVE) {
-            if (adaptiveAI == null) {
-                adaptiveAI = new AdaptiveAI(cardTracker);
-            } else {
-                // 每局更新 cardTracker 引用，确保中等/困难委托绑定本局新数据
-                adaptiveAI.updateCardTracker(cardTracker);
-            }
-            adaptiveAI.setAggressive(AppSettings.getInstance().isAggressive());
-            aiStrategy = adaptiveAI;
-        } else {
-            adaptiveAI = null;
-            aiStrategy = switch (AppSettings.getInstance().getAiLevel()) {
-                case EASY -> new EasyAI();
-                case MEDIUM -> new MediumAI(cardTracker);
-                case HARD -> new HardAI(cardTracker);
-                default -> new MediumAI(cardTracker);
-            };
-            aiStrategy.setAggressive(AppSettings.getInstance().isAggressive());
-        }
+        initAIStrategy();
         engine = new GameEngine(players);
         engine.setLiveBang(AppSettings.getInstance().isLiveBang());
 
