@@ -57,10 +57,18 @@ jobs:
       - name: Create custom JRE with jlink
         shell: bash
         run: |
-          JMODS=$(java --list-modules | grep -E "^javafx\." | awk -F '@' '{print $1}' | tr '\n' ',' | sed 's/,$//')
+          APP_JAR=target/dalian-dagunzi.jar
+          MODULES=$(jdeps --ignore-missing-deps --multi-release 25 --print-module-deps "$APP_JAR" 2>/dev/null || true)
+          if [ -z "$MODULES" ]; then
+            MODULES=java.base,java.desktop,java.logging,java.management,java.naming,java.net.http,java.prefs,java.xml,jdk.unsupported
+            echo "jdeps 分析失败，回退到保守模块集：$MODULES"
+          else
+            echo "jdeps 检测到的模块：$MODULES"
+          fi
+          rm -rf jpackage-jre
           jlink \
-            --add-modules java.base,java.desktop,java.logging,java.prefs,java.xml,jdk.unsupported,${JMODS} \
-            --no-header-files --no-man-pages             --compress=zip-6 \
+            --add-modules "$MODULES" \
+            --strip-debug --no-header-files --no-man-pages --compress=zip-6 \
             --output jpackage-jre
 
       - name: Run jpackage
