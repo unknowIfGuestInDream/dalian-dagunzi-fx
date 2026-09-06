@@ -726,7 +726,7 @@ public class EasyAI implements AIStrategy {
 
         int highestStrength = -1;
         // 从领出者开始按出牌顺序遍历，确保同牌力时先出者赢
-        for (int offset = 0; offset < 4; offset++) {
+        for (int offset = 0; offset < trick.length; offset++) {
             int i = (leader + offset) % 4;
             Card card = trick[i];
             if (card == null) continue;
@@ -813,11 +813,17 @@ public class EasyAI implements AIStrategy {
     }
 
     /**
+     * 返回当前玩家的队友索引（基于4人游戏中0↔2、1↔3的固定对位关系）。
+     */
+    protected int getPartnerIndex(Player player) {
+        return (player.getId() + 2) % 4;
+    }
+
+    /**
      * 判断队友是否已在本墩出牌。
      */
     protected boolean hasPartnerPlayed(Player player, GameEngine engine) {
-        int partnerIndex = (player.getId() + 2) % 4;
-        return engine.getCurrentTrick()[partnerIndex] != null;
+        return engine.getCurrentTrick()[getPartnerIndex(player)] != null;
     }
 
     /**
@@ -825,7 +831,7 @@ public class EasyAI implements AIStrategy {
      */
     protected boolean isLastToPlay(Player player, GameEngine engine) {
         Card[] trick = engine.getCurrentTrick();
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < trick.length; i++) {
             if (i != player.getId() && trick[i] == null) {
                 return false;
             }
@@ -834,13 +840,12 @@ public class EasyAI implements AIStrategy {
     }
 
     protected boolean isPartnerWinning(Player player, GameEngine engine) {
-        int partnerIndex = (player.getId() + 2) % 4;
-        return getCurrentTrickWinner(engine) == partnerIndex;
+        return getCurrentTrickWinner(engine) == getPartnerIndex(player);
     }
 
     protected boolean isTeamWinning(Player player, GameEngine engine) {
         int winnerIndex = getCurrentTrickWinner(engine);
-        return winnerIndex == player.getId() || winnerIndex == (player.getId() + 2) % 4;
+        return winnerIndex == player.getId() || winnerIndex == getPartnerIndex(player);
     }
 
     protected int getCurrentTrickWinner(GameEngine engine) {
@@ -857,7 +862,7 @@ public class EasyAI implements AIStrategy {
         int highestStrength = -1;
 
         // 从领出者开始按出牌顺序遍历，确保同牌力时先出者赢
-        for (int offset = 0; offset < 4; offset++) {
+        for (int offset = 0; offset < trick.length; offset++) {
             int i = (leader + offset) % 4;
             Card card = trick[i];
             if (card == null) continue;
