@@ -6,6 +6,9 @@ on:
 permissions:
   contents: read
 
+env:
+  JAVA_VERSION: '25'
+
 jobs:
   jpackage:
     name: JPackage on ${{ matrix.os }}
@@ -35,7 +38,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 25
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Cache Maven packages
         uses: actions/cache@v5
@@ -55,12 +58,54 @@ jobs:
         run: echo "version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> "$GITHUB_OUTPUT"
 
       - name: Create custom JRE with jlink
+        env:
+          JDEPS_MULTI_RELEASE: ${{ env.JAVA_VERSION }}
         shell: bash
         run: |
-          JMODS=$(java --list-modules | grep -E "^javafx\." | awk -F '@' '{print $1}' | tr '\n' ',' | sed 's/,$//')
+          CONSERVATIVE_MODULES=java.base,java.desktop,java.logging,java.management,java.naming,java.net.http,java.prefs,java.xml,jdk.unsupported
+          case "$(uname -s)" in
+            MINGW*|MSYS*|CYGWIN*) PATH_SEPARATOR=';' ;;
+            *) PATH_SEPARATOR=':' ;;
+          esac
+          JLINK_MODULE_PATH="$JAVA_HOME/jmods"
+          JDEPS_MODULE_PATH="$JLINK_MODULE_PATH"
+          if [ -d target/lib ]; then
+            JDEPS_MODULE_PATH="$JDEPS_MODULE_PATH${PATH_SEPARATOR}target/lib"
+          fi
+          APP_JAR=target/dalian-dagunzi.jar
+          if [ ! -f "$APP_JAR" ]; then
+            echo "::error::未找到应用 Jar：$APP_JAR"
+            exit 1
+          fi
+          RAW_MODULES=
+          JDEPS_STDERR=$(mktemp)
+          JDEPS_OUTPUT=$(jdeps --ignore-missing-deps --multi-release "$JDEPS_MULTI_RELEASE" --module-path "$JDEPS_MODULE_PATH" --print-module-deps "$APP_JAR" 2>"$JDEPS_STDERR") || JDEPS_STATUS=$?
+          if [ "${JDEPS_STATUS:-0}" -eq 0 ]; then
+            RAW_MODULES=$(printf '%s\n' "$JDEPS_OUTPUT" | grep -v '^unnamed$' || true)
+          else
+            echo "::warning::jdeps 分析失败：$(cat "$JDEPS_STDERR")"
+          fi
+          rm -f "$JDEPS_STDERR"
+          DETECTED_MODULES=
+          if [[ "$RAW_MODULES" =~ ^[A-Za-z0-9_.-]+(,[A-Za-z0-9_.-]+)*$ ]]; then
+            DETECTED_MODULES=$(printf '%s' "$RAW_MODULES" | tr ',' '\n' | grep -E '^(java|jdk|javafx)\.' | paste -sd, - || true)
+          fi
+          if [ -z "$DETECTED_MODULES" ]; then
+            MODULES="$CONSERVATIVE_MODULES"
+            echo "::warning::jdeps 分析失败，回退到保守模块集：$MODULES"
+          else
+            MODULES=$(printf '%s\n%s\n' "$CONSERVATIVE_MODULES" "$DETECTED_MODULES" | tr ',' '\n' | awk 'NF && !seen[$0]++' | paste -sd, -)
+            echo "jdeps 检测到的模块：$DETECTED_MODULES"
+            echo "jlink 最终模块集合：$MODULES"
+          fi
+          if [[ "$MODULES" == *javafx.* ]]; then
+            JLINK_MODULE_PATH="$JLINK_MODULE_PATH${PATH_SEPARATOR}target/lib"
+          fi
+          rm -rf jpackage-jre
           jlink \
-            --add-modules java.base,java.desktop,java.logging,java.prefs,java.xml,jdk.unsupported,${JMODS} \
-            --no-header-files --no-man-pages             --compress=zip-6 \
+            --module-path "$JLINK_MODULE_PATH" \
+            --add-modules "$MODULES" \
+            --strip-debug --no-header-files --no-man-pages --compress=zip-6 \
             --output jpackage-jre
 
       - name: Run jpackage
