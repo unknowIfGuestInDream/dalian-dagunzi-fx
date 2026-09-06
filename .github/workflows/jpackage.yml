@@ -67,7 +67,13 @@ jobs:
             echo "::error::未找到应用 Jar：$APP_JAR"
             exit 1
           fi
-          RAW_MODULES=$(jdeps --ignore-missing-deps --multi-release "$JDEPS_MULTI_RELEASE" --print-module-deps "$APP_JAR" 2>/dev/null || true)
+          RAW_MODULES=
+          JDEPS_OUTPUT=$(jdeps --ignore-missing-deps --multi-release "$JDEPS_MULTI_RELEASE" --print-module-deps "$APP_JAR" 2>&1) || JDEPS_STATUS=$?
+          if [ "${JDEPS_STATUS:-0}" -eq 0 ]; then
+            RAW_MODULES=$JDEPS_OUTPUT
+          else
+            echo "::warning::jdeps 分析失败：$JDEPS_OUTPUT"
+          fi
           MODULES=
           if [[ "$RAW_MODULES" =~ ^[A-Za-z0-9_.-]+(,[A-Za-z0-9_.-]+)*$ ]]; then
             MODULES=$(printf '%s' "$RAW_MODULES" | tr ',' '\n' | grep -E '^(java|jdk|javafx)\.' | paste -sd, - || true)
@@ -78,9 +84,9 @@ jobs:
           else
             echo "jdeps 检测到的模块：$MODULES"
           fi
-          PATH_SEPARATOR=':'
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            PATH_SEPARATOR=';'
+          PATH_SEPARATOR=$(java -XshowSettings:properties -version 2>&1 | awk -F'= ' '/path.separator = / {print $2; exit}')
+          if [ -z "$PATH_SEPARATOR" ]; then
+            PATH_SEPARATOR=':'
           fi
           JLINK_MODULE_PATH="$JAVA_HOME/jmods"
           if [[ "$MODULES" == *javafx.* ]]; then
