@@ -68,12 +68,14 @@ jobs:
             exit 1
           fi
           RAW_MODULES=
-          JDEPS_OUTPUT=$(jdeps --ignore-missing-deps --multi-release "$JDEPS_MULTI_RELEASE" --print-module-deps "$APP_JAR" 2>&1) || JDEPS_STATUS=$?
+          JDEPS_STDERR=$(mktemp)
+          JDEPS_OUTPUT=$(jdeps --ignore-missing-deps --multi-release "$JDEPS_MULTI_RELEASE" --print-module-deps "$APP_JAR" 2>"$JDEPS_STDERR") || JDEPS_STATUS=$?
           if [ "${JDEPS_STATUS:-0}" -eq 0 ]; then
             RAW_MODULES=$JDEPS_OUTPUT
           else
-            echo "::warning::jdeps 分析失败：$JDEPS_OUTPUT"
+            echo "::warning::jdeps 分析失败：$(cat "$JDEPS_STDERR")"
           fi
+          rm -f "$JDEPS_STDERR"
           MODULES=
           if [[ "$RAW_MODULES" =~ ^[A-Za-z0-9_.-]+(,[A-Za-z0-9_.-]+)*$ ]]; then
             MODULES=$(printf '%s' "$RAW_MODULES" | tr ',' '\n' | grep -E '^(java|jdk|javafx)\.' | paste -sd, - || true)
@@ -84,7 +86,11 @@ jobs:
           else
             echo "jdeps 检测到的模块：$MODULES"
           fi
-          PATH_SEPARATOR=$(java -XshowSettings:properties -version 2>&1 | awk -F'= ' '/path.separator = / {print $2; exit}')
+          PATH_SEPARATOR=$(python - <<'PY'
+          import os
+          print(os.pathsep)
+          PY
+          )
           if [ -z "$PATH_SEPARATOR" ]; then
             PATH_SEPARATOR=':'
           fi
