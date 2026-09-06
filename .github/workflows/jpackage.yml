@@ -1,0 +1,86 @@
+name: JPackage
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  jpackage:
+    name: JPackage on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            package-type: deb
+            jfx-platform: linux
+          - os: macos-latest
+            platform: macos
+            package-type: dmg
+            jfx-platform: mac
+          - os: windows-latest
+            platform: windows
+            package-type: exe
+            jfx-platform: win
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Cache Maven packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build with Maven
+        shell: bash
+        run: mvn -B clean package --no-transfer-progress -DskipTests -Dmaven.javadoc.skip=true -Djavafx.platform=${{ matrix.jfx-platform }}
+
+      - name: Resolve version
+        shell: bash
+        id: version
+        run: echo "version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> "$GITHUB_OUTPUT"
+
+      - name: Create custom JRE with jlink
+        shell: bash
+        run: |
+          JMODS=$(java --list-modules | grep -E "^javafx\." | awk -F '@' '{print $1}' | tr '\n' ',' | sed 's/,$//')
+          jlink \
+            --add-modules java.base,java.desktop,java.logging,java.prefs,java.xml,jdk.unsupported,${JMODS} \
+            --no-header-files --no-man-pages             --compress=zip-6 \
+            --output jpackage-jre
+
+      - name: Run jpackage
+        shell: bash
+        run: |
+          jpackage \
+            --type ${{ matrix.package-type }} \
+            --name "大连打滚子" \
+            --app-version ${{ steps.version.outputs.version }} \
+            --input target \
+            --main-jar dalian-dagunzi.jar \
+            --runtime-image jpackage-jre \
+            --dest dist \
+            --description "大连打滚子纸牌游戏" \
+            --vendor "tlcsdm" \
+            --java-options "-Dfile.encoding=UTF-8"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dalian-dagunzi-jpackage-${{ matrix.os }}
+          path: dist/
+          retention-days: 7

@@ -62,6 +62,11 @@ public class GameEngine {
     // 活棒（true）：领出棒子/滚子时，跟牌方不强制拆/保持牌组，可自由出同花色单张等。
     // 死棒（false）：跟牌方手中有同花色对子/三条时必须保持牌组完整。默认活棒。
     private boolean liveBang = true;
+    /**
+     * 当前局叫主阶段已亮主牌张数（0=无人亮，1=有人亮1张，2=有人亮2张，…）。
+     * 抢主时必须亮的张数严格大于此值。
+     */
+    private int declaredTrumpCount = 0;
 
     public GameEngine(Player[] players) {
         if (players.length != 4) {
@@ -116,6 +121,7 @@ public class GameEngine {
         kitty = deck.deal(6);
 
         phase = GamePhase.DEALING;
+        declaredTrumpCount = 0;
     }
 
     public boolean isTributeRequired() {
@@ -148,7 +154,8 @@ public class GameEngine {
     }
 
     public void finishTribute() {
-        phase = GamePhase.DEALING;
+        // 进贡完成后恢复到 PREPARING_KITTY 阶段，庄家可继续扣牌
+        phase = GamePhase.PREPARING_KITTY;
     }
 
     public int getPreviousWinningTeam() {
@@ -344,6 +351,49 @@ public class GameEngine {
         // Dealer picks up the kitty
         players[dealerIndex].addCards(new ArrayList<>(kitty));
         // Sort all hands
+        for (Player player : players) {
+            player.sortHand(trumpInfo);
+        }
+    }
+
+    /**
+     * 返回当前叫主阶段已亮的主牌张数（0=无人亮，1=已亮1张，2=已亮2张，…）。
+     * 抢主要求亮的张数必须严格大于此值。
+     */
+    public int getDeclaredTrumpCount() {
+        return declaredTrumpCount;
+    }
+
+    /**
+     * 暂定叫主（竞争性叫主模型）。更新当前庄家、主牌信息和已亮张数，但不改变阶段。
+     * 允许后续玩家以更多张数抢主覆盖。
+     * 叫主结束后须调用 {@link #finalizeTrumpDeclaration()} 完成阶段切换。
+     *
+     * @param playerIndex 叫主玩家索引
+     * @param suit        选择的主牌花色
+     * @param count       本次亮出的同花色当前级别牌张数
+     */
+    public void tentativeDeclareTrump(int playerIndex, Suit suit, int count) {
+        if (phase != GamePhase.DEALING && phase != GamePhase.DECLARING_TRUMP) {
+            throw new IllegalStateException("Cannot declare trump in phase: " + phase);
+        }
+        phase = GamePhase.DECLARING_TRUMP;
+        dealerIndex = playerIndex;
+        Rank currentLevel = teamLevels[players[playerIndex].getTeam()];
+        trumpInfo = new TrumpInfo(suit, currentLevel);
+        declaredTrumpCount = count;
+    }
+
+    /**
+     * 完成叫主阶段，切换到扣底阶段。
+     * 须在所有竞争性叫主结束后调用。调用前至少已调用一次 {@link #tentativeDeclareTrump}。
+     */
+    public void finalizeTrumpDeclaration() {
+        if (phase != GamePhase.DECLARING_TRUMP) {
+            throw new IllegalStateException("Cannot finalize trump declaration in phase: " + phase);
+        }
+        phase = GamePhase.PREPARING_KITTY;
+        players[dealerIndex].addCards(new ArrayList<>(kitty));
         for (Player player : players) {
             player.sortHand(trumpInfo);
         }

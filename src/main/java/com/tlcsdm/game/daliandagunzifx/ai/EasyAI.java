@@ -65,7 +65,7 @@ public class EasyAI implements AIStrategy {
     }
 
     @Override
-    public Suit chooseTrumpSuit(Player player, Rank trumpRank) {
+    public Suit chooseTrumpSuit(Player player, Rank trumpRank, int minRequired) {
         Map<Suit, Integer> trumpRankCounts = new EnumMap<>(Suit.class);
         Map<Suit, Integer> suitCounts = new EnumMap<>(Suit.class);
         for (Card card : player.getHand()) {
@@ -79,7 +79,7 @@ public class EasyAI implements AIStrategy {
         Suit bestSuit = null;
         int bestTotal = 0;
         for (Map.Entry<Suit, Integer> entry : trumpRankCounts.entrySet()) {
-            if (entry.getValue() >= 2) {
+            if (entry.getValue() >= minRequired) {
                 int total = suitCounts.getOrDefault(entry.getKey(), 0);
                 if (total > bestTotal) {
                     bestTotal = total;
@@ -245,6 +245,17 @@ public class EasyAI implements AIStrategy {
                 otherTrump.add(card);
             } else {
                 otherNonTrump.add(card);
+            }
+        }
+
+        // 大王优化：主牌墩中大王已赢（强度 1000），跟牌时不再浪费另一张大王。
+        // 若手中有非大王的主牌可选，则将大王排除在候选之外。
+        if (leadSuit == null && getCurrentTrickWinnerStrength(engine) >= 1000) {
+            List<Card> nonBigJoker = suitCards.stream()
+                .filter(c -> c.getRank() != Rank.BIG_JOKER)
+                .collect(Collectors.toList());
+            if (!nonBigJoker.isEmpty()) {
+                suitCards = nonBigJoker;
             }
         }
 
@@ -575,6 +586,17 @@ public class EasyAI implements AIStrategy {
                 suitCards.add(card);
             } else if (trumpInfo.isTrump(card)) {
                 trumpCards.add(card);
+            }
+        }
+
+        // 大王优化：主牌墩中大王已赢（强度 1000），跟牌时不再浪费另一张大王。
+        // 若手中有非大王的主牌可选，则将大王排除在候选之外；若只剩大王则别无选择。
+        if (leadSuit == null && getCurrentTrickWinnerStrength(engine) >= 1000) {
+            List<Card> nonBigJoker = suitCards.stream()
+                .filter(c -> c.getRank() != Rank.BIG_JOKER)
+                .collect(Collectors.toList());
+            if (!nonBigJoker.isEmpty()) {
+                suitCards = nonBigJoker;
             }
         }
 

@@ -65,8 +65,8 @@ public class HardAI implements AIStrategy {
     }
 
     @Override
-    public Suit chooseTrumpSuit(Player player, Rank trumpRank) {
-        return fallbackAI.chooseTrumpSuit(player, trumpRank);
+    public Suit chooseTrumpSuit(Player player, Rank trumpRank, int minRequired) {
+        return fallbackAI.chooseTrumpSuit(player, trumpRank, minRequired);
     }
 
     @Override

@@ -139,7 +139,7 @@ class HardAITest {
 
         CardTracker tracker = new CardTracker();
         HardAI ai = new HardAI(tracker);
-        Suit suit = ai.chooseTrumpSuit(player, Rank.THREE);
+        Suit suit = ai.chooseTrumpSuit(player, Rank.THREE, 2);
         assertEquals(Suit.SPADE, suit);
     }
 
