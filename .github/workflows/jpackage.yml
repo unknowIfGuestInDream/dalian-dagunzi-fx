@@ -111,6 +111,10 @@ jobs:
       - name: Run jpackage
         shell: bash
         run: |
+          PACKAGE_ARGS=()
+          if [ "${{ matrix.platform }}" = "linux" ]; then
+            PACKAGE_ARGS+=(--linux-package-name "dalian-dagunzi")
+          fi
           jpackage \
             --type ${{ matrix.package-type }} \
             --name "大连打滚子" \
@@ -121,7 +125,8 @@ jobs:
             --dest dist \
             --description "大连打滚子纸牌游戏" \
             --vendor "tlcsdm" \
-            --java-options "-Dfile.encoding=UTF-8"
+            --java-options "-Dfile.encoding=UTF-8" \
+            "${PACKAGE_ARGS[@]}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
