@@ -19,15 +19,12 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             package-type: deb
-            jfx-platform: linux
           - os: macos-latest
             platform: macos
             package-type: dmg
-            jfx-platform: mac
           - os: windows-latest
             platform: windows
             package-type: exe
-            jfx-platform: win
     runs-on: ${{ matrix.os }}
 
     steps:
