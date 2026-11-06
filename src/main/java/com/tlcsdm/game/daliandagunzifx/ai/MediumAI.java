@@ -285,6 +285,14 @@ public class MediumAI implements AIStrategy {
             if (gamble != null) return gamble;
         }
 
+        // 兑现"绝对赢张"(boss)：借助记牌器判断某门副牌是否已是场上最大，且两名对手均未被
+        // 标记缺该门（不会用主牌毙），领出它可稳拿该墩并保持控制权。这是对原有"仅领 A、
+        // 否则领最大非分牌"策略的增强——例如当 A 已出尽时主动兑现 K，避免被对手后手憋死或毙掉。
+        Card boss = findBossLead(player, engine);
+        if (boss != null) {
+            return boss;
+        }
+
         // Score each suit considering tracked void information
         // 同时考虑短套策略（制造缺门）
         Suit bestSuit = null;
@@ -332,6 +340,68 @@ public class MediumAI implements AIStrategy {
         return validCards.stream()
             .min(Comparator.comparingInt(trumpInfo::getCardStrength))
             .orElse(validCards.get(0));
+    }
+
+    /**
+     * 领出时寻找可安全兑现的"绝对赢张"(boss)：某门副牌中所有比它大的同门牌都已打出
+     * （或握在自己手中），且两名对手均未被标记为缺该门，则领出它几乎必定赢墩并保持控制权。
+     * 找不到这样的牌时返回 null。供 MediumAI 领出及 HardAI 领出快捷判断共用。
+     *
+     * @param player 当前领出的玩家
+     * @param engine 游戏引擎
+     * @return 可安全兑现的 boss 牌；没有时返回 null
+     */
+    public Card findBossLead(Player player, GameEngine engine) {
+        TrumpInfo trumpInfo = engine.getTrumpInfo();
+        int opp1 = (player.getId() + 1) % 4;
+        int opp3 = (player.getId() + 3) % 4;
+
+        Map<Suit, List<Card>> suitCards = new EnumMap<>(Suit.class);
+        for (Card card : player.getHand()) {
+            Suit effective = trumpInfo.getEffectiveSuit(card);
+            if (effective != null) {
+                suitCards.computeIfAbsent(effective, k -> new ArrayList<>()).add(card);
+            }
+        }
+
+        Card best = null;
+        int bestStrength = -1;
+        for (Map.Entry<Suit, List<Card>> entry : suitCards.entrySet()) {
+            Suit suit = entry.getKey();
+            // 对手已知缺该门，可能用主牌毙，兑现不安全
+            if (cardTracker.isVoid(opp1, suit) || cardTracker.isVoid(opp3, suit)) {
+                continue;
+            }
+            for (Card card : entry.getValue()) {
+                if (isBossCard(player, card, suit, trumpInfo)) {
+                    int strength = trumpInfo.getCardStrength(card);
+                    if (strength > bestStrength) {
+                        best = card;
+                        bestStrength = strength;
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
+     * 判断某张副牌是否为所在花色的"绝对赢张"：场上（未打出）比它更大的同门副牌都在自己手中，
+     * 即没有对手还能在该花色上压过它。
+     */
+    private boolean isBossCard(Player player, Card card, Suit suit, TrumpInfo trumpInfo) {
+        int strength = trumpInfo.getCardStrength(card);
+        for (Card remaining : cardTracker.getSuitRemainingCards(suit)) {
+            // 该门中的主牌级/2 等属于主牌，不参与副牌大小比较
+            if (trumpInfo.isTrump(remaining)) {
+                continue;
+            }
+            if (trumpInfo.getCardStrength(remaining) > strength
+                    && !player.getHand().contains(remaining)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private Card chooseFollowCard(Player player, List<Card> validCards, GameEngine engine) {

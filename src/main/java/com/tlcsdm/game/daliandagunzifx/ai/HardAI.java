@@ -81,6 +81,14 @@ public class HardAI implements AIStrategy {
             return validCards.get(0);
         }
 
+        // 领出时：若记牌器判断存在可安全兑现的绝对赢张(boss)，直接领出，稳拿该墩并省去 PIMC 开销
+        if (engine.getTrickCardsPlayed() == 0) {
+            Card boss = fallbackAI.findBossLead(player, engine);
+            if (boss != null && validCards.contains(boss)) {
+                return boss;
+            }
+        }
+
         // 跟牌时：对于明显的情况使用启发式策略，避免浪费PIMC时间
         if (engine.getTrickCardsPlayed() > 0) {
             TrumpInfo trumpInfo = engine.getTrumpInfo();

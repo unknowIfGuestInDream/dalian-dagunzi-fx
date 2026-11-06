@@ -10,6 +10,9 @@ on:
 
 permissions:
   contents: read
+  # dependency-review-action 开启 comment-summary-in-pr 后需要写权限，
+  # 才能把依赖审查摘要作为评论写回拉取请求
+  pull-requests: write
 
 jobs:
   dependency-review:
