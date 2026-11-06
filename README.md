@@ -59,8 +59,10 @@
 
 ## 技术要求
 
-- JDK 25+
-- Gradle 9+（已内置 Gradle Wrapper，无需单独安装）
+- JDK 25（编译目标）；构建时使用 Gradle 工具链锁定 JDK 25
+  - 已启用 [Foojay 工具链解析器](https://github.com/gradle/foojay-toolchains)：若本机未安装 JDK 25，Gradle 会自动下载并配置，因此仅安装了更高版本 JDK 的开发者也能直接构建
+  - 启动 Gradle 本身只需 JDK 17 及以上（Gradle 9 运行要求）
+- Gradle 9+（已内置 Gradle Wrapper，无需单独安装；Wrapper 发行版经阿里云镜像下载并校验 SHA-256）
 - libgdx 1.13.1（LWJGL3 桌面后端）
 
 > **中文字体说明**：libgdx 使用 FreeType 在运行时生成字体。程序会优先加载 classpath 中的 `fonts/ui.ttf`，

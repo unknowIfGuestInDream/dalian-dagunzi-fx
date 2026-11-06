@@ -10,11 +10,30 @@
  *
  * 依赖仓库优先使用阿里云镜像，加速国内构建。
  */
+buildscript {
+    repositories {
+        maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url = 'https://maven.aliyun.com/repository/public' }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+    dependencies {
+        // license 插件（等价于原 license-maven-plugin）。其默认传递依赖 plexus-utils 2.0.6
+        // 存在命令注入与目录穿越漏洞（GHSA-8vhq-qq4p-grq3 等），这里排除旧版并强制改用已修复的 3.6.1。
+        classpath('gradle.plugin.com.hierynomus.gradle.plugins:license-gradle-plugin:0.16.1') {
+            exclude group: 'org.codehaus.plexus', module: 'plexus-utils'
+        }
+        classpath 'org.codehaus.plexus:plexus-utils:3.6.1'
+    }
+}
+
 plugins {
     id 'java'
     id 'application'
-    id 'com.github.hierynomus.license' version '0.16.1'
 }
+
+// 以传统方式应用 license 插件，以便在 buildscript 中控制其传递依赖版本（见上方 plexus-utils 说明）
+apply plugin: 'com.github.hierynomus.license'
 
 group = project.findProperty('group') ?: 'com.tlcsdm.game'
 version = project.findProperty('version') ?: '2.0.0'

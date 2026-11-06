@@ -12,7 +12,11 @@ on:
 permissions:
   contents: read
   checks: write
-  id-token: write
+
+defaults:
+  run:
+    # 统一使用 bash 运行命令：Windows Runner 自带 Git Bash，可执行 POSIX 版 ./gradlew
+    shell: bash
 
 jobs:
   build:
