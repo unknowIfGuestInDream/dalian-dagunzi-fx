@@ -1,0 +1,135 @@
+/*
+ * 大连打滚子 (Dalian Da Gunzi) 构建脚本
+ *
+ * 使用 Gradle 替代原有的 Maven 构建。保留原 Maven 构建的核心能力：
+ *   - JDK 25 工具链 + JavaFX 25 模块
+ *   - 可运行的 JavaFX 应用（application 插件 + openjfx 插件）
+ *   - JUnit 5 单元测试
+ *   - 源文件 license 头校验（license 插件，等价于原 license-maven-plugin）
+ *   - 打包出可被 jpackage 使用的 `dalian-dagunzi.jar` + `lib/` 依赖目录
+ */
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+    id 'com.github.hierynomus.license' version '0.16.1'
+}
+
+group = project.findProperty('group') ?: 'com.tlcsdm.game'
+version = project.findProperty('version') ?: '2.0.0'
+description = 'DaLian DaGunZi'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+javafx {
+    version = project.findProperty('javafxVersion') ?: '25.0.3'
+    modules = ['javafx.controls', 'javafx.fxml', 'javafx.graphics', 'javafx.base']
+}
+
+dependencies {
+    implementation 'ch.qos.logback:logback-classic:1.5.16'
+    implementation 'org.slf4j:slf4j-api:2.0.16'
+    implementation 'com.google.code.gson:gson:2.13.1'
+    implementation 'org.kordamp.ikonli:ikonli-core:12.4.0'
+    implementation 'org.kordamp.ikonli:ikonli-javafx:12.4.0'
+    implementation 'org.kordamp.ikonli:ikonli-material-pack:12.4.0'
+    // PreferencesFX：排除由本项目直接管理的依赖，避免版本冲突（等价于原 pom.xml 的 exclusions）
+    implementation('com.dlsc.preferencesfx:preferencesfx-core:11.17.0') {
+        exclude group: 'org.openjfx'
+        exclude group: 'com.google.code.gson'
+        exclude group: 'org.slf4j'
+        exclude group: 'org.kordamp.ikonli'
+    }
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.3'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.3'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.3'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:6.0.3'
+}
+
+application {
+    mainModule = 'com.tlcsdm.game.daliandagunzifx'
+    mainClass = 'com.tlcsdm.game.daliandagunzifx.DaGunZiApp'
+    // 模块路径运行时启用 JavaFX 本地访问，消除启动时的本地访问警告
+    applicationDefaultJvmArgs = ['--enable-native-access=javafx.graphics']
+}
+
+// 单元测试仅覆盖领域/引擎/AI 逻辑，使用类路径运行即可，避免模块系统带来的额外复杂度
+tasks.named('compileTestJava') {
+    modularity.inferModulePath = false
+}
+
+tasks.named('test') {
+    modularity.inferModulePath = false
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+}
+
+// 主 Jar：主类为 Launcher（类路径模式，供 jpackage/独立运行使用），依赖置于 lib/ 目录
+jar {
+    archiveFileName = 'dalian-dagunzi.jar'
+    manifest {
+        attributes(
+            'Main-Class': 'com.tlcsdm.game.daliandagunzifx.Launcher',
+            'Class-Path': configurations.runtimeClasspath.collect { 'lib/' + it.name }.join(' '),
+            'Implementation-Title': project.name,
+            'Implementation-Version': project.version,
+            'Bundle-SymbolicName': "${project.group}.${project.name}",
+            'Bundle-Vendor': 'Tlcsdm',
+            'Enable-Native-Access': 'ALL-UNNAMED'
+        )
+    }
+}
+
+// 将运行时依赖复制到 build/app/lib，供 jpackage 使用（等价于原 maven-dependency-plugin copy-dependencies）
+tasks.register('copyDependencies', Copy) {
+    from configurations.runtimeClasspath
+    into layout.buildDirectory.dir('app/lib')
+}
+
+// 将主 Jar 复制到 build/app，与 lib/ 共同组成 jpackage 的 --input 目录
+tasks.register('copyAppJar', Copy) {
+    dependsOn tasks.named('jar')
+    from tasks.named('jar')
+    into layout.buildDirectory.dir('app')
+}
+
+// 组装可分发目录 build/app（dalian-dagunzi.jar + lib/）
+tasks.register('appImage') {
+    group = 'distribution'
+    description = '组装 build/app 目录：dalian-dagunzi.jar 与 lib/ 运行时依赖'
+    dependsOn tasks.named('copyDependencies'), tasks.named('copyAppJar')
+}
+
+tasks.named('assemble') {
+    dependsOn tasks.named('appImage')
+}
+
+// 输出纯版本号，供 CI/打包脚本解析（等价于原 mvn help:evaluate -Dexpression=project.version）
+tasks.register('printVersion') {
+    doLast {
+        println project.version
+    }
+}
+
+// 源文件 license 头校验（等价于原 license-maven-plugin）
+license {
+    header = rootProject.file('license-header.txt')
+    strictCheck = true
+    ext.year = Calendar.getInstance().get(Calendar.YEAR)
+    mapping {
+        java = 'SLASHSTAR_STYLE'
+    }
+    include '**/*.java'
+    exclude '**/module-info.java'
+}

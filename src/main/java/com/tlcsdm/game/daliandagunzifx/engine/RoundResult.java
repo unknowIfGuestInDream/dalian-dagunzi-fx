@@ -64,14 +64,22 @@ public class RoundResult {
             this.winningTeam = defenderTeam;
         }
 
-        // 进贡计算：分数惩罚 + 扣王血（无论扣王成功或失败，血都计入进贡）
+        // 进贡计算：分数惩罚 +（仅扣王失败时）扣王血
+        // 规则：扣王成功（庄家赢）时，王的级数已计入升级（levelChange），不再进贡；
+        //       扣王失败（庄家扣王但闲家≥120）时，才按 1 大王=2 贡、1 小王=1 贡进行额外进贡惩罚。
         int scoreTribute = 0;
         if (defenderPoints < 80) {
             scoreTribute = (80 - defenderPoints) / 10;
         } else if (defenderPoints > 150) {
             scoreTribute = (defenderPoints - 150) / 10;
         }
-        this.tributeCount = scoreTribute + kittyBloods;
+        if (defenderPoints < 120) {
+            // 扣王成功：仅分数惩罚进贡
+            this.tributeCount = scoreTribute;
+        } else {
+            // 扣王失败：分数惩罚 + 扣王血进贡
+            this.tributeCount = scoreTribute + kittyBloods;
+        }
     }
 
     public int getDefenderPoints() {

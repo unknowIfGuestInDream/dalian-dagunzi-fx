@@ -60,31 +60,28 @@
 ## 技术要求
 
 - JDK 25+
-- Maven 3.8+
+- Gradle 9+（已内置 Gradle Wrapper，无需单独安装）
 
 ## 构建与运行
 
 ```bash
 # 构建
-mvn clean compile
+./gradlew clean compileJava
 
 # 运行（模块路径下已启用 JavaFX 本地访问，避免启动告警）
-mvn javafx:run
+./gradlew run
 
 # 运行测试
-mvn test
+./gradlew test
 
-# 打包
-mvn package
+# 打包（生成可运行的应用镜像到 build/app）
+./gradlew appImage
 
 # 检查源文件 license 头
-mvn license:check
+./gradlew license
 
 # 添加或更新源文件 license 头
-mvn license:format
-
-# 移除源文件 license 头
-mvn license:remove
+./gradlew licenseFormat
 ```
 
 ## 联系方式

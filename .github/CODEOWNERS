@@ -38,7 +38,10 @@ README_zh.md                  @unknowIfGuestInDream
 README_jp.md                  @unknowIfGuestInDream
 SECURITY.md                   @unknowIfGuestInDream
 
-# Maven
-.mvn/**                       @unknowIfGuestInDream
-pom.xml                       @unknowIfGuestInDream
-**/pom.xml                    @unknowIfGuestInDream
+# Gradle
+gradle/**                     @unknowIfGuestInDream
+*.gradle                      @unknowIfGuestInDream
+**/*.gradle                   @unknowIfGuestInDream
+gradle.properties             @unknowIfGuestInDream
+gradlew                       @unknowIfGuestInDream
+gradlew.bat                   @unknowIfGuestInDream

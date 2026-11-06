@@ -25,30 +25,19 @@ jobs:
           distribution: temurin
           java-version: 25
 
-      - name: Cache Maven packages
-        uses: actions/cache@v5
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Build with Maven (macOS)
-        if: runner.os == 'macOS'
+      - name: Build with Gradle
         shell: bash
-        run: mvn -B clean package --no-transfer-progress -DskipTests -Dmaven.javadoc.skip=true -Djavafx.platform=mac
-
-      - name: Build with Maven
-        if: runner.os != 'macOS'
-        shell: bash
-        run: mvn -B clean package --no-transfer-progress -DskipTests -Dmaven.javadoc.skip=true
+        run: ./gradlew clean appImage -x test --no-daemon
 
       - name: Prepare distribution
         shell: bash
         run: |
           mkdir -p dist
-          cp target/dalian-dagunzi.jar dist/
-          cp -r target/lib dist/
+          cp build/app/dalian-dagunzi.jar dist/
+          cp -r build/app/lib dist/
           cp LICENSE dist/
           cp README.md dist/
           mkdir -p dist/docs
@@ -75,15 +64,10 @@ jobs:
           distribution: temurin
           java-version: 25
 
-      - name: Cache Maven packages
-        uses: actions/cache@v5
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Build with Maven
+      - name: Build with Gradle
         shell: pwsh
         run: |
           & scripts\build.ps1

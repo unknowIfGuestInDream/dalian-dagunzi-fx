@@ -3,8 +3,10 @@ on:
   pull_request:
     branches: [ 'master' ]
     paths:
-      - 'pom.xml'
-      - '**/pom.xml'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'gradle.properties'
+      - '**/*.gradle'
 
 permissions:
   contents: read
