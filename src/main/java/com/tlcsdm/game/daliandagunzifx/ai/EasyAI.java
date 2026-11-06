@@ -52,7 +52,7 @@ public class EasyAI implements AIStrategy {
     protected static final int MIN_POINTS_FOR_TRUMP_OVERRIDE = 10;
 
     // 冒险出牌策略开关：开启后 AI 会在不确定牌是否最大时主动争墩、用主牌毙分（赌博心理）。
-    // 默认关闭，保持稳健保守的出牌风格；游戏层面通过 AppSettings 默认开启冒险模式。
+    // 默认关闭，保持稳健保守的出牌风格；游戏层面通过 AppConfig 默认开启冒险模式。
     protected boolean aggressive = false;
 
     @Override

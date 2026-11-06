@@ -26,17 +26,17 @@
  */
 package com.tlcsdm.game.daliandagunzifx;
 
+import com.tlcsdm.game.daliandagunzifx.lwjgl3.DesktopLauncher;
+
 /**
- * Launcher class for the DaGunZi application.
+ * 应用入口包装类。
  * <p>
- * This class serves as the main entry point for the packaged JAR.
- * It avoids extending {@code javafx.application.Application} directly,
- * which prevents the "Missing JavaFX runtime components" error when
- * launching from a classpath-based JAR.
+ * 该类作为打包后 JAR 的主类（{@code Main-Class}），委托 libgdx 的 LWJGL3 启动器启动，
+ * 便于 jpackage 等打包工具以类路径方式稳定运行。
  */
 public class Launcher {
 
     public static void main(String[] args) {
-        DaGunZiApp.main(args);
+        DesktopLauncher.main(args);
     }
 }

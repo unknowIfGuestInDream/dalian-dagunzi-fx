@@ -1,1 +1,11 @@
+// 插件仓库优先使用阿里云镜像，加速国内构建；保留官方仓库作为回退
+pluginManagement {
+    repositories {
+        maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url = 'https://maven.aliyun.com/repository/public' }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
 rootProject.name = 'dalian-dagunzi-fx'
