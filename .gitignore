@@ -1,6 +1,5 @@
 HELP.md
 target/
-!.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
@@ -40,8 +39,6 @@ target/
 out/
 qodana.sarif.json
 **/integration-test-screenshots/**
-.flattened-pom.xml
-dependency-reduced-pom.xml
 
 ### NetBeans ###
 /nbproject/private/
@@ -53,19 +50,19 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+### Gradle ###
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
 ### VS Code ###
 .vscode/**
 !.vscode/launch.json
 !.vscode/settings.json
 !.vscode/tasks.json
-/.mvn/wrapper/
-/mvnw
-/mvnw.cmd
 
 ### Application ###
 logs/
 .jython_cache
-pom.xml.versionsBackup
 .cache/
 *.bak
 .xcodemap/

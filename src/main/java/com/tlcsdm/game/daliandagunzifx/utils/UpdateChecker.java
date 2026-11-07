@@ -111,6 +111,12 @@ public final class UpdateChecker {
                 .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 404) {
+                // GitHub 在仓库尚无正式 Release 时，/releases/latest 会返回 404，
+                // 这属于正常情况（当前即为最新），按调试级别记录即可，不作为告警打扰用户。
+                log.debug("尚未发布正式版本（/releases/latest 返回 404），视为已是最新版本");
+                return null;
+            }
             if (response.statusCode() != 200) {
                 log.warn("检查更新失败，HTTP 状态码：{}", response.statusCode());
                 return null;

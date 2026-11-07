@@ -41,6 +41,9 @@ public class EasyAI implements AIStrategy {
 
     // 小掉主策略的强度上限：低于此值的主牌视为"小主"（排除2/主牌级/王牌）
     private static final int SMALL_TRUMP_THRESHOLD = 950;
+    // 小掉主属残局清主战术：仅当手牌数不超过此阈值（进入残局）才主动领出小主棒子/滚子。
+    // 开局/中局手牌多时甩小主，会被对手大主（2/级牌/王）管上并垫入 10/K 分牌，反而送分失控，故不主动领出。
+    protected static final int SMALL_TRUMP_LEAD_MAX_HAND = 10;
     // 排序优先级偏移：特殊主牌/分牌排到最后
     protected static final int SORT_PRIORITY_OFFSET = 10000;
     // 分牌排序惩罚偏移：使分牌排在普通牌之后、特殊主牌之前，
@@ -52,7 +55,7 @@ public class EasyAI implements AIStrategy {
     protected static final int MIN_POINTS_FOR_TRUMP_OVERRIDE = 10;
 
     // 冒险出牌策略开关：开启后 AI 会在不确定牌是否最大时主动争墩、用主牌毙分（赌博心理）。
-    // 默认关闭，保持稳健保守的出牌风格；游戏层面通过 AppSettings 默认开启冒险模式。
+    // 默认关闭，保持稳健保守的出牌风格；游戏层面通过 AppConfig 默认开启冒险模式。
     protected boolean aggressive = false;
 
     @Override
@@ -141,8 +144,9 @@ public class EasyAI implements AIStrategy {
     /**
      * 领出时检查是否有适合打出的对子(棒子)或滚子。
      * 策略：
-     * 1. 优先出强副牌（A或K）的棒子/滚子，这些牌力大，很可能赢墩
-     * 2. 没有强副牌时，考虑小掉主（出小主牌的棒子/滚子，清理弱主）
+     * 1. 优先出强副牌（A）的棒子/滚子，这些牌力大，很可能赢墩
+     * 2. 仅在残局（手牌数 ≤ {@link #SMALL_TRUMP_LEAD_MAX_HAND}）才考虑小掉主（出小主牌的棒子/滚子清理弱主）；
+     *    开局/中局手牌多时不主动甩小主，避免被对手大主管上并垫入分牌
      * 3. 不出弱副牌的棒子/滚子，避免浪费多张牌却赢不了
      */
     protected List<Card> chooseLeadMulti(Player player, GameEngine engine) {
@@ -220,12 +224,14 @@ public class EasyAI implements AIStrategy {
         if (bestStrongBang != null && engine.isValidPlay(player.getId(), bestStrongBang)) {
             return bestStrongBang;
         }
-        // 最后考虑小掉主（清理弱主牌）
-        if (bestSmallTrumpGunzi != null && engine.isValidPlay(player.getId(), bestSmallTrumpGunzi)) {
-            return bestSmallTrumpGunzi;
-        }
-        if (bestSmallTrumpBang != null && engine.isValidPlay(player.getId(), bestSmallTrumpBang)) {
-            return bestSmallTrumpBang;
+        // 最后考虑小掉主（清理弱主牌）——仅限残局；开局/中局手牌多时不主动甩小主，避免被对手大主管上垫分
+        if (hand.size() <= SMALL_TRUMP_LEAD_MAX_HAND) {
+            if (bestSmallTrumpGunzi != null && engine.isValidPlay(player.getId(), bestSmallTrumpGunzi)) {
+                return bestSmallTrumpGunzi;
+            }
+            if (bestSmallTrumpBang != null && engine.isValidPlay(player.getId(), bestSmallTrumpBang)) {
+                return bestSmallTrumpBang;
+            }
         }
         return null;
     }
@@ -536,13 +542,13 @@ public class EasyAI implements AIStrategy {
                 .orElse(validCards.get(0));
         }
 
-        // 只剩主牌，优先出非特殊的小主牌
+        // 只剩主牌，优先出非特殊的小主牌：避免送分、不拆棒子/滚子，再省下大主牌控场
         List<Card> nonSpecialTrump = trumpCards.stream()
             .filter(c -> !isSpecialTrump(c, trumpInfo))
             .collect(Collectors.toList());
         if (!nonSpecialTrump.isEmpty()) {
             return nonSpecialTrump.stream()
-                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
+                .min(leadTrumpComparator(player.getHand(), trumpInfo))
                 .orElse(nonSpecialTrump.get(0));
         }
         return validCards.stream()
@@ -612,6 +618,11 @@ public class EasyAI implements AIStrategy {
             int trickPoints = calculateCurrentTrickPoints(engine);
             boolean hasNonPointCard = suitCards.stream()
                 .anyMatch(c -> c.getPoints() == 0 && !isSpecialTrump(c, trumpInfo));
+            // 队友已出牌时（到此队友必非本墩赢家），说明对手正赢着本墩、AI 是本队最后一道防线；
+            // 若墩面有可观分值（棒10/K 级别，≥10 分），允许动用常主2/级牌等特殊主牌（大王除外，留作兜底）
+            // 把分夺回来，不白送对手在主牌花色上得分 —— 修复对主牌花色的分(5/10/K)不敏感、
+            // 未意识到 2 及以上能管上主牌花色的问题。
+            boolean grabTrumpPoints = trickPoints >= 10 && hasPartnerPlayed(player, engine);
             if (!aggressive && hasNonPointCard
                     && !hasPartnerPlayed(player, engine) && !isLastToPlay(player, engine)) {
                 return playLow(suitCards, trumpInfo);
@@ -623,7 +634,11 @@ public class EasyAI implements AIStrategy {
                 int currentWinStrength = getCurrentTrickWinnerStrength(engine);
                 Card bestWinner = null;
                 for (Card card : suitCards) {
-                    if (isSpecialTrump(card, trumpInfo)) continue;
+                    // 通常保护特殊主牌不轻易跟出；但作为最后防线夺分（grabTrumpPoints）时放行（大王仍保留）
+                    if (isSpecialTrump(card, trumpInfo)
+                            && (!grabTrumpPoints || card.getRank() == Rank.BIG_JOKER)) {
+                        continue;
+                    }
                     int strength = trumpInfo.getCardStrength(card);
                     if (strength > currentWinStrength) {
                         if (bestWinner == null || strength < trumpInfo.getCardStrength(bestWinner)) {
@@ -832,6 +847,34 @@ public class EasyAI implements AIStrategy {
         Rank rank = card.getRank();
         return rank == Rank.BIG_JOKER || rank == Rank.SMALL_JOKER
             || rank == Rank.TWO || rank == trumpInfo.getTrumpRank();
+    }
+
+    /**
+     * 判断某张牌在手中是否属于棒子/滚子（同花色、同点数 ≥ 2 张）。
+     * 领出单张时应尽量避免拆散这类牌组，保留成对/成组的打牌能力，
+     * 符合"明明是棒牌不应拆开来出"的常规出牌思维。
+     */
+    protected boolean isPartOfGroup(Card card, List<Card> hand) {
+        int count = 0;
+        for (Card c : hand) {
+            if (c.getRank() == card.getRank() && c.getSuit() == card.getSuit()) {
+                count++;
+            }
+        }
+        return count >= 2;
+    }
+
+    /**
+     * 只剩主牌被迫领出单张时的取舍顺序：
+     * 1. 优先非分牌（避免主动送出主牌花色的 5/10/K 分值）；
+     * 2. 优先不拆散棒子/滚子的单张（保留成组打牌能力）；
+     * 3. 再按牌力从小到大（省下大主牌控场）。
+     */
+    protected Comparator<Card> leadTrumpComparator(List<Card> hand, TrumpInfo trumpInfo) {
+        return Comparator
+            .comparingInt((Card c) -> c.getPoints() > 0 ? 1 : 0)
+            .thenComparingInt(c -> isPartOfGroup(c, hand) ? 1 : 0)
+            .thenComparingInt(trumpInfo::getCardStrength);
     }
 
     /**

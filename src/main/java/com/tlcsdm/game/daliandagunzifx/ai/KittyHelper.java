@@ -40,9 +40,15 @@ import java.util.List;
 final class KittyHelper {
 
     /**
-     * 庄家主牌数量达到该阈值时，认为主牌足够强、不依赖小王，可考虑扣小王搏一个升级。
+     * 庄家主牌数量达到该阈值时，认为主牌足够多、不依赖小王，可考虑扣小王搏一个升级。
      */
-    private static final int STRONG_TRUMP_THRESHOLD = 16;
+    private static final int STRONG_TRUMP_THRESHOLD = 18;
+
+    /**
+     * 顶级控制牌（大/小王、常主2、级牌）达到该数量时，认为对主牌花色掌控足够强，
+     * 扣掉小王后仍握有充分控制权，才允许扣王。避免"无论手牌如何都扣王"。
+     */
+    private static final int TOP_TRUMP_THRESHOLD = 6;
 
     private KittyHelper() {
     }
@@ -80,21 +86,42 @@ final class KittyHelper {
     }
 
     /**
-     * 判断庄家是否考虑扣小王：手中必须有小王，且主牌数量达到阈值（主牌足够强，不依赖小王）。
+     * 判断庄家是否考虑扣小王。为避免"无论手牌如何都扣王"，需同时满足：
+     * <ol>
+     *   <li>手中有小王可扣；</li>
+     *   <li>手中保留大王——扣掉小王后仍握绝对控制，不会丢失牌权；</li>
+     *   <li>主牌数量足够多（不含待扣小王），主牌不弱；</li>
+     *   <li>顶级控制牌（大/小王、常主2、级牌）足够多，扣掉小王后仍有充分掌控。</li>
+     * </ol>
      */
     private static boolean shouldKouWang(List<Card> hand, TrumpInfo trumpInfo) {
         boolean hasSmallJoker = false;
-        int trumpCount = 0;
+        boolean hasBigJoker = false;
+        int trumpCount = 0;      // 主牌总数（不含待扣的小王）
+        int topTrumpCount = 0;   // 顶级控制牌：大/小王 + 常主2 + 级牌
         for (Card card : hand) {
-            if (card.getRank() == Rank.SMALL_JOKER) {
+            Rank rank = card.getRank();
+            if (rank == Rank.SMALL_JOKER) {
                 hasSmallJoker = true;
-                // 小王本身也是主牌，但判断“是否依赖小王”时应将其排除
+                topTrumpCount++;
+                // 小王本身也是主牌，但判断"是否依赖小王"时应将其从 trumpCount 排除
+                continue;
+            }
+            if (rank == Rank.BIG_JOKER) {
+                hasBigJoker = true;
+                topTrumpCount++;
+                trumpCount++;
                 continue;
             }
             if (trumpInfo.isTrump(card)) {
                 trumpCount++;
+                if (rank == Rank.TWO || rank == trumpInfo.getTrumpRank()) {
+                    topTrumpCount++;
+                }
             }
         }
-        return hasSmallJoker && trumpCount >= STRONG_TRUMP_THRESHOLD;
+        return hasSmallJoker && hasBigJoker
+            && trumpCount >= STRONG_TRUMP_THRESHOLD
+            && topTrumpCount >= TOP_TRUMP_THRESHOLD;
     }
 }

@@ -13,10 +13,10 @@ $ErrorActionPreference = 'Stop'
 # Resolve version
 $version = $env:APP_VERSION
 if (-not $version) {
-    # Fallback: extract version from Maven if not set in environment
-    $version = & mvn -q -DforceStdout 'help:evaluate' -Dexpression='project.version' 2>$null
-    $version = $version.Trim()
-    if (-not $version) { throw 'APP_VERSION not set and failed to extract version from Maven' }
+    # Fallback: extract version from Gradle if not set in environment
+    $version = & .\gradlew.bat -q printVersion --no-daemon | Select-Object -Last 1
+    $version = "$version".Trim()
+    if (-not $version) { throw 'APP_VERSION not set and failed to extract version from Gradle' }
 }
 
 Write-Host "Packaging version: $version" -ForegroundColor Cyan

@@ -754,4 +754,44 @@ class GameEngineTest {
         }
         // 若 400 次内未出现多贡场景，不视为失败（场景较罕见）。
     }
+
+    @Test
+    void testForbiddenLeadPlaysRejected() {
+        // 领出校验：绝对禁止甩牌、顺子、拖拉机(连对)、泰坦尼克(连三条)，仅允许单张/棒子/滚子
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.SPADE);
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
+        engine.setKitty(kittyCards);
+
+        // 庄家(玩家0)领出；清空手牌并放入受控的红桃副牌（主为黑桃，红桃均为副牌）
+        Player leader = players[0];
+        leader.getHand().clear();
+        Card h5a = new Card(Suit.HEART, Rank.FIVE, 800);
+        Card h5b = new Card(Suit.HEART, Rank.FIVE, 801);
+        Card h6a = new Card(Suit.HEART, Rank.SIX, 802);
+        Card h6b = new Card(Suit.HEART, Rank.SIX, 803);
+        Card h7a = new Card(Suit.HEART, Rank.SEVEN, 804);
+        Card h7b = new Card(Suit.HEART, Rank.SEVEN, 805);
+        Card h7c = new Card(Suit.HEART, Rank.SEVEN, 806);
+        Card h8a = new Card(Suit.HEART, Rank.EIGHT, 807);
+        Card h8b = new Card(Suit.HEART, Rank.EIGHT, 808);
+        Card h8c = new Card(Suit.HEART, Rank.EIGHT, 809);
+        Card h9 = new Card(Suit.HEART, Rank.NINE, 810);
+        Card c6 = new Card(Suit.CLUB, Rank.SIX, 811);
+        leader.addCards(List.of(h5a, h5b, h6a, h6b, h7a, h7b, h7c, h8a, h8b, h8c, h9, c6));
+
+        // 禁止：甩牌（两张不同花色）
+        assertFalse(engine.isValidPlay(0, List.of(h5a, c6)), "应禁止甩牌(不同花色混出)");
+        // 禁止：顺子（5 张连续）
+        assertFalse(engine.isValidPlay(0, List.of(h5a, h6a, h7a, h8a, h9)), "应禁止顺子");
+        // 禁止：拖拉机/连对（5566）
+        assertFalse(engine.isValidPlay(0, List.of(h5a, h5b, h6a, h6b)), "应禁止拖拉机(连对)");
+        // 禁止：泰坦尼克/连三条（777888）
+        assertFalse(engine.isValidPlay(0, List.of(h7a, h7b, h7c, h8a, h8b, h8c)), "应禁止连三条");
+
+        // 允许：单张/棒子/滚子
+        assertTrue(engine.isValidPlay(0, List.of(h5a)), "应允许单张");
+        assertTrue(engine.isValidPlay(0, List.of(h5a, h5b)), "应允许棒子");
+        assertTrue(engine.isValidPlay(0, List.of(h7a, h7b, h7c)), "应允许滚子");
+    }
 }
