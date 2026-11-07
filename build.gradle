@@ -3,8 +3,8 @@
  *
  * 2.0.0 起使用 libgdx 重写桌面 UI（替换原 JavaFX），并以 Gradle 替代 Maven：
  *   - JDK 25 工具链
- *   - libgdx 1.13.1 + LWJGL3 桌面后端 + FreeType（支持中文字体）
- *   - JUnit 5 单元测试（覆盖引擎/AI/模型等与 UI 无关的核心逻辑）
+ *   - libgdx 1.14.2 + LWJGL3 桌面后端 + FreeType（支持中文字体）
+ *   - JUnit 5 单元测试 + JaCoCo 覆盖率报告（覆盖引擎/AI/模型等与 UI 无关的核心逻辑）
  *   - 源文件 license 头校验（license 插件，等价于原 license-maven-plugin）
  *   - 打包出可被 jpackage 使用的 `dalian-dagunzi.jar` + `lib/` 依赖目录
  *
@@ -18,18 +18,26 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        // license 插件（等价于原 license-maven-plugin）。其默认传递依赖 plexus-utils 2.0.6
-        // 存在命令注入与目录穿越漏洞（GHSA-8vhq-qq4p-grq3 等），这里排除旧版并强制改用已修复的 3.6.1。
+        // license 插件（等价于原 license-maven-plugin）。其传递依赖存在多个高危漏洞，这里一并处理：
+        //  - plexus-utils 2.0.6：命令注入 / 目录穿越（GHSA-8vhq-qq4p-grq3 等），强制改用已修复的 3.6.1；
+        //  - spring-core / spring-asm 3.1.3.RELEASE：权限提升 / 路径保护绕过等高危漏洞。license 插件仅
+        //    用到 spring-core 的 PropertyPlaceholderHelper（解析 license 头中的 ${year} 占位符），该 API
+        //    自 Spring 3.0 起稳定不变，故排除整组漏洞版 Spring，改用已修复的 spring-core 6.2.11（不再需要
+        //    已并入核心的 spring-asm），既消除 dependency-review 高危告警又不影响 license 校验功能。
         classpath('gradle.plugin.com.hierynomus.gradle.plugins:license-gradle-plugin:0.16.1') {
             exclude group: 'org.codehaus.plexus', module: 'plexus-utils'
+            exclude group: 'org.springframework'
         }
         classpath 'org.codehaus.plexus:plexus-utils:3.6.1'
+        classpath 'org.springframework:spring-core:6.2.11'
     }
 }
 
 plugins {
     id 'java'
     id 'application'
+    // 代码覆盖率：生成 JUnit 测试的分支/行覆盖率报告（HTML + XML），辅助评估测试完备度
+    id 'jacoco'
 }
 
 // 以传统方式应用 license 插件，以便在 buildscript 中控制其传递依赖版本（见上方 plexus-utils 说明）
@@ -39,8 +47,8 @@ group = project.findProperty('group') ?: 'com.tlcsdm.game'
 version = project.findProperty('version') ?: '2.0.0'
 description = 'DaLian DaGunZi'
 
-ext.gdxVersion = project.findProperty('gdxVersion') ?: '1.13.1'
-// libgdx 1.13.1 传递依赖 LWJGL 3.3.3，其在 JDK 24+ 上会调用已弃用的 sun.misc.Unsafe::objectFieldOffset，
+ext.gdxVersion = project.findProperty('gdxVersion') ?: '1.14.2'
+// libgdx 的 LWJGL3 后端传递依赖 LWJGL 3.3.3，其在 JDK 24+ 上会调用已弃用的 sun.misc.Unsafe::objectFieldOffset，
 // 并因无法识别新版 JNI 版本而打印 "Unsupported JNI version" 提示。LWJGL 在 3.3.x 内保持二进制兼容，
 // 3.3.6 改用 FFM 后端并适配 JDK 25，这里统一强制升级以消除上述启动告警。
 ext.lwjglVersion = project.findProperty('lwjglVersion') ?: '3.3.6'
@@ -109,6 +117,21 @@ tasks.named('test') {
     useJUnitPlatform()
     testLogging {
         events 'passed', 'skipped', 'failed'
+    }
+    // 测试完成后自动生成覆盖率报告
+    finalizedBy tasks.named('jacocoTestReport')
+}
+
+// JaCoCo 覆盖率报告：输出 HTML（build/reports/jacoco/test/html/index.html）与 XML（供 CI 上传）
+jacoco {
+    toolVersion = '0.8.13'
+}
+
+tasks.named('jacocoTestReport') {
+    dependsOn tasks.named('test')
+    reports {
+        xml.required = true
+        html.required = true
     }
 }
 
