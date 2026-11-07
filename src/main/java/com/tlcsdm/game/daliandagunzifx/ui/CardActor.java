@@ -110,7 +110,14 @@ public class CardActor extends Actor {
         // 左上角：花色符号 + 点数（两行）
         BitmapFont corner = assets.getFontCardCorner();
         corner.setColor(textColor.r, textColor.g, textColor.b, a);
-        corner.draw(batch, cornerText(card), x + 5, y + h - 5);
+        String cornerText = cornerText(card);
+        corner.draw(batch, cornerText, x + 5, y + h - 5);
+
+        // 右下角：与左上角对称的花色符号 + 点数（两行、右对齐），更贴近真实扑克牌样式
+        LAYOUT.setText(corner, cornerText);
+        float cornerW = LAYOUT.width;
+        float cornerH = LAYOUT.height;
+        corner.draw(batch, cornerText, x + w - 5 - cornerW, y + 5 + cornerH);
 
         // 中央大符号
         BitmapFont center = assets.getFontCardCenter();
