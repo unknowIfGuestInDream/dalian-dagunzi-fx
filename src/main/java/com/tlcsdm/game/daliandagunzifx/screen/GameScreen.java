@@ -108,6 +108,8 @@ public class GameScreen extends BaseStageScreen {
 
     // 交互状态
     private final List<Card> selectedKittyCards = new ArrayList<>();
+    // 本局最初发到的 6 张底牌（埋底前的原始底牌），用于"查看底牌"规则
+    private final List<Card> originalKitty = new ArrayList<>();
     private final List<Card> selectedPlayCards = new ArrayList<>();
     private boolean waitingForHumanPlay;
     private boolean waitingForKitty;
@@ -194,6 +196,8 @@ public class GameScreen extends BaseStageScreen {
         toolbar.defaults().padRight(8);
         toolbar.add(UiUtils.button("规则", assets.getButtonStyle(),
             () -> game.setScreen(new RulesScreen(game, this)))).width(90).height(40);
+        toolbar.add(UiUtils.button("看底牌", assets.getButtonStyle(), this::viewKittyByRule))
+            .width(90).height(40);
         toolbar.add(UiUtils.button("重开本局", assets.getButtonStyle(),
             () -> Dialogs.showConfirm(stage, assets, "重开本局", "确定重新开始本局吗？", this::restartCurrentRound)))
             .width(110).height(40);
@@ -301,6 +305,7 @@ public class GameScreen extends BaseStageScreen {
     private void startNewRound() {
         cardTracker.reset();
         selectedKittyCards.clear();
+        originalKitty.clear();
         selectedPlayCards.clear();
         waitingForHumanPlay = false;
         waitingForKitty = false;
@@ -475,6 +480,11 @@ public class GameScreen extends BaseStageScreen {
     // ======================== 叫主 ========================
 
     private void afterTrumpDeclared(int dealerIdx) {
+        // 记录埋底前最初发到的 6 张底牌，供"查看底牌"规则在出牌阶段展示给没干锅的玩家
+        originalKitty.clear();
+        if (engine.getKitty() != null) {
+            originalKitty.addAll(engine.getKitty());
+        }
         displayCenterCards("底牌", engine.getKitty(), true);
         updateInfoPanel();
         updatePlayersPanel();
@@ -920,6 +930,63 @@ public class GameScreen extends BaseStageScreen {
         updatePlayersPanel();
     }
 
+    /**
+     * 按大连打滚子规则查看底牌（工具栏"看底牌"）：
+     * <ul>
+     *   <li>叫主/埋底前：展示最初发到的底牌；</li>
+     *   <li>出牌中：干锅（人类是本局庄家）或本局扣王，可看扣好的底牌；否则只能看最初发的底牌，
+     *       扣下的底牌要到本局结束才可见；</li>
+     *   <li>本局结束：可看扣好的底牌。</li>
+     * </ul>
+     */
+    private void viewKittyByRule() {
+        if (engine.getTrumpInfo() == null
+            || engine.getKitty() == null || engine.getKitty().isEmpty()) {
+            setStatus("底牌尚未产生");
+            return;
+        }
+        GamePhase phase = engine.getPhase();
+        boolean buried = phase == GamePhase.PLAYING || phase == GamePhase.ROUND_END;
+        boolean humanIsDealer = engine.getDealerIndex() == 0;   // 干锅：人类是本局庄家
+        boolean kouWang = engine.getKittyBloods() > 0;          // 本局是否扣王
+        boolean roundOver = phase == GamePhase.ROUND_END;
+        boolean canSeeBuried = humanIsDealer || kouWang || roundOver;
+
+        List<Card> show;
+        String title;
+        boolean buriedHidden = false;
+        if (!buried) {
+            // 埋底尚未完成：底牌即为最初发的底牌
+            show = engine.getKitty();
+            title = "最初底牌";
+        } else if (canSeeBuried) {
+            show = engine.getKitty();
+            title = kouWang ? "扣王底牌" : "底牌";
+        } else {
+            // 没干锅没扣王且本局未结束：只能看最初发的底牌，看不到扣下的底牌
+            if (originalKitty.isEmpty()) {
+                setStatus("当前无法查看扣下的底牌，本局结束后可查看");
+                return;
+            }
+            show = new ArrayList<>(originalKitty);
+            title = "最初底牌";
+            buriedHidden = true;
+        }
+
+        displayCenterCards(title, show, true);
+        int pts = 0;
+        StringBuilder sb = new StringBuilder(title).append("：");
+        for (Card card : show) {
+            sb.append(cardName(card)).append(" ");
+            pts += card.getPoints();
+        }
+        sb.append("（分值：").append(pts).append("分）");
+        if (buriedHidden) {
+            sb.append("  ·扣下的底牌本局结束后可见");
+        }
+        setStatus(sb.toString());
+    }
+
     private void showKittyCards() {
         List<Card> kittyCards = engine.getKitty();
         if (kittyCards == null || kittyCards.isEmpty()) {
@@ -1156,7 +1223,7 @@ public class GameScreen extends BaseStageScreen {
         }
 
         if (ti != null) {
-            dealerLabel.setText("🀄 庄家：" + players[engine.getDealerIndex()].getName());
+            dealerLabel.setText("庄家：" + players[engine.getDealerIndex()].getName());
             dealerLabel.setColor(Assets.GOLD);
         } else {
             dealerLabel.setText("庄家：未定");
@@ -1180,7 +1247,7 @@ public class GameScreen extends BaseStageScreen {
             }
             String name = players[i].getName() + "（" + players[i].getHand().size() + "）";
             if (i == dealerIdx) {
-                name = "🀄 " + name + " [庄]";
+                name = name + " [庄]";
             }
             label.setText(name);
             if (i == currentHighlightIdx) {

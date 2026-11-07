@@ -64,22 +64,18 @@ public class RoundResult {
             this.winningTeam = defenderTeam;
         }
 
-        // 进贡计算：分数惩罚 +（仅扣王失败时）扣王血
-        // 规则：扣王成功（庄家赢）时，王的级数已计入升级（levelChange），不再进贡；
-        //       扣王失败（庄家扣王但闲家≥120）时，才按 1 大王=2 贡、1 小王=1 贡进行额外进贡惩罚。
+        // 进贡计算：分数惩罚 + 扣王血（无论扣王成功或失败，贡始终由输方流向赢方）
+        // 规则（docs/规则.md 第 11 行）：扣王成功（庄家赢、闲家<120）时「一张大王升2级并且吃2个贡」，
+        //   即除升级外赢方还额外收贡（庄家对门下一局当庄时收贡）；
+        // 规则（第 13 行）：扣王失败（庄家扣王但闲家≥120）时，由扣王的输方进贡给赢方，大王=2 贡、小王=1 贡。
+        // 两种情形下扣王血都计入进贡，方向均为输方→赢方（赢方的下一局庄家收贡）。
         int scoreTribute = 0;
         if (defenderPoints < 80) {
             scoreTribute = (80 - defenderPoints) / 10;
         } else if (defenderPoints > 150) {
             scoreTribute = (defenderPoints - 150) / 10;
         }
-        if (defenderPoints < 120) {
-            // 扣王成功：仅分数惩罚进贡
-            this.tributeCount = scoreTribute;
-        } else {
-            // 扣王失败：分数惩罚 + 扣王血进贡
-            this.tributeCount = scoreTribute + kittyBloods;
-        }
+        this.tributeCount = scoreTribute + kittyBloods;
     }
 
     public int getDefenderPoints() {

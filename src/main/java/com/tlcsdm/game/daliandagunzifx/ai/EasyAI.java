@@ -618,6 +618,11 @@ public class EasyAI implements AIStrategy {
             int trickPoints = calculateCurrentTrickPoints(engine);
             boolean hasNonPointCard = suitCards.stream()
                 .anyMatch(c -> c.getPoints() == 0 && !isSpecialTrump(c, trumpInfo));
+            // 队友已出牌时（到此队友必非本墩赢家），说明对手正赢着本墩、AI 是本队最后一道防线；
+            // 若墩面有可观分值（棒10/K 级别，≥10 分），允许动用常主2/级牌等特殊主牌（大王除外，留作兜底）
+            // 把分夺回来，不白送对手在主牌花色上得分 —— 修复对主牌花色的分(5/10/K)不敏感、
+            // 未意识到 2 及以上能管上主牌花色的问题。
+            boolean grabTrumpPoints = trickPoints >= 10 && hasPartnerPlayed(player, engine);
             if (!aggressive && hasNonPointCard
                     && !hasPartnerPlayed(player, engine) && !isLastToPlay(player, engine)) {
                 return playLow(suitCards, trumpInfo);
@@ -629,7 +634,11 @@ public class EasyAI implements AIStrategy {
                 int currentWinStrength = getCurrentTrickWinnerStrength(engine);
                 Card bestWinner = null;
                 for (Card card : suitCards) {
-                    if (isSpecialTrump(card, trumpInfo)) continue;
+                    // 通常保护特殊主牌不轻易跟出；但作为最后防线夺分（grabTrumpPoints）时放行（大王仍保留）
+                    if (isSpecialTrump(card, trumpInfo)
+                            && (!grabTrumpPoints || card.getRank() == Rank.BIG_JOKER)) {
+                        continue;
+                    }
                     int strength = trumpInfo.getCardStrength(card);
                     if (strength > currentWinStrength) {
                         if (bestWinner == null || strength < trumpInfo.getCardStrength(bestWinner)) {

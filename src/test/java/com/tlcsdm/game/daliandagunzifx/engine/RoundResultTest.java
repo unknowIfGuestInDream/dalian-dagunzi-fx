@@ -163,16 +163,16 @@ class RoundResultTest {
 
     @Test
     void testKittyBloods() {
-        // 扣王成功（庄家赢）：王的级数计入升级，不进贡，进贡仅来自分数惩罚
+        // 扣王成功（庄家赢）：王的级数既计入升级，也计入进贡（规则第 11 行「升2级并且吃2个贡」）
         RoundResult r100_2bloods = new RoundResult(100, 0, 2);
         assertTrue(r100_2bloods.isDeclarerWins());
-        assertEquals(0, r100_2bloods.getTributeCount()); // 100 分无分数惩罚，扣王成功不进贡
+        assertEquals(2, r100_2bloods.getTributeCount()); // 分数惩罚 0 + 扣王血 2
         assertEquals(2, r100_2bloods.getKittyBloods());
 
-        // 扣王成功（庄家赢）+ 低分：进贡仅为分数惩罚，不含扣王血
+        // 扣王成功（庄家赢）+ 低分：进贡 = 分数惩罚 + 扣王血
         RoundResult r50_3bloods = new RoundResult(50, 0, 3);
         assertTrue(r50_3bloods.isDeclarerWins());
-        assertEquals(3, r50_3bloods.getTributeCount()); // (80-50)/10 = 3，扣王成功不额外进贡
+        assertEquals(6, r50_3bloods.getTributeCount()); // (80-50)/10 = 3，再加扣王血 3
 
         // 扣王失败（闲家≥120 但庄家扣了王）：分数惩罚 + 扣王血
         RoundResult r170_1blood = new RoundResult(170, 0, 1);
@@ -186,13 +186,13 @@ class RoundResultTest {
     }
 
     @Test
-    void testKittyBloodsNotDoubleCounted() {
-        // 回归测试：扣王成功时，王的级数只计入升级，绝不同时计入进贡（避免双重计算）。
-        // 庄家赢 + 扣大王（2 血）+ 中间分段（无分数惩罚）
+    void testKittyBloodsTributeOnSuccess() {
+        // 规则第 11 行：扣王成功（庄家赢、闲家<120）时「一张大王升2级并且吃2个贡」，
+        // 即升级与收贡同时发生，庄家对门下一局当庄时收取扣王血的进贡。
         RoundResult success = new RoundResult(100, 0, 2);
         assertTrue(success.isDeclarerWins());
         assertEquals(3, success.getLevelChange());   // 1 + 2 级
-        assertEquals(0, success.getTributeCount());   // 扣王成功不进贡
+        assertEquals(2, success.getTributeCount());   // 分数惩罚 0 + 扣王血 2，庄家对门收贡
 
         // 扣王失败（闲家 125 分）：不加扣王级，仅进贡扣王血
         RoundResult failure = new RoundResult(125, 0, 2);

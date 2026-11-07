@@ -512,11 +512,17 @@ public class MediumAI implements AIStrategy {
 
         // 有分值得争，或手中只剩分牌时尝试压牌，保护特殊主牌（2/王/主牌级）
         // 冒险策略：即使本墩暂无分，也主动争墩夺取控制权
+        // 队友已出牌时（到此队友必非赢家）AI 是本队最后防线，若墩面有可观分值（≥10 分），
+        // 允许动用常主2/级牌等特殊主牌（大王除外）夺回主牌花色上的分。
+        boolean grabTrumpPoints = trickPoints >= 10 && easyAI.hasPartnerPlayed(player, engine);
         if (trickPoints > 0 || !hasNonPointCard || easyAI.isAggressive()) {
             int currentWinStrength = getCurrentWinningStrength(engine);
             Card bestWinner = null;
             for (Card card : suitCards) {
-                if (easyAI.isSpecialTrump(card, trumpInfo)) continue;
+                if (easyAI.isSpecialTrump(card, trumpInfo)
+                        && (!grabTrumpPoints || card.getRank() == Rank.BIG_JOKER)) {
+                    continue;
+                }
                 int strength = trumpInfo.getCardStrength(card);
                 if (strength > currentWinStrength) {
                     if (bestWinner == null || strength < trumpInfo.getCardStrength(bestWinner)) {
