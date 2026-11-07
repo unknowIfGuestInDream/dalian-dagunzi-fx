@@ -41,6 +41,9 @@ public class EasyAI implements AIStrategy {
 
     // 小掉主策略的强度上限：低于此值的主牌视为"小主"（排除2/主牌级/王牌）
     private static final int SMALL_TRUMP_THRESHOLD = 950;
+    // 小掉主属残局清主战术：仅当手牌数不超过此阈值（进入残局）才主动领出小主棒子/滚子。
+    // 开局/中局手牌多时甩小主，会被对手大主（2/级牌/王）管上并垫入 10/K 分牌，反而送分失控，故不主动领出。
+    protected static final int SMALL_TRUMP_LEAD_MAX_HAND = 10;
     // 排序优先级偏移：特殊主牌/分牌排到最后
     protected static final int SORT_PRIORITY_OFFSET = 10000;
     // 分牌排序惩罚偏移：使分牌排在普通牌之后、特殊主牌之前，
@@ -141,8 +144,9 @@ public class EasyAI implements AIStrategy {
     /**
      * 领出时检查是否有适合打出的对子(棒子)或滚子。
      * 策略：
-     * 1. 优先出强副牌（A或K）的棒子/滚子，这些牌力大，很可能赢墩
-     * 2. 没有强副牌时，考虑小掉主（出小主牌的棒子/滚子，清理弱主）
+     * 1. 优先出强副牌（A）的棒子/滚子，这些牌力大，很可能赢墩
+     * 2. 仅在残局（手牌数 ≤ {@link #SMALL_TRUMP_LEAD_MAX_HAND}）才考虑小掉主（出小主牌的棒子/滚子清理弱主）；
+     *    开局/中局手牌多时不主动甩小主，避免被对手大主管上并垫入分牌
      * 3. 不出弱副牌的棒子/滚子，避免浪费多张牌却赢不了
      */
     protected List<Card> chooseLeadMulti(Player player, GameEngine engine) {
@@ -220,12 +224,14 @@ public class EasyAI implements AIStrategy {
         if (bestStrongBang != null && engine.isValidPlay(player.getId(), bestStrongBang)) {
             return bestStrongBang;
         }
-        // 最后考虑小掉主（清理弱主牌）
-        if (bestSmallTrumpGunzi != null && engine.isValidPlay(player.getId(), bestSmallTrumpGunzi)) {
-            return bestSmallTrumpGunzi;
-        }
-        if (bestSmallTrumpBang != null && engine.isValidPlay(player.getId(), bestSmallTrumpBang)) {
-            return bestSmallTrumpBang;
+        // 最后考虑小掉主（清理弱主牌）——仅限残局；开局/中局手牌多时不主动甩小主，避免被对手大主管上垫分
+        if (hand.size() <= SMALL_TRUMP_LEAD_MAX_HAND) {
+            if (bestSmallTrumpGunzi != null && engine.isValidPlay(player.getId(), bestSmallTrumpGunzi)) {
+                return bestSmallTrumpGunzi;
+            }
+            if (bestSmallTrumpBang != null && engine.isValidPlay(player.getId(), bestSmallTrumpBang)) {
+                return bestSmallTrumpBang;
+            }
         }
         return null;
     }

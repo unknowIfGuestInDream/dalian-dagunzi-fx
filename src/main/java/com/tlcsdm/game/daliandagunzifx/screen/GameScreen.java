@@ -220,7 +220,7 @@ public class GameScreen extends BaseStageScreen {
         handGroup.setBounds(0, 0, w, h);
 
         statusLabel.setWidth(w);
-        statusLabel.setPosition(0, h - 34);
+        statusLabel.setPosition(0, h - 28);
 
         infoPanel.pack();
         infoPanel.setPosition(w - infoPanel.getWidth() - 12, h - infoPanel.getHeight() - 12);
@@ -232,10 +232,10 @@ public class GameScreen extends BaseStageScreen {
         toolbar.pack();
         toolbar.setPosition(12, h - toolbar.getHeight() - 12);
 
-        // 玩家名称位置：下(你)/左/上(搭档)/右
+        // 玩家名称位置：下(你)/左/上(搭档)/右；顶部搭档下移，避免与顶部状态栏重叠
         playerNameLabels[0].setPosition(20, 132);
         playerNameLabels[1].setPosition(20, h / 2f);
-        playerNameLabels[2].setPosition(w / 2f - 40, h - 56);
+        playerNameLabels[2].setPosition(w / 2f - 40, h - 96);
         playerNameLabels[3].setPosition(w - 150, h / 2f);
 
         layoutActionTable();
@@ -1188,6 +1188,10 @@ public class GameScreen extends BaseStageScreen {
                 label.setColor(Color.WHITE);
             }
             label.pack();
+            // 顶部搭档名称按实际宽度水平居中，避免追加庄家标记后向右偏移
+            if (i == 2 && viewW > 0) {
+                label.setX((viewW - label.getWidth()) / 2f);
+            }
         }
     }
 

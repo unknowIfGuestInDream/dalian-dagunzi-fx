@@ -62,14 +62,6 @@ public final class Assets implements Disposable {
 
     private static final Logger log = LoggerFactory.getLogger(Assets.class);
 
-    /** 字体需要显式包含的字符：ASCII + 常用中文 UI 文字 + 花色/王/星号符号。 */
-    private static final String EXTRA_CHARS =
-        "大连打滚子小王牌主未定第局你我方对手搭档红明刚电脑思考中请选择张同花色才能抢即可叫不"
-            + "进贡回还底扣血级升赢得此墩防守得分下轮个本结束游戏碎获胜队伍确认出开始难度简单困等"
-            + "记器轮到点右击按钮思考亮王定庄随机已显示新关于版本检查更新规则返回退出设置深色主题"
-            + "激进策略是否当前正在无人从翻决放弃重玩回合跟垫将最多需要共副手数墩数剩余的和与为所有"
-            + "人可见棒对三条顺拖拉机甩泰坦尼克禁止♠♥♦♣★☆←↑→↓•：（）％，。、！？";
-
     private FreeTypeFontGenerator generator;
 
     private BitmapFont fontSmall;
@@ -142,7 +134,10 @@ public final class Assets implements Disposable {
     private BitmapFont genFont(int size) {
         FreeTypeFontGenerator.FreeTypeFontParameter param = new FreeTypeFontGenerator.FreeTypeFontParameter();
         param.size = size;
-        param.characters = FreeTypeFontGenerator.DEFAULT_CHARS + EXTRA_CHARS;
+        // 增量模式：仅预生成 ASCII，其余字符（全部中文与 ♠♥♦♣ 等花色/符号）在首次渲染时按需生成字形，
+        // 避免使用固定字符集时因遗漏字符而显示为方块（豆腐块）。
+        param.incremental = true;
+        param.characters = FreeTypeFontGenerator.DEFAULT_CHARS;
         param.minFilter = Texture.TextureFilter.Linear;
         param.magFilter = Texture.TextureFilter.Linear;
         return generator.generateFont(param);
@@ -299,15 +294,16 @@ public final class Assets implements Disposable {
 
     @Override
     public void dispose() {
-        if (generator != null) {
-            generator.dispose();
-        }
+        // 增量字体在渲染期间持有 generator 的惰性引用，须先释放字体（含其 PixmapPacker 纹理），再释放 generator。
         disposeFont(fontSmall);
         disposeFont(fontMedium);
         disposeFont(fontLarge);
         disposeFont(fontTitle);
         disposeFont(fontCardCorner);
         disposeFont(fontCardCenter);
+        if (generator != null) {
+            generator.dispose();
+        }
         if (whitePixel != null) {
             whitePixel.dispose();
         }

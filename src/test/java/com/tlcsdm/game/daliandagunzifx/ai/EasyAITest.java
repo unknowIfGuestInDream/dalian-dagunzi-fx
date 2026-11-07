@@ -790,4 +790,87 @@ class EasyAITest {
                 "多牌填充时应保留A，出最小的非A牌。实际出了: " + c.getDisplayName());
         }
     }
+
+    @Test
+    void testLeadMultiDoesNotLeadSmallTrumpBangAtOpening() {
+        // 开局手牌多时，不应主动甩小主棒子（会被对手大主管上并垫入分牌）
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        Player leader = players[engine.getCurrentPlayerIndex()];
+        leader.getHand().clear();
+        // 小主棒子（红桃5×2，主为红桃、级为3，故红桃5为小主）+ 10 张互不成对的副牌单张，共 12 张（>10，属开局/中局）
+        Card heart5a = new Card(Suit.HEART, Rank.FIVE, 800);
+        Card heart5b = new Card(Suit.HEART, Rank.FIVE, 801);
+        leader.addCards(List.of(heart5a, heart5b,
+            new Card(Suit.SPADE, Rank.FOUR, 802),
+            new Card(Suit.SPADE, Rank.SIX, 803),
+            new Card(Suit.SPADE, Rank.SEVEN, 804),
+            new Card(Suit.SPADE, Rank.EIGHT, 805),
+            new Card(Suit.SPADE, Rank.NINE, 806),
+            new Card(Suit.SPADE, Rank.JACK, 807),
+            new Card(Suit.CLUB, Rank.FOUR, 808),
+            new Card(Suit.CLUB, Rank.SIX, 809),
+            new Card(Suit.CLUB, Rank.SEVEN, 810),
+            new Card(Suit.CLUB, Rank.EIGHT, 811)));
+
+        EasyAI ai = new EasyAI();
+        assertNull(ai.chooseLeadMulti(leader, engine),
+            "开局手牌多时不应主动领出小主棒子");
+        // 退化为单张领出
+        assertEquals(1, ai.chooseCards(leader, engine).size(),
+            "开局应领出单张，而非甩小主棒子");
+    }
+
+    @Test
+    void testLeadMultiLeadsSmallTrumpBangInEndgame() {
+        // 残局（手牌≤10）时，小掉主是合理战术，应主动领出小主棒子清理弱主
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        Player leader = players[engine.getCurrentPlayerIndex()];
+        leader.getHand().clear();
+        // 小主棒子（红桃5×2）+ 4 张单张，共 6 张（≤10，属残局）
+        Card heart5a = new Card(Suit.HEART, Rank.FIVE, 800);
+        Card heart5b = new Card(Suit.HEART, Rank.FIVE, 801);
+        leader.addCards(List.of(heart5a, heart5b,
+            new Card(Suit.SPADE, Rank.FOUR, 802),
+            new Card(Suit.SPADE, Rank.SIX, 803),
+            new Card(Suit.SPADE, Rank.SEVEN, 804),
+            new Card(Suit.SPADE, Rank.EIGHT, 805)));
+
+        EasyAI ai = new EasyAI();
+        List<Card> chosen = ai.chooseLeadMulti(leader, engine);
+        assertNotNull(chosen, "残局应主动领出小主棒子");
+        assertEquals(2, chosen.size(), "小主棒子应为2张");
+        assertEquals(PlayType.BANG, engine.determinePlayType(chosen), "应为棒子(BANG)类型");
+        for (Card c : chosen) {
+            assertEquals(Rank.FIVE, c.getRank(), "应领出红桃5小主棒子");
+            assertEquals(Suit.HEART, c.getSuit());
+        }
+    }
 }
