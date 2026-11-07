@@ -328,6 +328,7 @@ public class GameScreen extends BaseStageScreen {
 
     private void animateDealing(Runnable onComplete) {
         setStatus("发牌中...");
+        showCenterBanner("发牌中", Assets.STATUS);
         float interval = engine.isFirstRound() ? 0.16f : 0.08f;
         updateHumanHand(interval);
         int n = players[0].getHand().size();
@@ -486,6 +487,11 @@ public class GameScreen extends BaseStageScreen {
             originalKitty.addAll(engine.getKitty());
         }
         displayCenterCards("底牌", engine.getKitty(), true);
+        TrumpInfo trumpInfo = engine.getTrumpInfo();
+        if (trumpInfo != null && trumpInfo.getTrumpSuit() != null) {
+            showCenterBanner("亮主 " + trumpInfo.getTrumpSuit().getDisplayName()
+                + trumpInfo.getTrumpRank().getDisplayName(), Assets.GOLD);
+        }
         updateInfoPanel();
         updatePlayersPanel();
         if (engine.isTributeRequired()) {
@@ -1192,9 +1198,35 @@ public class GameScreen extends BaseStageScreen {
     private void displayBuriedKitty() {
         if (engine.getKittyBloods() > 0) {
             displayCenterCards("扣王", engine.getKitty(), true);
+            showCenterBanner("扣王！+" + engine.getKittyBloods() + " 血", Assets.GOLD);
         } else {
             displayCenterCards("底牌", engine.getKitty(), false);
+            showCenterBanner("埋底完成", Assets.STATUS);
         }
+    }
+
+    /**
+     * 在牌桌中央弹出一条带缩放+淡入淡出动画的提示横幅，用于发牌/亮主/扣牌等阶段的视觉强化。
+     * 横幅作为一次性覆盖层加入舞台顶层，动画结束后自动移除，不影响中央底牌/出牌区的渲染。
+     */
+    private void showCenterBanner(String text, Color color) {
+        if (viewW <= 0 || viewH <= 0) {
+            return;
+        }
+        Label banner = new Label(text, assets.getTitleStyle());
+        banner.setColor(color);
+        banner.pack();
+        banner.setOrigin(Align.center);
+        banner.setPosition((viewW - banner.getWidth()) / 2f, viewH / 2f + CARD_H + 20f);
+        banner.getColor().a = 0f;
+        banner.setScale(0.6f);
+        banner.addAction(Actions.sequence(
+            Actions.parallel(Actions.fadeIn(0.25f), Actions.scaleTo(1.15f, 1.15f, 0.25f)),
+            Actions.scaleTo(1f, 1f, 0.12f),
+            Actions.delay(1.0f),
+            Actions.parallel(Actions.fadeOut(0.3f), Actions.moveBy(0f, 24f, 0.3f)),
+            Actions.removeActor()));
+        stage.addActor(banner);
     }
 
     // ======================== 渲染：信息面板 / 玩家 / 记牌器 ========================

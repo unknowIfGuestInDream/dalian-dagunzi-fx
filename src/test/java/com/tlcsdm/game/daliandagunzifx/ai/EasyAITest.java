@@ -873,4 +873,96 @@ class EasyAITest {
             assertEquals(Suit.HEART, c.getSuit());
         }
     }
+
+    @Test
+    void testFollowGrabTrumpPointsAsLastDefender() {
+        // item 1：AI 作为本队最后一道防线（队友已出且未赢），墩面有可观分值（棒K/棒5）
+        // 且对手用主牌花色赢着本墩时，应动用常主 ♥2 管上夺分，而非保守保留。
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0（对手）领出 ♥K（主牌，10 分），当前赢家
+        players[0].getHand().clear();
+        Card heartK = new Card(Suit.HEART, Rank.KING, 913);
+        players[0].addCards(List.of(heartK));
+        engine.playCard(0, heartK);
+
+        // Player 1（AI 队友）跟 ♥5（5 分，压不过 K）→ 队友已出但未赢
+        players[1].getHand().clear();
+        Card heart5 = new Card(Suit.HEART, Rank.FIVE, 905);
+        players[1].addCards(List.of(heart5));
+        engine.playCard(1, heart5);
+
+        // Player 2（对手）跟 ♥Q（压不过 K，0 分）
+        players[2].getHand().clear();
+        Card heartQ = new Card(Suit.HEART, Rank.QUEEN, 912);
+        players[2].addCards(List.of(heartQ));
+        engine.playCard(2, heartQ);
+
+        // Player 3（AI，最后出牌）：♥2(常主)、♥6、♥9；只有 ♥2 能压过 ♥K
+        players[3].getHand().clear();
+        Card heart2 = new Card(Suit.HEART, Rank.TWO, 921);
+        Card heart6 = new Card(Suit.HEART, Rank.SIX, 922);
+        Card heart9 = new Card(Suit.HEART, Rank.NINE, 923);
+        players[3].addCards(List.of(heart2, heart6, heart9));
+
+        EasyAI ai = new EasyAI();
+        Card chosen = ai.chooseCard(players[3], engine);
+
+        assertEquals(Rank.TWO, chosen.getRank(),
+            "墩面有 15 分且对手主牌花色赢着、AI 为最后防线时，应出常主 ♥2 管上夺分");
+        assertEquals(Suit.HEART, chosen.getSuit());
+    }
+
+    @Test
+    void testFollowDoesNotGrabTrumpPointsWhenPartnerNotPlayed() {
+        // item 1 对照：队友尚未出牌时，AI 不是最后防线，应把决定权留给队友，
+        // 保留常主 ♥2，出小主牌 ♥6 跟牌（即便墩面已有 10 分）。
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0（对手）领出 ♥K（10 分），当前赢家；AI 为 Player 1（第 2 位出牌，队友 Player 3 未出）
+        players[0].getHand().clear();
+        Card heartK = new Card(Suit.HEART, Rank.KING, 913);
+        players[0].addCards(List.of(heartK));
+        engine.playCard(0, heartK);
+
+        players[1].getHand().clear();
+        Card heart2 = new Card(Suit.HEART, Rank.TWO, 921);
+        Card heart6 = new Card(Suit.HEART, Rank.SIX, 922);
+        Card heart9 = new Card(Suit.HEART, Rank.NINE, 923);
+        players[1].addCards(List.of(heart2, heart6, heart9));
+
+        EasyAI ai = new EasyAI();
+        Card chosen = ai.chooseCard(players[1], engine);
+
+        assertNotEquals(Rank.TWO, chosen.getRank(),
+            "队友未出牌、AI 非最后防线时应保留常主 ♥2，交由队友管上");
+        assertFalse(ai.isSpecialTrump(chosen, engine.getTrumpInfo()),
+            "应出非特殊主牌（♥6/♥9），实际出了: " + chosen.getRank() + " " + chosen.getSuit());
+    }
 }

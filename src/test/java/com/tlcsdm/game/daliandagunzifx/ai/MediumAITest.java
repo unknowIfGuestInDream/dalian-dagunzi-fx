@@ -178,4 +178,44 @@ class MediumAITest {
             "HardAI 领出时也应兑现绝对赢张黑桃 K");
         assertEquals(Suit.SPADE, chosen.getSuit());
     }
+
+    @Test
+    void testFollowGrabsTrumpPointsAsLastDefender() {
+        // item 1：MediumAI 作为本队最后一道防线、墩面≥10 分且对手主牌花色赢着时，
+        // 应动用常主 ♥2 管上夺分。
+        Player[] players = newPlayers();
+        GameEngine engine = newEngineWithTrump(players, Suit.HEART);
+
+        // Player 0（对手）领出 ♥K（10 分）
+        players[0].getHand().clear();
+        Card heartK = new Card(Suit.HEART, Rank.KING, 913);
+        players[0].addCards(List.of(heartK));
+        engine.playCard(0, heartK);
+
+        // Player 1（AI 队友）跟 ♥5（5 分，压不过 K）
+        players[1].getHand().clear();
+        Card heart5 = new Card(Suit.HEART, Rank.FIVE, 905);
+        players[1].addCards(List.of(heart5));
+        engine.playCard(1, heart5);
+
+        // Player 2（对手）跟 ♥Q（压不过 K）
+        players[2].getHand().clear();
+        Card heartQ = new Card(Suit.HEART, Rank.QUEEN, 912);
+        players[2].addCards(List.of(heartQ));
+        engine.playCard(2, heartQ);
+
+        // Player 3（AI，最后出牌）：♥2(常主)、♥6、♥9
+        players[3].getHand().clear();
+        Card heart2 = new Card(Suit.HEART, Rank.TWO, 921);
+        Card heart6 = new Card(Suit.HEART, Rank.SIX, 922);
+        Card heart9 = new Card(Suit.HEART, Rank.NINE, 923);
+        players[3].addCards(List.of(heart2, heart6, heart9));
+
+        MediumAI ai = new MediumAI(new CardTracker());
+        Card chosen = ai.chooseCard(players[3], engine);
+
+        assertEquals(Rank.TWO, chosen.getRank(),
+            "墩面有 15 分且对手主牌花色赢着、MediumAI 为最后防线时，应出常主 ♥2 夺分");
+        assertEquals(Suit.HEART, chosen.getSuit());
+    }
 }
