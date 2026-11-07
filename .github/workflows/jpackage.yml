@@ -118,6 +118,7 @@ jobs:
             --description "大连打滚子纸牌游戏" \
             --vendor "tlcsdm" \
             --java-options "-Dfile.encoding=UTF-8" \
+            --java-options "--enable-native-access=ALL-UNNAMED" \
             "${PACKAGE_ARGS[@]}"
 
       - name: Prepare artifact

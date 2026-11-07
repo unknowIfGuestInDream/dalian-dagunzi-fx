@@ -40,11 +40,21 @@ version = project.findProperty('version') ?: '2.0.0'
 description = 'DaLian DaGunZi'
 
 ext.gdxVersion = project.findProperty('gdxVersion') ?: '1.13.1'
+// libgdx 1.13.1 传递依赖 LWJGL 3.3.3，其在 JDK 24+ 上会调用已弃用的 sun.misc.Unsafe::objectFieldOffset，
+// 并因无法识别新版 JNI 版本而打印 "Unsupported JNI version" 提示。LWJGL 在 3.3.x 内保持二进制兼容，
+// 3.3.6 改用 FFM 后端并适配 JDK 25，这里统一强制升级以消除上述启动告警。
+ext.lwjglVersion = project.findProperty('lwjglVersion') ?: '3.3.6'
 
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
     }
+}
+
+// 统一以 UTF-8 编译源码，确保源文件中的中文与花色符号（♠♥♦♣ 等）在任意系统默认
+// 编码（如中文 Windows 的 GBK）下都能正确读取，避免字符损坏导致运行时显示为方块。
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
 }
 
 repositories {
@@ -74,9 +84,25 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:6.0.3'
 }
 
+// 将 libgdx 传递引入的全部 org.lwjgl 模块（含本地库）统一强制为同一新版，保持 Java 侧与
+// natives 版本一致，消除 3.3.3 在 JDK 25 下的 Unsafe/JNI 启动告警（见上方 lwjglVersion 说明）。
+configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'org.lwjgl') {
+            details.useVersion lwjglVersion
+            details.because 'LWJGL 3.3.6 适配 JDK 25（FFM 后端），消除 Unsafe/JNI 启动告警'
+        }
+    }
+}
+
 application {
     // libgdx 使用类路径模式运行（gdx jar 非标准模块），桌面入口为 LWJGL3 启动器
     mainClass = 'com.tlcsdm.game.daliandagunzifx.lwjgl3.DesktopLauncher'
+    // 运行期 JVM 参数：
+    //  - --enable-native-access=ALL-UNNAMED：libgdx/LWJGL 通过 System.load 加载本地库，
+    //    JDK 24+ 默认会对未授权的本地访问打印 "restricted method ... has been called" 警告，
+    //    显式授权后消除该告警（打包运行见 jpackage 的 --java-options、脚本见 start.bat）。
+    applicationDefaultJvmArgs = ['--enable-native-access=ALL-UNNAMED']
 }
 
 tasks.named('test') {
