@@ -40,8 +40,10 @@ import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Disposable;
+import com.tlcsdm.game.daliandagunzifx.model.Suit;
 
 import java.io.File;
+import java.util.EnumMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,6 +74,11 @@ public final class Assets implements Disposable {
     private BitmapFont fontCardCenter;
 
     private Texture whitePixel;
+    // 程序化绘制的花色/王牌符号纹理：白色图形、绘制时按需着色。扑克花色与 ★ 常不在中文字体
+    // （如 Windows 的 msyh）字形表中，FreeType 又无系统级字体回退，直接用字体渲染会显示为方块，
+    // 故改为用纹理绘制，彻底摆脱对字体字形覆盖的依赖。
+    private final EnumMap<Suit, Texture> suitTextures = new EnumMap<>(Suit.class);
+    private Texture jokerStar;
 
     private Label.LabelStyle labelStyle;
     private Label.LabelStyle labelStyleSmall;
@@ -97,6 +104,7 @@ public final class Assets implements Disposable {
 
     public void load() {
         whitePixel = createWhitePixel();
+        buildSymbolTextures();
 
         FileHandle fontFile = resolveFontFile();
         if (fontFile != null) {
@@ -222,6 +230,89 @@ public final class Assets implements Disposable {
         return texture;
     }
 
+    // 符号纹理统一在 128x128 画布上以白色图形绘制，启用 mipmap 以便缩小到角标/中央尺寸时平滑。
+    private static final int SYMBOL_SIZE = 128;
+
+    private void buildSymbolTextures() {
+        suitTextures.put(Suit.SPADE, symbolTexture(this::drawSpade));
+        suitTextures.put(Suit.HEART, symbolTexture(this::drawHeart));
+        suitTextures.put(Suit.DIAMOND, symbolTexture(this::drawDiamond));
+        suitTextures.put(Suit.CLUB, symbolTexture(this::drawClub));
+        jokerStar = symbolTexture(this::drawStar);
+    }
+
+    private interface PixmapShape {
+        void draw(Pixmap pm);
+    }
+
+    private Texture symbolTexture(PixmapShape shape) {
+        Pixmap pm = new Pixmap(SYMBOL_SIZE, SYMBOL_SIZE, Pixmap.Format.RGBA8888);
+        pm.setBlending(Pixmap.Blending.None);
+        pm.setColor(1f, 1f, 1f, 0f);
+        pm.fill();
+        pm.setColor(Color.WHITE);
+        shape.draw(pm);
+        Texture texture = new Texture(pm, true);
+        texture.setFilter(Texture.TextureFilter.MipMapLinearLinear, Texture.TextureFilter.Linear);
+        pm.dispose();
+        return texture;
+    }
+
+    private void drawDiamond(Pixmap pm) {
+        pm.fillTriangle(64, 6, 118, 64, 10, 64);
+        pm.fillTriangle(64, 122, 118, 64, 10, 64);
+    }
+
+    private void drawHeart(Pixmap pm) {
+        pm.fillCircle(44, 46, 30);
+        pm.fillCircle(84, 46, 30);
+        pm.fillTriangle(14, 52, 114, 52, 64, 122);
+    }
+
+    private void drawSpade(Pixmap pm) {
+        pm.fillTriangle(64, 8, 12, 78, 116, 78);
+        pm.fillCircle(42, 80, 26);
+        pm.fillCircle(86, 80, 26);
+        // 柄部
+        pm.fillTriangle(64, 70, 44, 120, 84, 120);
+    }
+
+    private void drawClub(Pixmap pm) {
+        pm.fillCircle(64, 36, 26);
+        pm.fillCircle(38, 70, 26);
+        pm.fillCircle(90, 70, 26);
+        // 柄部
+        pm.fillTriangle(64, 72, 46, 120, 82, 120);
+    }
+
+    private void drawStar(Pixmap pm) {
+        double cx = 64, cy = 64, outer = 60, inner = 26;
+        int points = 5;
+        int n = points * 2;
+        int[] xs = new int[n];
+        int[] ys = new int[n];
+        for (int i = 0; i < n; i++) {
+            double r = (i % 2 == 0) ? outer : inner;
+            double ang = -Math.PI / 2 + i * Math.PI / points;
+            xs[i] = (int) Math.round(cx + r * Math.cos(ang));
+            ys[i] = (int) Math.round(cy + r * Math.sin(ang));
+        }
+        for (int i = 0; i < n; i++) {
+            int j = (i + 1) % n;
+            pm.fillTriangle((int) cx, (int) cy, xs[i], ys[i], xs[j], ys[j]);
+        }
+    }
+
+    /** 花色符号纹理（白色，绘制时按需着色）。 */
+    public Texture getSuitTexture(Suit suit) {
+        return suitTextures.get(suit);
+    }
+
+    /** 王牌中央使用的星形符号纹理（白色，绘制时按需着色）。 */
+    public Texture getJokerStarTexture() {
+        return jokerStar;
+    }
+
     /** 以指定颜色着色的 1x1 纹理 Drawable，用于填充矩形背景。 */
     public Drawable drawable(Color color) {
         TextureRegionDrawable d = new TextureRegionDrawable(whitePixel);
@@ -306,6 +397,15 @@ public final class Assets implements Disposable {
         }
         if (whitePixel != null) {
             whitePixel.dispose();
+        }
+        for (Texture t : suitTextures.values()) {
+            if (t != null) {
+                t.dispose();
+            }
+        }
+        suitTextures.clear();
+        if (jokerStar != null) {
+            jokerStar.dispose();
         }
     }
 

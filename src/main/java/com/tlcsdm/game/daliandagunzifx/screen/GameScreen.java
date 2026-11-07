@@ -34,13 +34,16 @@ import java.util.Map;
 
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.actions.Actions;
+import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.tlcsdm.game.daliandagunzifx.DaGunZiGame;
 import com.tlcsdm.game.daliandagunzifx.ai.AIStrategy;
@@ -384,7 +387,7 @@ public class GameScreen extends BaseStageScreen {
                     giverInfo.append("、");
                 }
                 giverInfo.append(players[gives.get(i)[0]].getName())
-                    .append(" 进贡 ").append(giveCards.get(i).getDisplayName());
+                    .append(" 进贡 ").append(cardName(giveCards.get(i)));
             }
             setStatus(giverInfo + "，请选择 " + tributeReturnCount + " 张牌回贡");
 
@@ -414,9 +417,9 @@ public class GameScreen extends BaseStageScreen {
             tributeMessages.append("；");
         }
         tributeMessages.append(players[giverIdx].getName()).append(" 进贡 ")
-            .append(tributeCard.getDisplayName()).append("，")
+            .append(cardName(tributeCard)).append("，")
             .append(players[receiverIdx].getName()).append(" 还 ")
-            .append(returnCard.getDisplayName());
+            .append(cardName(returnCard));
     }
 
     private void handleTributeReturnCardClick(Card card) {
@@ -508,7 +511,7 @@ public class GameScreen extends BaseStageScreen {
             actionTable.add(UiUtils.button("亮王定庄", assets.getDangerButtonStyle(), () -> {
                 actionTable.clearChildren();
                 Suit randomSuit = engine.declareTrumpRandomSuit(0);
-                setStatus("你亮王定庄，主牌：" + randomSuit.getSymbol() + randomSuit.getDisplayName());
+                setStatus("你亮王定庄，主牌：" + randomSuit.getDisplayName());
                 updateInfoPanel();
                 updateHumanHand();
                 afterTrumpDeclared(engine.getDealerIndex());
@@ -535,7 +538,7 @@ public class GameScreen extends BaseStageScreen {
             actionTable.clearChildren();
             for (Suit suit : Suit.values()) {
                 int count = suitCounts.getOrDefault(suit, 0);
-                TextButton btn = UiUtils.button("叫" + suit.getSymbol() + suit.getDisplayName(),
+                TextButton btn = UiUtils.button("叫" + suit.getDisplayName(),
                     assets.getButtonStyle(), null);
                 final Suit s = suit;
                 final int cardCount = count;
@@ -582,8 +585,8 @@ public class GameScreen extends BaseStageScreen {
                 if (chosenSuit != null) {
                     int aiCount = countTrumpRankCards(ai, rank, chosenSuit);
                     engine.tentativeDeclareTrump(idx, chosenSuit, aiCount);
-                    setStatus(ai.getName() + " 叫了主牌：" + chosenSuit.getSymbol()
-                        + chosenSuit.getDisplayName() + "（" + aiCount + "张）");
+                    setStatus(ai.getName() + " 叫了主牌：" + chosenSuit.getDisplayName()
+                        + "（" + aiCount + "张）");
                     updateInfoPanel();
                     updateHumanHand();
                 } else {
@@ -616,7 +619,7 @@ public class GameScreen extends BaseStageScreen {
     private void humanDeclareTrump(Suit suit, int count) {
         actionTable.clearChildren();
         engine.tentativeDeclareTrump(0, suit, count);
-        setStatus("你叫了主牌：" + suit.getSymbol() + suit.getDisplayName() + "（" + count + "张）");
+        setStatus("你叫了主牌：" + suit.getDisplayName() + "（" + count + "张）");
         updateInfoPanel();
         updateHumanHand();
         aiTrumpBidding();
@@ -641,7 +644,7 @@ public class GameScreen extends BaseStageScreen {
                 declared[0] = true;
                 Suit randomSuit = engine.declareTrumpRandomSuit(idx);
                 setStatus(p.getName() + " 亮王定庄，随机主牌："
-                    + randomSuit.getSymbol() + randomSuit.getDisplayName());
+                    + randomSuit.getDisplayName());
                 updateInfoPanel();
                 updateHumanHand();
                 afterTrumpDeclared(idx);
@@ -660,8 +663,8 @@ public class GameScreen extends BaseStageScreen {
         schedule(1.0f, () -> {
             int newDealer = engine.declareTrumpFromKitty();
             TrumpInfo ti = engine.getTrumpInfo();
-            setStatus("底牌确定主牌：" + ti.getTrumpSuit().getSymbol()
-                + ti.getTrumpSuit().getDisplayName() + "，庄家：" + players[newDealer].getName());
+            setStatus("底牌确定主牌：" + ti.getTrumpSuit().getDisplayName()
+                + "，庄家：" + players[newDealer].getName());
             updateInfoPanel();
             updateHumanHand();
             afterTrumpDeclared(newDealer);
@@ -674,8 +677,8 @@ public class GameScreen extends BaseStageScreen {
         schedule(1.0f, () -> {
             int newDealer = engine.declareTrumpFromKittyForDealer(dealerIdx);
             TrumpInfo ti = engine.getTrumpInfo();
-            setStatus("底牌确定主牌：" + ti.getTrumpSuit().getSymbol()
-                + ti.getTrumpSuit().getDisplayName() + "，庄家：" + players[newDealer].getName());
+            setStatus("底牌确定主牌：" + ti.getTrumpSuit().getDisplayName()
+                + "，庄家：" + players[newDealer].getName());
             updateInfoPanel();
             updateHumanHand();
             afterTrumpDeclared(newDealer);
@@ -927,7 +930,7 @@ public class GameScreen extends BaseStageScreen {
         int kittyPoints = 0;
         StringBuilder kittyText = new StringBuilder("底牌：");
         for (Card card : kittyCards) {
-            kittyText.append(card.getDisplayName()).append(" ");
+            kittyText.append(cardName(card)).append(" ");
             kittyPoints += card.getPoints();
         }
         kittyText.append("（分值：").append(kittyPoints).append("分）");
@@ -1135,7 +1138,7 @@ public class GameScreen extends BaseStageScreen {
         TrumpInfo ti = engine.getTrumpInfo();
         if (ti != null) {
             String suitName = ti.getTrumpSuit() != null
-                ? ti.getTrumpSuit().getSymbol() + ti.getTrumpSuit().getDisplayName() : "无";
+                ? ti.getTrumpSuit().getDisplayName() : "无";
             trumpLabel.setText("主牌：" + suitName + " " + ti.getTrumpRank().getDisplayName());
         } else {
             trumpLabel.setText("主牌：未定");
@@ -1205,7 +1208,7 @@ public class GameScreen extends BaseStageScreen {
         trackerTable.add(trackerCell("牌面", true, Color.WHITE));
         for (Suit suit : Suit.values()) {
             Color c = suit.getColor().equals("red") ? new Color(1f, 0.4f, 0.4f, 1f) : Color.WHITE;
-            trackerTable.add(trackerCell(suit.getSymbol(), true, c));
+            trackerTable.add(trackerSuitCell(suit, c)).size(16, 16);
         }
         trackerTable.row();
 
@@ -1237,6 +1240,21 @@ public class GameScreen extends BaseStageScreen {
         Label label = new Label(text, assets.getLabelStyleSmall());
         label.setColor(color);
         return label;
+    }
+
+    /** 记牌器表头的花色格：用程序绘制的花色纹理，避免 ♠♥♦♣ 在系统字体缺字形时显示方块。 */
+    private Image trackerSuitCell(Suit suit, Color color) {
+        Image image = new Image(new TextureRegionDrawable(new TextureRegion(assets.getSuitTexture(suit))));
+        image.setColor(color);
+        return image;
+    }
+
+    /** 卡牌在状态文本中的中文名：花色用中文（黑桃A），避免 ♠♥♦♣ 符号在字体缺字形时显示方块。 */
+    private static String cardName(Card card) {
+        if (card.getSuit() == null) {
+            return card.getRank().getDisplayName();
+        }
+        return card.getSuit().getDisplayName() + card.getRank().getDisplayName();
     }
 
     private int remainingBySuitAndRank(Suit suit, Rank rank) {

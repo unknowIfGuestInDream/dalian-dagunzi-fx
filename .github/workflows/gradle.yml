@@ -40,7 +40,8 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew build -x test --no-daemon
       - name: Test with Gradle
-        run: ./gradlew test --no-daemon
+        # test 完成后经 finalizedBy 自动执行 jacocoTestReport，生成 HTML/XML 覆盖率报告
+        run: ./gradlew test jacocoTestReport --no-daemon
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v5
         if: always() # always run even if the previous step fails
@@ -51,3 +52,11 @@ jobs:
           include_time_in_summary: true
           group_suite: true
           token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload JaCoCo coverage report
+        # 仅在 Linux 任务上传一次覆盖率报告（HTML + XML），避免三平台重复产物
+        if: always() && matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage-report
+          path: build/reports/jacoco/test/
+          if-no-files-found: warn

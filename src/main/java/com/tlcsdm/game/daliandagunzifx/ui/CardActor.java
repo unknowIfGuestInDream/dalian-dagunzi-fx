@@ -27,6 +27,7 @@
 package com.tlcsdm.game.daliandagunzifx.ui;
 
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
@@ -106,52 +107,77 @@ public class CardActor extends Actor {
         // 牌面白底
         fill(batch, x, y, w, h, Color.WHITE, a);
 
-        Color textColor = colorOf(card);
-        // 左上角：花色符号 + 点数（两行）
-        BitmapFont corner = assets.getFontCardCorner();
-        corner.setColor(textColor.r, textColor.g, textColor.b, a);
-        String cornerText = cornerText(card);
-        corner.draw(batch, cornerText, x + 5, y + h - 5);
+        Color col = colorOf(card);
+        boolean joker = card.getRank() == Rank.BIG_JOKER || card.getRank() == Rank.SMALL_JOKER;
 
-        // 右下角：与左上角对称的花色符号 + 点数（两行、右对齐），更贴近真实扑克牌样式
-        LAYOUT.setText(corner, cornerText);
-        float cornerW = LAYOUT.width;
-        float cornerH = LAYOUT.height;
-        corner.draw(batch, cornerText, x + w - 5 - cornerW, y + 5 + cornerH);
+        if (joker) {
+            // 王牌：角标用中文（大/小/王，中文字体必含该字形），中央用程序绘制的星形，
+            // 避免 ★/☆ 在部分系统字体缺字形时显示为方块
+            BitmapFont corner = assets.getFontCardCorner();
+            String ct = card.getRank() == Rank.BIG_JOKER ? "大\n王" : "小\n王";
+            corner.setColor(col.r, col.g, col.b, a);
+            corner.draw(batch, ct, x + 5, y + h - 5);
+            LAYOUT.setText(corner, ct);
+            corner.draw(batch, ct, x + w - 5 - LAYOUT.width, y + 5 + LAYOUT.height);
 
-        // 中央大符号
-        BitmapFont center = assets.getFontCardCenter();
-        String centerText = centerText(card);
-        center.setColor(textColor.r, textColor.g, textColor.b, a);
-        LAYOUT.setText(center, centerText);
-        float cx = x + (w - LAYOUT.width) / 2f;
-        float cy = y + (h + LAYOUT.height) / 2f;
-        center.draw(batch, centerText, cx, cy);
+            float cs = 44f;
+            batch.setColor(col.r, col.g, col.b, a);
+            batch.draw(assets.getJokerStarTexture(), x + (w - cs) / 2f, y + (h - cs) / 2f, cs, cs);
+        } else {
+            // 普通牌：花色改用程序绘制的纹理（不依赖系统字体的 ♠♥♦♣ 字形），点数仍用字体
+            Texture pip = assets.getSuitTexture(card.getSuit());
+            String rank = card.getRank().getDisplayName();
+            BitmapFont corner = assets.getFontCardCorner();
+            drawCorner(batch, pip, rank, corner, col, a, x, y, w, h, true);
+            drawCorner(batch, pip, rank, corner, col, a, x, y, w, h, false);
+            // 中央大花色
+            float cs = 44f;
+            batch.setColor(col.r, col.g, col.b, a);
+            batch.draw(pip, x + (w - cs) / 2f, y + (h - cs) / 2f, cs, cs);
+        }
 
         batch.setColor(prev);
+    }
+
+    /**
+     * 在卡牌一角绘制「花色纹理 + 点数」。{@code topLeft} 为真时绘制左上角，为假时绘制与之对称的右下角，
+     * 更贴近真实扑克牌样式。
+     */
+    private void drawCorner(Batch batch, Texture pip, String rank, BitmapFont font,
+                            Color col, float a, float x, float y, float w, float h, boolean topLeft) {
+        float margin = 5f;
+        float pipSize = 15f;
+        LAYOUT.setText(font, rank);
+        float rankW = LAYOUT.width;
+        float rankH = LAYOUT.height;
+        float blockW = Math.max(pipSize, rankW);
+        float leftX = topLeft ? x + margin : x + w - margin - blockW;
+
+        float pipBottom;
+        float rankTop;
+        if (topLeft) {
+            float top = y + h - margin;
+            pipBottom = top - pipSize;
+            rankTop = pipBottom - 1f;
+        } else {
+            float bottom = y + margin;
+            rankTop = bottom + rankH;
+            pipBottom = rankTop + 1f;
+        }
+        // 花色纹理（白图按花色色着色）
+        float pipX = leftX + (blockW - pipSize) / 2f;
+        batch.setColor(col.r, col.g, col.b, a);
+        batch.draw(pip, pipX, pipBottom, pipSize, pipSize);
+        // 点数文字：字体色会与 batch 颜色相乘，须先把 batch 颜色复位为白色
+        float rankX = leftX + (blockW - rankW) / 2f;
+        batch.setColor(1f, 1f, 1f, a);
+        font.setColor(col.r, col.g, col.b, a);
+        font.draw(batch, rank, rankX, rankTop);
     }
 
     private void fill(Batch batch, float x, float y, float w, float h, Color color, float alpha) {
         batch.setColor(color.r, color.g, color.b, alpha);
         batch.draw(assets.getWhitePixel(), x, y, w, h);
-    }
-
-    private static String cornerText(Card card) {
-        if (card.getRank() == Rank.BIG_JOKER) {
-            return "大\n王";
-        }
-        if (card.getRank() == Rank.SMALL_JOKER) {
-            return "小\n王";
-        }
-        String suit = card.getSuit() != null ? card.getSuit().getSymbol() : "";
-        return suit + "\n" + card.getRank().getDisplayName();
-    }
-
-    private static String centerText(Card card) {
-        if (card.getSuit() != null) {
-            return card.getSuit().getSymbol();
-        }
-        return card.getRank() == Rank.BIG_JOKER ? "★" : "☆";
     }
 
     /** 牌面文字颜色，对应原版本 {@code getCardColor}。 */
