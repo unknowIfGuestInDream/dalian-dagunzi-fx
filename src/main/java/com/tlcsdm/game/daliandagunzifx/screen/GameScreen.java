@@ -554,10 +554,9 @@ public class GameScreen extends BaseStageScreen {
             actionTable.clearChildren();
             for (Suit suit : Suit.values()) {
                 int count = suitCounts.getOrDefault(suit, 0);
-                TextButton btn = UiUtils.button("叫" + suit.getDisplayName(),
-                    assets.getButtonStyle(), null);
                 final Suit s = suit;
                 final int cardCount = count;
+                TextButton btn = new TextButton("叫" + suit.getDisplayName(), assets.getButtonStyle());
                 UiUtils.onClick(btn, () -> {
                     if (btn.isDisabled()) {
                         return;

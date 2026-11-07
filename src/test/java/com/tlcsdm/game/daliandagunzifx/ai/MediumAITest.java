@@ -218,4 +218,40 @@ class MediumAITest {
             "墩面有 15 分且对手主牌花色赢着、MediumAI 为最后防线时，应出常主 ♥2 夺分");
         assertEquals(Suit.HEART, chosen.getSuit());
     }
+
+    @Test
+    void testLeadFromTrumpOnlyKeepsBangIntact() {
+        // 只剩主牌被迫领出单张时，MediumAI 不应拆散最小的主牌棒子，且不送分牌
+        Player[] players = newPlayers();
+        GameEngine engine = newEngineWithTrump(players, Suit.HEART);
+
+        Player leader = players[engine.getCurrentPlayerIndex()];
+        leader.getHand().clear();
+        // 全主牌手（主为红桃）：最小的 ♥4 为棒子，其余更大的单张；12 张 >10 非残局，退化单张领出
+        leader.addCards(List.of(
+            new Card(Suit.HEART, Rank.FOUR, 800),
+            new Card(Suit.HEART, Rank.FOUR, 801),
+            new Card(Suit.HEART, Rank.FIVE, 802),
+            new Card(Suit.HEART, Rank.SIX, 803),
+            new Card(Suit.HEART, Rank.SEVEN, 804),
+            new Card(Suit.HEART, Rank.EIGHT, 805),
+            new Card(Suit.HEART, Rank.NINE, 806),
+            new Card(Suit.HEART, Rank.TEN, 807),
+            new Card(Suit.HEART, Rank.JACK, 808),
+            new Card(Suit.HEART, Rank.QUEEN, 809),
+            new Card(Suit.HEART, Rank.KING, 810),
+            new Card(Suit.HEART, Rank.ACE, 811)));
+
+        MediumAI ai = new MediumAI(new CardTracker());
+        List<Card> chosen = ai.chooseCards(leader, engine);
+
+        assertEquals(1, chosen.size(), "非残局全主牌时退化为单张领出");
+        Card lead = chosen.get(0);
+        assertNotEquals(Rank.FOUR, lead.getRank(),
+            "不应拆散最小的 ♥4 棒子，实际领出: " + lead.getRank());
+        assertEquals(0, lead.getPoints(),
+            "领出的主牌应为非分牌，避免主动送分，实际领出: " + lead.getRank());
+        long remainingFours = leader.getHand().stream().filter(c -> c.getRank() == Rank.FOUR).count();
+        assertEquals(2, remainingFours, "♥4 棒子应完整保留在手中");
+    }
 }

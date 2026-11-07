@@ -542,13 +542,13 @@ public class EasyAI implements AIStrategy {
                 .orElse(validCards.get(0));
         }
 
-        // 只剩主牌，优先出非特殊的小主牌
+        // 只剩主牌，优先出非特殊的小主牌：避免送分、不拆棒子/滚子，再省下大主牌控场
         List<Card> nonSpecialTrump = trumpCards.stream()
             .filter(c -> !isSpecialTrump(c, trumpInfo))
             .collect(Collectors.toList());
         if (!nonSpecialTrump.isEmpty()) {
             return nonSpecialTrump.stream()
-                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
+                .min(leadTrumpComparator(player.getHand(), trumpInfo))
                 .orElse(nonSpecialTrump.get(0));
         }
         return validCards.stream()
@@ -847,6 +847,34 @@ public class EasyAI implements AIStrategy {
         Rank rank = card.getRank();
         return rank == Rank.BIG_JOKER || rank == Rank.SMALL_JOKER
             || rank == Rank.TWO || rank == trumpInfo.getTrumpRank();
+    }
+
+    /**
+     * 判断某张牌在手中是否属于棒子/滚子（同花色、同点数 ≥ 2 张）。
+     * 领出单张时应尽量避免拆散这类牌组，保留成对/成组的打牌能力，
+     * 符合"明明是棒牌不应拆开来出"的常规出牌思维。
+     */
+    protected boolean isPartOfGroup(Card card, List<Card> hand) {
+        int count = 0;
+        for (Card c : hand) {
+            if (c.getRank() == card.getRank() && c.getSuit() == card.getSuit()) {
+                count++;
+            }
+        }
+        return count >= 2;
+    }
+
+    /**
+     * 只剩主牌被迫领出单张时的取舍顺序：
+     * 1. 优先非分牌（避免主动送出主牌花色的 5/10/K 分值）；
+     * 2. 优先不拆散棒子/滚子的单张（保留成组打牌能力）；
+     * 3. 再按牌力从小到大（省下大主牌控场）。
+     */
+    protected Comparator<Card> leadTrumpComparator(List<Card> hand, TrumpInfo trumpInfo) {
+        return Comparator
+            .comparingInt((Card c) -> c.getPoints() > 0 ? 1 : 0)
+            .thenComparingInt(c -> isPartOfGroup(c, hand) ? 1 : 0)
+            .thenComparingInt(trumpInfo::getCardStrength);
     }
 
     /**

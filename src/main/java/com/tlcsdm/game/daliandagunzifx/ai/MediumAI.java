@@ -328,13 +328,13 @@ public class MediumAI implements AIStrategy {
                 .orElse(validCards.get(0));
         }
 
-        // 只剩主牌，优先出非特殊的小主牌
+        // 只剩主牌，优先出非特殊的小主牌：避免送分、不拆棒子/滚子，再省下大主牌控场
         List<Card> nonSpecialTrump = trumpCards.stream()
             .filter(c -> !easyAI.isSpecialTrump(c, trumpInfo))
             .collect(Collectors.toList());
         if (!nonSpecialTrump.isEmpty()) {
             return nonSpecialTrump.stream()
-                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
+                .min(easyAI.leadTrumpComparator(player.getHand(), trumpInfo))
                 .orElse(nonSpecialTrump.get(0));
         }
         return validCards.stream()

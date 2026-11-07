@@ -41,8 +41,11 @@ public final class UiUtils {
     private UiUtils() {
     }
 
-    /** 为任意 Actor 绑定左键点击回调。 */
+    /** 为任意 Actor 绑定左键点击回调。{@code action} 为 null 时不绑定，避免点击时空指针崩溃。 */
     public static void onClick(Actor actor, Runnable action) {
+        if (action == null) {
+            return;
+        }
         actor.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
