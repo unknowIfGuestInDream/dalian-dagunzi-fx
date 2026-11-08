@@ -27,7 +27,6 @@
 package com.tlcsdm.game.daliandagunzifx.screen;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -107,6 +106,7 @@ public class GameScreen extends BaseStageScreen {
     private Table infoPanel;
     private Table trackerTable;
     private Table toolbar;
+    private TextButton trackerToggleBtn;
     private Table actionTable;
     private TextButton primaryBtn;
 
@@ -195,6 +195,20 @@ public class GameScreen extends BaseStageScreen {
         stage.addActor(trackerTable);
     }
 
+    /** 工具栏记牌器开关按钮的文案，随当前显示状态切换。 */
+    private String trackerToggleText() {
+        return config.isTrackerEnabled() ? "记牌器：开" : "记牌器：关";
+    }
+
+    /** 切换记牌器显示/隐藏，并刷新面板与右侧玩家名牌位置，避免重合。 */
+    private void toggleTracker() {
+        config.setTrackerEnabled(!config.isTrackerEnabled());
+        if (trackerToggleBtn != null) {
+            trackerToggleBtn.setText(trackerToggleText());
+        }
+        updateTrackerPanel();
+    }
+
     private void buildToolbar() {
         toolbar = new Table();
         toolbar.defaults().padRight(8);
@@ -202,6 +216,9 @@ public class GameScreen extends BaseStageScreen {
             () -> game.setScreen(new RulesScreen(game, this)))).width(90).height(40);
         toolbar.add(UiUtils.button("看底牌", assets.getButtonStyle(), this::viewKittyByRule))
             .width(90).height(40);
+        trackerToggleBtn = UiUtils.button(trackerToggleText(), assets.getButtonStyle(),
+            this::toggleTracker);
+        toolbar.add(trackerToggleBtn).width(120).height(40);
         toolbar.add(UiUtils.button("重开本局", assets.getButtonStyle(),
             () -> Dialogs.showConfirm(stage, assets, "重开本局", "确定重新开始本局吗？", this::restartCurrentRound)))
             .width(110).height(40);
@@ -1296,11 +1313,15 @@ public class GameScreen extends BaseStageScreen {
     private void updateTrackerPanel() {
         if (!config.isTrackerEnabled()) {
             trackerTable.setVisible(false);
+            // 隐藏记牌器时，右侧玩家名牌复位到竖直居中位置
+            if (playerNameLabels[3] != null) {
+                playerNameLabels[3].setPosition(viewW - 150, viewH / 2f);
+            }
             return;
         }
         trackerTable.setVisible(true);
         trackerTable.clearChildren();
-        trackerTable.defaults().pad(1).padLeft(4).padRight(4);
+        trackerTable.defaults().pad(2).padLeft(6).padRight(6);
 
         TrumpInfo trackerTrump = engine == null ? null : engine.getTrumpInfo();
         Suit trumpSuit = trackerTrump == null ? null : trackerTrump.getTrumpSuit();
@@ -1312,14 +1333,14 @@ public class GameScreen extends BaseStageScreen {
             titleText += "  主牌：" + trumpSuit.getDisplayName();
         }
         Label trackerTitle = trackerCell(titleText, true, Assets.GOLD);
-        trackerTable.add(trackerTitle).colspan(columns).center().row();
+        trackerTable.add(trackerTitle).colspan(columns).center().padBottom(4).row();
 
-        trackerTable.add(trackerCell("牌面", true, Color.WHITE));
+        trackerTable.add(trackerCell("牌面", true, Color.WHITE)).width(42).left();
         for (Suit suit : Suit.values()) {
             // 主牌花色表头用金色突出，其余红花色偏红、黑花色白色
             Color c = suit == trumpSuit ? Assets.GOLD
                 : suit.getColor().equals("red") ? new Color(1f, 0.4f, 0.4f, 1f) : Color.WHITE;
-            trackerTable.add(trackerSuitCell(suit, c)).size(16, 16);
+            trackerTable.add(trackerSuitCell(suit, c)).size(22, 22);
         }
         trackerTable.row();
 
@@ -1330,7 +1351,7 @@ public class GameScreen extends BaseStageScreen {
             // 分牌(5/10/K)点数用金色标注，方便追踪场上分值
             boolean pointRank = rank == Rank.FIVE || rank == Rank.TEN || rank == Rank.KING;
             Color rankColor = pointRank ? Assets.GOLD : Color.WHITE;
-            trackerTable.add(trackerCell(rank.getDisplayName(), false, rankColor));
+            trackerTable.add(trackerCell(rank.getDisplayName(), false, rankColor)).width(42).left();
             for (Suit suit : Suit.values()) {
                 int remaining = remainingBySuitAndRank(suit, rank);
                 Color c;
@@ -1341,20 +1362,28 @@ public class GameScreen extends BaseStageScreen {
                 } else {
                     c = Color.WHITE;
                 }
-                trackerTable.add(trackerCell(String.valueOf(remaining), false, c));
+                trackerTable.add(trackerCell(String.valueOf(remaining), false, c)).width(28).center();
             }
             trackerTable.row();
         }
 
-        trackerTable.add(trackerCell("小王", false, Color.WHITE));
-        trackerTable.add(trackerCell(String.valueOf(jokerRemaining(Rank.SMALL_JOKER)), false, Color.WHITE));
+        trackerTable.add(trackerCell("小王", false, Color.WHITE)).width(42).left();
+        trackerTable.add(trackerCell(String.valueOf(jokerRemaining(Rank.SMALL_JOKER)), false, Color.WHITE))
+            .width(28).center();
         trackerTable.row();
-        trackerTable.add(trackerCell("大王", false, Color.WHITE));
-        trackerTable.add(trackerCell(String.valueOf(jokerRemaining(Rank.BIG_JOKER)), false, Assets.GOLD));
+        trackerTable.add(trackerCell("大王", false, Color.WHITE)).width(42).left();
+        trackerTable.add(trackerCell(String.valueOf(jokerRemaining(Rank.BIG_JOKER)), false, Assets.GOLD))
+            .width(28).center();
 
         trackerTable.pack();
         trackerTable.setPosition(viewW - trackerTable.getWidth() - 12,
             infoPanel.getY() - trackerTable.getHeight() - 10);
+
+        // 右侧玩家名牌下移到记牌器下方，避免与记牌器重合
+        if (playerNameLabels[3] != null) {
+            float y = Math.min(viewH / 2f, trackerTable.getY() - 36);
+            playerNameLabels[3].setPosition(viewW - 150, y);
+        }
     }
 
     private Label trackerCell(String text, boolean bold, Color color) {
@@ -1414,22 +1443,20 @@ public class GameScreen extends BaseStageScreen {
 
     private List<Card> sortForDisplay(List<Card> hand, TrumpInfo trumpInfo) {
         List<Card> sorted = new ArrayList<>(hand);
-        if (trumpInfo == null) {
-            sorted.sort(Comparator
-                .comparingInt((Card c) -> {
-                    if (c.getRank() == Rank.BIG_JOKER || c.getRank() == Rank.SMALL_JOKER) {
-                        return -1;
-                    }
-                    return c.getSuit() == null ? 99 : suitDisplayOrder(c.getSuit());
-                })
-                .thenComparing(Comparator.comparingInt(
-                    (Card c) -> TrumpInfo.effectiveRankStrength(c.getRank())).reversed()));
-            return sorted;
+        TrumpInfo ti = trumpInfo;
+        if (ti == null) {
+            // 主牌花色尚未确定（如首局亮王前）：王、常主 2、当前级牌恒为主牌，
+            // 用"无花色但带已知级牌"的临时主牌信息排序，先把这些恒定主牌归入主牌区，
+            // 方便玩家据此评估主牌实力、决定是否亮王（item 1：亮王前先排序）。
+            Rank level = engine != null && engine.getTeamLevels() != null
+                ? engine.getTeamLevels()[players[0].getTeam()] : null;
+            ti = new TrumpInfo(null, level);
         }
-        Suit ts = trumpInfo.getTrumpSuit();
+        Suit ts = ti.getTrumpSuit();
+        final TrumpInfo sortTrump = ti;
         sorted.sort((a, b) -> {
-            int ga = displayGroup(a, trumpInfo);
-            int gb = displayGroup(b, trumpInfo);
+            int ga = displayGroup(a, sortTrump);
+            int gb = displayGroup(b, sortTrump);
             if (ga != gb) {
                 return Integer.compare(ga, gb);
             }
