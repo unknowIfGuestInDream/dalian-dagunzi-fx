@@ -440,9 +440,12 @@ public class MediumAI implements AIStrategy {
             // 无分墩没有抢的价值，仍按常规垫牌，避免无谓浪费主牌。
             // 注意此处与 chooseSuitFollow 中"有同花色可跟时即便无分也争墩"的判断不同：
             // 跟花色用的是副牌、成本低，值得为夺取控制权而争；毙分需消耗主牌，仅在有分时才划算。
+            // item 5：去掉"最后一位(getTrickCardsPlayed()==3)即便 0 分也强制毙"——
+            // 最后一位出牌时 hasPartnerPlayed 恒为真，有分的情况已由
+            // "hasPartnerPlayed && trickPoints > 0" 覆盖；0 分墩有安全副牌可垫时应垫牌而非浪费主牌。
             // item 3：队友已出且未赢（AI 为本队最后一道防线）时，只要墩面有分就管上夺分，
             // 不把分白送给对手——即"对门能管上却跑别的牌"的修复。
-            if (trickPoints >= 10 || engine.getTrickCardsPlayed() == 3
+            if (trickPoints >= 10
                 || !hasNonPointNonTrump || (easyAI.isAggressive() && trickPoints > 0)
                 || (easyAI.hasPartnerPlayed(player, engine) && trickPoints > 0)) {
                 // 检查后续对手是否也缺该花色（会用主牌毙），需要选更大的主牌
@@ -534,6 +537,36 @@ public class MediumAI implements AIStrategy {
                 }
             }
             if (bestWinner != null) return bestWinner;
+        }
+
+        // item 3：队友已出但未赢（对手正赢着本墩）、AI 为第 3 家（非最后一位）、
+        // 且后续对手未被标记缺该花色时，若手中有该花色的"绝对赢张"(boss) 能压过当前赢牌，
+        // 则盖上去把本墩锁定下来，避免出小牌后被最后一位对手用 10/K 等大牌赢墩得分
+        // （即"副牌前两家出小牌、第 3 家不盖、第 4 家出大牌得分"的修复）。
+        if (!easyAI.isAggressive()
+                && easyAI.hasPartnerPlayed(player, engine)
+                && !easyAI.isLastToPlay(player, engine)) {
+            Card leadCard = engine.getCurrentTrick()[engine.getCurrentTrickLeader()];
+            Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
+            if (leadSuit != null && !isSubsequentOpponentVoid(player, engine, leadSuit)) {
+                int currentWinStrength = getCurrentWinningStrength(engine);
+                Card bossCover = null;
+                for (Card card : suitCards) {
+                    // 不动用特殊主牌（王/2/级牌）盖副牌，省作兜底
+                    if (easyAI.isSpecialTrump(card, trumpInfo)) {
+                        continue;
+                    }
+                    int strength = trumpInfo.getCardStrength(card);
+                    if (strength > currentWinStrength
+                            && isBossCard(player, card, leadSuit, trumpInfo)) {
+                        // 选能赢的最小 boss，省下更大的牌
+                        if (bossCover == null || strength < trumpInfo.getCardStrength(bossCover)) {
+                            bossCover = card;
+                        }
+                    }
+                }
+                if (bossCover != null) return bossCover;
+            }
         }
 
         // 无分或赢不了，出最小（保护特殊主牌）

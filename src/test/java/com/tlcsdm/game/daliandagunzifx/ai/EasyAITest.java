@@ -1239,5 +1239,47 @@ class EasyAITest {
             "应领出非分主牌（♥7/♥J），避免送出 ♥5/♥10/♥K，实际领出: " + lead.getRank());
         assertEquals(Rank.SEVEN, lead.getRank(), "最小的非分主牌应为 ♥7");
     }
+
+    @Test
+    void testFollowKeepsPairIntactWhenDiscarding() {
+        // item 4：跟副牌出小牌时，不应拆散棒子(对子)。
+        // 手握 ♣4♣4 棒子 + ♣8 单张，领出 ♣9（0 分、压不过）时应垫 ♣8 保留棒子，而非拆出 ♣4。
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0 领出 ♣9（0 分）
+        players[0].getHand().clear();
+        Card club9 = new Card(Suit.CLUB, Rank.NINE, 700);
+        players[0].addCards(List.of(club9));
+        engine.playCard(0, club9);
+
+        // Player 1（AI）：♣4♣4（棒子）+ ♣8（单张），应跟 ♣8 保棒，不拆 ♣4
+        players[1].getHand().clear();
+        Card club4a = new Card(Suit.CLUB, Rank.FOUR, 701);
+        Card club4b = new Card(Suit.CLUB, Rank.FOUR, 702);
+        Card club8 = new Card(Suit.CLUB, Rank.EIGHT, 703);
+        players[1].addCards(List.of(club4a, club4b, club8));
+
+        EasyAI ai = new EasyAI();
+        Card chosen = ai.chooseCard(players[1], engine);
+
+        assertEquals(Rank.EIGHT, chosen.getRank(),
+            "应垫单张 ♣8 保留 ♣4 棒子，实际出了: " + chosen.getRank());
+        long remainingFours = players[1].getHand().stream()
+            .filter(c -> c.getRank() == Rank.FOUR).count();
+        assertEquals(2, remainingFours, "♣4 棒子应完整保留在手中");
+    }
 }
 

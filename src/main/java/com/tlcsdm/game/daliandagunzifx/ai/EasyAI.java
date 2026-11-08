@@ -817,23 +817,30 @@ public class EasyAI implements AIStrategy {
             .filter(c -> c.getPoints() == 0 && !isSpecialTrump(c, trumpInfo))
             .collect(Collectors.toList());
         if (!normalNonPoint.isEmpty()) {
-            return normalNonPoint.stream()
-                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-                .orElse(normalNonPoint.get(0));
+            return pickLowestKeepingGroups(normalNonPoint, trumpInfo);
         }
         // 没有普通牌时，优先出非特殊主牌
         List<Card> nonSpecial = cards.stream()
             .filter(c -> !isSpecialTrump(c, trumpInfo))
             .collect(Collectors.toList());
         if (!nonSpecial.isEmpty()) {
-            return nonSpecial.stream()
-                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-                .orElse(nonSpecial.get(0));
+            return pickLowestKeepingGroups(nonSpecial, trumpInfo);
         }
         // 只剩特殊主牌时，出最小的
-        return cards.stream()
-            .min(Comparator.comparingInt(trumpInfo::getCardStrength))
-            .orElse(cards.get(0));
+        return pickLowestKeepingGroups(cards, trumpInfo);
+    }
+
+    /**
+     * 从候选牌中选出最小的一张，但在牌力相近时优先选"不成组的单张"，
+     * 避免把棒子(对子)/滚子(三条)拆开来单出——符合"明明是棒牌不应拆开来出"的常规出牌思维。
+     * 仅当候选里没有任何散张时，才被迫从棒子/滚子中拆出一张。
+     */
+    private Card pickLowestKeepingGroups(List<Card> candidates, TrumpInfo trumpInfo) {
+        return candidates.stream()
+            .min(Comparator
+                .comparingInt((Card c) -> isPartOfGroup(c, candidates) ? 1 : 0)
+                .thenComparingInt(trumpInfo::getCardStrength))
+            .orElse(candidates.get(0));
     }
 
     /**
