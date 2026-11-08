@@ -78,6 +78,8 @@ public class GameScreen extends BaseStageScreen {
     private static final float CARD_H = CardActor.CARD_HEIGHT;
     private static final float OVERLAP = 25f;
     private static final float AI_BIDDING_DELAY = 0.5f;
+    /** AI 之间进贡/回贡时，进贡牌在牌桌中央停留的秒数，便于玩家看清上贡了哪些牌。 */
+    private static final float TRIBUTE_DISPLAY_SECONDS = 1.8f;
     /** 非首局叫主所需的同花色当前级牌张数（规则：2 张或以上才能叫主）。 */
     private static final int NON_FIRST_TRUMP_MIN = 2;
 
@@ -375,6 +377,7 @@ public class GameScreen extends BaseStageScreen {
 
         tributeDisplayCards.addAll(giveCards);
         displayCenterCards("进贡", tributeDisplayCards, true);
+        showCenterBanner("进贡回合", Assets.GOLD);
         updateHumanHand();
 
         boolean humanReceives = gives.get(0)[1] == 0;
@@ -405,10 +408,16 @@ public class GameScreen extends BaseStageScreen {
             actionTable.add(primaryBtn).width(140).height(46);
             layoutActionTable();
         } else {
+            StringBuilder giverInfo = new StringBuilder();
             for (int i = 0; i < gives.size(); i++) {
                 int giverIdx = gives.get(i)[0];
                 int receiverIdx = gives.get(i)[1];
                 Card tributeCard = giveCards.get(i);
+                if (giverInfo.length() > 0) {
+                    giverInfo.append("、");
+                }
+                giverInfo.append(players[giverIdx].getName()).append(" 进贡 ")
+                    .append(cardName(tributeCard)).append(" 给 ").append(players[receiverIdx].getName());
                 Card returnCard = engine.autoSelectReturnCard(receiverIdx);
                 if (returnCard != null) {
                     engine.executeTributeReturn(receiverIdx, returnCard, giverIdx);
@@ -416,7 +425,9 @@ public class GameScreen extends BaseStageScreen {
                 }
             }
             updateHumanHand();
-            finishTributeFlow();
+            setStatus(giverInfo.toString());
+            // 进贡牌在牌桌中央停留片刻，便于玩家看清 AI 之间上贡/回贡了哪些牌，再继续后续流程
+            schedule(TRIBUTE_DISPLAY_SECONDS, this::finishTributeFlow);
         }
     }
 
@@ -1289,9 +1300,25 @@ public class GameScreen extends BaseStageScreen {
         }
         trackerTable.setVisible(true);
         trackerTable.clearChildren();
+        trackerTable.defaults().pad(1).padLeft(4).padRight(4);
+
+        TrumpInfo trackerTrump = engine == null ? null : engine.getTrumpInfo();
+        Suit trumpSuit = trackerTrump == null ? null : trackerTrump.getTrumpSuit();
+        int columns = Suit.values().length + 1;
+
+        // 标题行：标注"记牌器"与当前主牌花色，帮助玩家快速定位主牌列
+        String titleText = "记牌器";
+        if (trumpSuit != null) {
+            titleText += "  主牌：" + trumpSuit.getDisplayName();
+        }
+        Label trackerTitle = trackerCell(titleText, true, Assets.GOLD);
+        trackerTable.add(trackerTitle).colspan(columns).center().row();
+
         trackerTable.add(trackerCell("牌面", true, Color.WHITE));
         for (Suit suit : Suit.values()) {
-            Color c = suit.getColor().equals("red") ? new Color(1f, 0.4f, 0.4f, 1f) : Color.WHITE;
+            // 主牌花色表头用金色突出，其余红花色偏红、黑花色白色
+            Color c = suit == trumpSuit ? Assets.GOLD
+                : suit.getColor().equals("red") ? new Color(1f, 0.4f, 0.4f, 1f) : Color.WHITE;
             trackerTable.add(trackerSuitCell(suit, c)).size(16, 16);
         }
         trackerTable.row();
@@ -1300,10 +1327,20 @@ public class GameScreen extends BaseStageScreen {
             if (rank == Rank.SMALL_JOKER || rank == Rank.BIG_JOKER) {
                 continue;
             }
-            trackerTable.add(trackerCell(rank.getDisplayName(), false, Color.WHITE));
+            // 分牌(5/10/K)点数用金色标注，方便追踪场上分值
+            boolean pointRank = rank == Rank.FIVE || rank == Rank.TEN || rank == Rank.KING;
+            Color rankColor = pointRank ? Assets.GOLD : Color.WHITE;
+            trackerTable.add(trackerCell(rank.getDisplayName(), false, rankColor));
             for (Suit suit : Suit.values()) {
                 int remaining = remainingBySuitAndRank(suit, rank);
-                Color c = remaining == 0 ? new Color(0.4f, 0.4f, 0.4f, 1f) : Color.WHITE;
+                Color c;
+                if (remaining == 0) {
+                    c = new Color(0.4f, 0.4f, 0.4f, 1f); // 已出尽：灰显
+                } else if (suit == trumpSuit) {
+                    c = Assets.STATUS; // 主牌花色列高亮
+                } else {
+                    c = Color.WHITE;
+                }
                 trackerTable.add(trackerCell(String.valueOf(remaining), false, c));
             }
             trackerTable.row();
@@ -1313,7 +1350,7 @@ public class GameScreen extends BaseStageScreen {
         trackerTable.add(trackerCell(String.valueOf(jokerRemaining(Rank.SMALL_JOKER)), false, Color.WHITE));
         trackerTable.row();
         trackerTable.add(trackerCell("大王", false, Color.WHITE));
-        trackerTable.add(trackerCell(String.valueOf(jokerRemaining(Rank.BIG_JOKER)), false, Color.WHITE));
+        trackerTable.add(trackerCell(String.valueOf(jokerRemaining(Rank.BIG_JOKER)), false, Assets.GOLD));
 
         trackerTable.pack();
         trackerTable.setPosition(viewW - trackerTable.getWidth() - 12,
