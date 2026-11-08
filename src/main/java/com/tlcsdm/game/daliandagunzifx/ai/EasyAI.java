@@ -682,6 +682,33 @@ public class EasyAI implements AIStrategy {
         // 检查是否有无分非主牌可以安全垫
         boolean hasNonPointNonTrump = nonTrumpCards.stream()
             .anyMatch(c -> c.getPoints() == 0 && !isSpecialTrump(c, trumpInfo));
+        // item 3：对手正赢着本墩且墩面有分时，若 AI 必定夺墩（本墩最后一位出牌），
+        // 或 AI 是本队最后一道防线（队友已出且未赢着本墩）且墩面分值可观(≥10)，
+        // 则主动用主牌管上夺分，而不是跑别的花色把分白送给对手。
+        boolean lastToPlay = isLastToPlay(player, engine);
+        boolean lastDefender = hasPartnerPlayed(player, engine);
+        boolean worthRuff = trickPoints > 0 && (lastToPlay || (trickPoints >= 10 && lastDefender));
+        if (!aggressive && worthRuff && !trumpCards.isEmpty()) {
+            int currentWinStrength = getCurrentTrickWinnerStrength(engine);
+            // 优先用最小的非特殊主牌管上；夺取高分墩(≥10)且为最后防线时，
+            // 允许动用常主2/级牌(大王仍保留兜底)
+            boolean allowSpecial = trickPoints >= 10 && lastDefender;
+            Card ruff = null;
+            for (Card card : trumpCards) {
+                if (isSpecialTrump(card, trumpInfo)
+                        && (!allowSpecial || card.getRank() == Rank.BIG_JOKER)) {
+                    continue;
+                }
+                int strength = trumpInfo.getCardStrength(card);
+                if (strength > currentWinStrength
+                        && (ruff == null || strength < trumpInfo.getCardStrength(ruff))) {
+                    ruff = card;
+                }
+            }
+            if (ruff != null) {
+                return ruff;
+            }
+        }
         if (hasNonPointNonTrump) {
             // 有无分非主牌可垫，安全垫牌
             return playLow(nonTrumpCards, trumpInfo);

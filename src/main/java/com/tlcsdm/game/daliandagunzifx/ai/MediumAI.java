@@ -440,8 +440,11 @@ public class MediumAI implements AIStrategy {
             // 无分墩没有抢的价值，仍按常规垫牌，避免无谓浪费主牌。
             // 注意此处与 chooseSuitFollow 中"有同花色可跟时即便无分也争墩"的判断不同：
             // 跟花色用的是副牌、成本低，值得为夺取控制权而争；毙分需消耗主牌，仅在有分时才划算。
+            // item 3：队友已出且未赢（AI 为本队最后一道防线）时，只要墩面有分就管上夺分，
+            // 不把分白送给对手——即"对门能管上却跑别的牌"的修复。
             if (trickPoints >= 10 || engine.getTrickCardsPlayed() == 3
-                || !hasNonPointNonTrump || (easyAI.isAggressive() && trickPoints > 0)) {
+                || !hasNonPointNonTrump || (easyAI.isAggressive() && trickPoints > 0)
+                || (easyAI.hasPartnerPlayed(player, engine) && trickPoints > 0)) {
                 // 检查后续对手是否也缺该花色（会用主牌毙），需要选更大的主牌
                 boolean hasSubsequentOpponentVoid = isSubsequentOpponentVoid(player, engine, leadSuit);
 

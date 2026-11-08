@@ -395,33 +395,75 @@ class EasyAITest {
 
     @Test
     void testChooseKittyCardsKouWangWhenTrumpStrong() {
-        // 庄家扣牌时允许考虑扣王：主牌足够强（不依赖小王）时，应扣小王搏一个升级
+        // 庄家扣牌时允许考虑扣王：仅当主牌极强且仍握大王（扣小王后仍绝对控场）时，才扣小王搏升级。
         TrumpInfo trumpInfo = new TrumpInfo(Suit.SPADE, Rank.THREE);
         Player dealer = new Player(0, "P0", false);
 
         int id = 0;
-        // 16 张主牌（黑桃，三副牌允许重复），主牌足够强
-        for (int i = 0; i < 16; i++) {
-            Rank rank = Rank.values()[4 + (i % 8)]; // 跳过 3（主牌级），避免计数歧义
-            dealer.addCards(List.of(new Card(Suit.SPADE, rank, id++)));
-        }
+        // 保留大王（顶级控制牌，且满足"持大王才扣小王"的前提）
+        dealer.addCards(List.of(new Card(null, Rank.BIG_JOKER, id++)));
+        // 待扣的小王
         Card smallJoker = new Card(null, Rank.SMALL_JOKER, id++);
         dealer.addCards(List.of(smallJoker));
-        // 一些低的非主牌
+        // 4 张常主 2（各花色均为主牌，均为顶级控制牌）→ topTrump = 大王+小王+4×2 = 6
+        dealer.addCards(List.of(
+            new Card(Suit.SPADE, Rank.TWO, id++),
+            new Card(Suit.HEART, Rank.TWO, id++),
+            new Card(Suit.CLUB, Rank.TWO, id++),
+            new Card(Suit.DIAMOND, Rank.TWO, id++)));
+        // 13 张普通黑桃主牌（跳过 3 级牌，三副牌允许重复）→ 主牌总数 = 大王1+4×2+13 = 18
+        Rank[] plainSpades = {Rank.FOUR, Rank.FIVE, Rank.SIX, Rank.SEVEN, Rank.EIGHT,
+            Rank.NINE, Rank.TEN, Rank.JACK, Rank.QUEEN, Rank.KING, Rank.ACE,
+            Rank.FOUR, Rank.FIVE};
+        for (Rank rank : plainSpades) {
+            dealer.addCards(List.of(new Card(Suit.SPADE, rank, id++)));
+        }
+        // 5 张低的非主牌，供扣底填充（避免扣掉重要主牌）
         dealer.addCards(List.of(
             new Card(Suit.HEART, Rank.FOUR, id++),
             new Card(Suit.HEART, Rank.FIVE, id++),
             new Card(Suit.HEART, Rank.SIX, id++),
-            new Card(Suit.HEART, Rank.SEVEN, id++)));
+            new Card(Suit.HEART, Rank.SEVEN, id++),
+            new Card(Suit.HEART, Rank.EIGHT, id++)));
 
         EasyAI ai = new EasyAI();
         List<Card> kitty = ai.chooseKittyCards(dealer, List.of(), trumpInfo);
 
         assertEquals(6, kitty.size(), "应该扣6张牌");
         assertTrue(kitty.stream().anyMatch(c -> c.getRank() == Rank.SMALL_JOKER),
-            "主牌足够强时应考虑扣小王（扣王）");
+            "主牌极强且持大王时应考虑扣小王（扣王）");
         assertTrue(kitty.stream().noneMatch(c -> c.getRank() == Rank.BIG_JOKER),
             "大王价值过高，不应主动扣");
+    }
+
+    @Test
+    void testChooseKittyCardsNoKouWangWithoutBigJoker() {
+        // item 1：主牌虽多，但手中无大王时不应扣王——扣掉小王将丢失最高控制牌。
+        // 这正是修复前"无论手牌如何都爱扣王"的典型场景。
+        TrumpInfo trumpInfo = new TrumpInfo(Suit.SPADE, Rank.THREE);
+        Player dealer = new Player(0, "P0", false);
+
+        int id = 0;
+        // 18 张黑桃主牌（无大王），主牌数量足够但缺最高控制牌
+        for (int i = 0; i < 18; i++) {
+            Rank rank = Rank.values()[4 + (i % 8)]; // 跳过 3（主牌级）
+            dealer.addCards(List.of(new Card(Suit.SPADE, rank, id++)));
+        }
+        dealer.addCards(List.of(new Card(null, Rank.SMALL_JOKER, id++)));
+        dealer.addCards(List.of(
+            new Card(Suit.HEART, Rank.FOUR, id++),
+            new Card(Suit.HEART, Rank.FIVE, id++),
+            new Card(Suit.HEART, Rank.SIX, id++),
+            new Card(Suit.HEART, Rank.SEVEN, id++),
+            new Card(Suit.HEART, Rank.EIGHT, id++),
+            new Card(Suit.HEART, Rank.NINE, id++)));
+
+        EasyAI ai = new EasyAI();
+        List<Card> kitty = ai.chooseKittyCards(dealer, List.of(), trumpInfo);
+
+        assertEquals(6, kitty.size(), "应该扣6张牌");
+        assertTrue(kitty.stream().noneMatch(c -> c.getRank() == Rank.SMALL_JOKER),
+            "手中无大王时扣小王会丢失最高控制牌，不应扣王");
     }
 
     @Test
@@ -964,6 +1006,153 @@ class EasyAITest {
             "队友未出牌、AI 非最后防线时应保留常主 ♥2，交由队友管上");
         assertFalse(ai.isSpecialTrump(chosen, engine.getTrumpInfo()),
             "应出非特殊主牌（♥6/♥9），实际出了: " + chosen.getRank() + " " + chosen.getSuit());
+    }
+
+    @Test
+    void testVoidRuffsToGrabPointsAsLastToPlay() {
+        // item 3：AI 无领出花色、对手正赢着本墩且墩面有分、AI 又是本墩最后一位出牌时，
+        // 应主动用主牌管上夺分，而不是跑别的花色把分白送对手。
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0（对手）领出 ♠5（副牌，5 分）
+        players[0].getHand().clear();
+        Card spade5 = new Card(Suit.SPADE, Rank.FIVE, 500);
+        players[0].addCards(List.of(spade5));
+        engine.playCard(0, spade5);
+
+        // Player 1（AI 队友）跟 ♠4（压不过，0 分）
+        players[1].getHand().clear();
+        Card spade4 = new Card(Suit.SPADE, Rank.FOUR, 501);
+        players[1].addCards(List.of(spade4));
+        engine.playCard(1, spade4);
+
+        // Player 2（对手）跟 ♠K（10 分，K>5 → 对手赢着本墩），墩面累计 15 分
+        players[2].getHand().clear();
+        Card spadeK = new Card(Suit.SPADE, Rank.KING, 502);
+        players[2].addCards(List.of(spadeK));
+        engine.playCard(2, spadeK);
+
+        // Player 3（AI，最后出牌）：无黑桃，持 ♥4（主牌，可管上）与 ♣7（无分副牌，可安全垫）
+        players[3].getHand().clear();
+        Card heart4 = new Card(Suit.HEART, Rank.FOUR, 503);
+        Card club7 = new Card(Suit.CLUB, Rank.SEVEN, 504);
+        players[3].addCards(List.of(heart4, club7));
+
+        EasyAI ai = new EasyAI();
+        Card chosen = ai.chooseCard(players[3], engine);
+
+        assertEquals(Suit.HEART, chosen.getSuit(),
+            "对手赢着 15 分、AI 为最后出牌时，应用主牌 ♥4 管上夺分，而非垫 ♣7 送分");
+        assertEquals(Rank.FOUR, chosen.getRank());
+    }
+
+    @Test
+    void testVoidRuffsHighValueTrickAsLastDefender() {
+        // item 3：AI 非最后出牌，但队友已出且未赢、对手正用高分墩(≥10)赢着，
+        // AI 作为本队最后防线应管上夺分，而不是跑别的花色。
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0（AI 队友）领出 ♠5（5 分）
+        players[0].getHand().clear();
+        Card spade5 = new Card(Suit.SPADE, Rank.FIVE, 510);
+        players[0].addCards(List.of(spade5));
+        engine.playCard(0, spade5);
+
+        // Player 1（对手）跟 ♠K（10 分，K>5 → 对手赢着本墩），墩面 15 分
+        players[1].getHand().clear();
+        Card spadeK = new Card(Suit.SPADE, Rank.KING, 511);
+        players[1].addCards(List.of(spadeK));
+        engine.playCard(1, spadeK);
+
+        // Player 2（AI，第 3 位出牌，队友 P0 已出且未赢）：无黑桃，持 ♥4（主牌）与 ♣7（无分副牌）
+        players[2].getHand().clear();
+        Card heart4 = new Card(Suit.HEART, Rank.FOUR, 512);
+        Card club7 = new Card(Suit.CLUB, Rank.SEVEN, 513);
+        players[2].addCards(List.of(heart4, club7));
+
+        EasyAI ai = new EasyAI();
+        Card chosen = ai.chooseCard(players[2], engine);
+
+        assertEquals(Suit.HEART, chosen.getSuit(),
+            "对手用 15 分墩赢着、AI 为本队最后防线时，应用主牌 ♥4 管上夺分");
+        assertEquals(Rank.FOUR, chosen.getRank());
+    }
+
+    @Test
+    void testVoidDoesNotRuffWhenNoPointsAndCanDiscard() {
+        // item 3 对照：对手赢着本墩但墩面无分、且有无分副牌可垫时，
+        // 不应浪费主牌管上，应安全垫牌。
+        Player[] players = new Player[]{
+            new Player(0, "P0", false),
+            new Player(1, "P1", false),
+            new Player(2, "P2", false),
+            new Player(3, "P3", false)
+        };
+        GameEngine engine = new GameEngine(players);
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.HEART);
+        List<Card> kittyCards = players[0].getHand().stream()
+            .filter(c -> c.getRank() != Rank.SMALL_JOKER && c.getRank() != Rank.BIG_JOKER)
+            .limit(6)
+            .toList();
+        engine.setKitty(kittyCards);
+
+        // Player 0（对手）领出 ♠9（0 分）
+        players[0].getHand().clear();
+        Card spade9 = new Card(Suit.SPADE, Rank.NINE, 520);
+        players[0].addCards(List.of(spade9));
+        engine.playCard(0, spade9);
+
+        // Player 1（AI 队友）跟 ♠4（压不过，0 分）
+        players[1].getHand().clear();
+        Card spade4 = new Card(Suit.SPADE, Rank.FOUR, 521);
+        players[1].addCards(List.of(spade4));
+        engine.playCard(1, spade4);
+
+        // Player 2（对手）跟 ♠J（0 分，J>9 → 对手赢着本墩），墩面 0 分
+        players[2].getHand().clear();
+        Card spadeJ = new Card(Suit.SPADE, Rank.JACK, 522);
+        players[2].addCards(List.of(spadeJ));
+        engine.playCard(2, spadeJ);
+
+        // Player 3（AI，最后出牌）：无黑桃，持 ♥4（主牌）与 ♣7（无分副牌，应安全垫）
+        players[3].getHand().clear();
+        Card heart4 = new Card(Suit.HEART, Rank.FOUR, 523);
+        Card club7 = new Card(Suit.CLUB, Rank.SEVEN, 524);
+        players[3].addCards(List.of(heart4, club7));
+
+        EasyAI ai = new EasyAI();
+        Card chosen = ai.chooseCard(players[3], engine);
+
+        assertFalse(engine.getTrumpInfo().isTrump(chosen),
+            "墩面无分时不应浪费主牌管上，应垫无分副牌 ♣7，实际出了: "
+                + chosen.getRank() + " " + chosen.getSuit());
     }
 
     @Test

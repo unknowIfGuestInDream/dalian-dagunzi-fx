@@ -78,6 +78,8 @@ public class GameScreen extends BaseStageScreen {
     private static final float CARD_H = CardActor.CARD_HEIGHT;
     private static final float OVERLAP = 25f;
     private static final float AI_BIDDING_DELAY = 0.5f;
+    /** 非首局叫主所需的同花色当前级牌张数（规则：2 张或以上才能叫主）。 */
+    private static final int NON_FIRST_TRUMP_MIN = 2;
 
     private Player[] players;
     private CardTracker cardTracker;
@@ -538,106 +540,90 @@ public class GameScreen extends BaseStageScreen {
             return;
         }
 
+        // 非首局：庄家由上一局结果确定（赢方互换 / 反庄为上局庄家的下家），不进行竞争抢庄。
+        // 仅由该指定庄家确定主牌花色，避免叫主竞争覆盖确定性的庄家轮转。
+        int designatedDealer = engine.getNextDealerIndex();
+        if (designatedDealer < 0) {
+            designatedDealer = engine.getDealerIndex() >= 0 ? engine.getDealerIndex() : 0;
+        }
+        if (designatedDealer == 0) {
+            beginHumanDealerDeclaration();
+        } else {
+            beginAiDealerDeclaration(designatedDealer);
+        }
+    }
+
+    /**
+     * 非首局人类为庄家：从自己持有 ≥{@link #NON_FIRST_TRUMP_MIN} 张同花色当前级牌的花色中
+     * 选择主牌花色；若没有满足张数的花色，则由底牌确定主牌（庄家不变）。
+     */
+    private void beginHumanDealerDeclaration() {
         Rank humanTrumpRank = engine.getTeamLevels()[players[0].getTeam()];
-        int minRequired = engine.getDeclaredTrumpCount() == 0 ? 1 : engine.getDeclaredTrumpCount() + 1;
         Map<Suit, Integer> suitCounts = new EnumMap<>(Suit.class);
         for (Card card : players[0].getHand()) {
             if (card.getRank() == humanTrumpRank && card.getSuit() != null) {
                 suitCounts.merge(card.getSuit(), 1, Integer::sum);
             }
         }
-        boolean humanCanDeclare = suitCounts.values().stream().anyMatch(c -> c >= minRequired);
+        boolean humanCanDeclare = suitCounts.values().stream()
+            .anyMatch(c -> c >= NON_FIRST_TRUMP_MIN);
 
-        if (humanCanDeclare) {
-            String reqDesc = minRequired == 1 ? "1张即可叫主" : "需" + minRequired + "张同花色才能抢主";
-            setStatus("你可以叫主（" + reqDesc + "），请选择主牌花色，或选择不叫");
+        if (!humanCanDeclare) {
+            setStatus("你是本局庄家，但没有 " + NON_FIRST_TRUMP_MIN + " 张同花色级牌，由底牌确定主牌...");
             actionTable.clearChildren();
-            for (Suit suit : Suit.values()) {
-                int count = suitCounts.getOrDefault(suit, 0);
-                final Suit s = suit;
-                final int cardCount = count;
-                TextButton btn = new TextButton("叫" + suit.getDisplayName(), assets.getButtonStyle());
-                UiUtils.onClick(btn, () -> {
-                    if (btn.isDisabled()) {
-                        return;
-                    }
-                    humanDeclareTrump(s, cardCount);
-                });
-                btn.setDisabled(count < minRequired);
-                actionTable.add(btn).width(110).height(44).padRight(6);
-            }
-            actionTable.add(UiUtils.button("不叫", assets.getButtonStyle(), () -> {
-                actionTable.clearChildren();
-                setStatus("你选择了不叫，电脑正在考虑...");
-                aiTrumpBidding();
-            })).width(90).height(44);
-            layoutActionTable();
-        } else {
-            aiTrumpBidding();
+            declareTrumpFromKittyForDealer(0);
+            return;
         }
+
+        setStatus("你是本局庄家，请选择主牌花色（需 " + NON_FIRST_TRUMP_MIN + " 张同花色"
+            + humanTrumpRank.getDisplayName() + "），或由底牌确定主牌");
+        actionTable.clearChildren();
+        for (Suit suit : Suit.values()) {
+            int count = suitCounts.getOrDefault(suit, 0);
+            final Suit s = suit;
+            TextButton btn = new TextButton("叫" + suit.getDisplayName(), assets.getButtonStyle());
+            UiUtils.onClick(btn, () -> {
+                if (btn.isDisabled()) {
+                    return;
+                }
+                actionTable.clearChildren();
+                engine.declareTrump(0, s);
+                setStatus("你定主：" + s.getDisplayName());
+                updateInfoPanel();
+                updateHumanHand();
+                afterTrumpDeclared(0);
+            });
+            btn.setDisabled(count < NON_FIRST_TRUMP_MIN);
+            actionTable.add(btn).width(110).height(44).padRight(6);
+        }
+        actionTable.add(UiUtils.button("由底牌定主", assets.getButtonStyle(), () -> {
+            actionTable.clearChildren();
+            declareTrumpFromKittyForDealer(0);
+        })).width(120).height(44);
+        layoutActionTable();
     }
 
-    private void aiTrumpBidding() {
-        int start = engine.getNextDealerIndex();
-        if (start < 0) {
-            start = 0;
-        }
+    /**
+     * 非首局 AI 为庄家：AI 从持有 ≥{@link #NON_FIRST_TRUMP_MIN} 张同花色级牌的花色中确定主牌花色，
+     * 若没有满足张数的花色则由底牌确定主牌。庄家固定为传入的指定庄家，不被其他玩家抢走。
+     */
+    private void beginAiDealerDeclaration(int dealerIdx) {
+        setStatus(players[dealerIdx].getName() + " 是本局庄家，正在确定主牌...");
         actionTable.clearChildren();
-
-        int step = 0;
-        for (int k = 0; k < 4; k++) {
-            final int idx = (start + k) % 4;
-            if (idx == 0) {
-                continue;
-            }
-            step++;
-            schedule(AI_BIDDING_DELAY * step, () -> {
-                int curCount = engine.getDeclaredTrumpCount();
-                int minReq = curCount == 0 ? 1 : curCount + 1;
-                Player ai = players[idx];
-                Rank rank = engine.getTeamLevels()[ai.getTeam()];
-                Suit chosenSuit = aiStrategy.chooseTrumpSuit(ai, rank, minReq);
-                if (chosenSuit != null) {
-                    int aiCount = countTrumpRankCards(ai, rank, chosenSuit);
-                    engine.tentativeDeclareTrump(idx, chosenSuit, aiCount);
-                    setStatus(ai.getName() + " 叫了主牌：" + chosenSuit.getDisplayName()
-                        + "（" + aiCount + "张）");
-                    updateInfoPanel();
-                    updateHumanHand();
-                } else {
-                    setStatus(ai.getName() + " 不叫");
-                }
-            });
-        }
-
-        final int designatedDealer = start;
-        schedule(AI_BIDDING_DELAY * (step + 1), () -> {
-            if (engine.getDeclaredTrumpCount() > 0) {
-                engine.finalizeTrumpDeclaration();
-                afterTrumpDeclared(engine.getDealerIndex());
+        schedule(AI_BIDDING_DELAY, () -> {
+            Player ai = players[dealerIdx];
+            Rank rank = engine.getTeamLevels()[ai.getTeam()];
+            Suit chosenSuit = aiStrategy.chooseTrumpSuit(ai, rank, NON_FIRST_TRUMP_MIN);
+            if (chosenSuit != null) {
+                engine.declareTrump(dealerIdx, chosenSuit);
+                setStatus(ai.getName() + " 定主：" + chosenSuit.getDisplayName());
+                updateInfoPanel();
+                updateHumanHand();
+                afterTrumpDeclared(dealerIdx);
             } else {
-                declareTrumpFromKittyForDealer(designatedDealer);
+                declareTrumpFromKittyForDealer(dealerIdx);
             }
         });
-    }
-
-    private int countTrumpRankCards(Player player, Rank rank, Suit suit) {
-        int count = 0;
-        for (Card c : player.getHand()) {
-            if (c.getRank() == rank && c.getSuit() == suit) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    private void humanDeclareTrump(Suit suit, int count) {
-        actionTable.clearChildren();
-        engine.tentativeDeclareTrump(0, suit, count);
-        setStatus("你叫了主牌：" + suit.getDisplayName() + "（" + count + "张）");
-        updateInfoPanel();
-        updateHumanHand();
-        aiTrumpBidding();
     }
 
     private void humanPassTrump() {

@@ -580,6 +580,47 @@ class GameEngineTest {
         assertEquals(result.getWinningTeam(), engine.getPreviousWinningTeam());
     }
 
+    @Test
+    void testNextDealerRotationFollowsResult() {
+        // item 6：下一局庄家必须由本局结果确定性地轮转，不受叫主竞争影响。
+        //  - 庄家赢（闲家<120）：下一局庄家为其搭档（+2），同队继续坐庄；
+        //  - 闲家赢（反庄）：下一局庄家为上局庄家的下家（+1），对门坐庄。
+        playFullRound(engine, players);
+        int dealer = engine.getDealerIndex();
+        RoundResult result = engine.calculateRoundResult();
+        int nextDealer = engine.getNextDealerIndex();
+
+        if (result.isDeclarerWins()) {
+            assertEquals((dealer + 2) % 4, nextDealer,
+                "庄家赢→下一局庄家应为其搭档(+2)");
+            assertEquals(players[dealer].getTeam(), players[nextDealer].getTeam(),
+                "庄家赢→下一局庄家应与上局庄家同队");
+        } else {
+            assertEquals((dealer + 1) % 4, nextDealer,
+                "闲家赢（反庄）→下一局庄家应为上局庄家的下家(+1)");
+            assertNotEquals(players[dealer].getTeam(), players[nextDealer].getTeam(),
+                "反庄→下一局庄家应为对门队伍");
+        }
+    }
+
+    @Test
+    void testTributeReceiverIsActualDealerNotTeamFirst() {
+        // item 6：进贡接收方应为“实际庄家”（上一局结果确定的那一位），
+        // 而非“赢方队伍首位”。只要庄家由确定性轮转设定，收贡方即庄家本人。
+        playFullRound(engine, players);
+        RoundResult result = engine.calculateRoundResult();
+        int nextDealer = engine.getNextDealerIndex();
+
+        engine.startNewRound();
+        // 由确定性轮转得到的庄家叫主（非竞争抢庄）
+        engine.declareTrump(nextDealer, Suit.SPADE);
+
+        assertEquals(nextDealer, engine.getTributeReceiverIndex(),
+            "进贡接收方应为确定性轮转得到的实际庄家");
+        assertEquals(result.getWinningTeam(), players[nextDealer].getTeam(),
+            "实际庄家应来自上一局赢方队伍");
+    }
+
     /**
      * 简单地用“首张合法牌”策略打完一整局，使局面进入 ROUND_END。
      */

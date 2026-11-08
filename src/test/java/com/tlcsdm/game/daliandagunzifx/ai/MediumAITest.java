@@ -254,4 +254,37 @@ class MediumAITest {
         long remainingFours = leader.getHand().stream().filter(c -> c.getRank() == Rank.FOUR).count();
         assertEquals(2, remainingFours, "♥4 棒子应完整保留在手中");
     }
+
+    @Test
+    void testVoidRuffsAsLastDefenderMidValue() {
+        // item 3：队友领出副牌被对手用小主毙掉、AI(对门)无该花色、墩面有分且 AI 为最后防线时，
+        // 应用主牌管上夺分，而不是跑别的花色（修复“对门能管上却跑别的牌”）。
+        Player[] players = newPlayers();
+        GameEngine engine = newEngineWithTrump(players, Suit.HEART);
+
+        // Player 0（AI 队友）领出 ♠5（副牌，5 分）
+        players[0].getHand().clear();
+        Card spade5 = new Card(Suit.SPADE, Rank.FIVE, 530);
+        players[0].addCards(List.of(spade5));
+        engine.playCard(0, spade5);
+
+        // Player 1（对手）用 ♥4（小主）毙掉 → 对手赢着本墩
+        players[1].getHand().clear();
+        Card heart4 = new Card(Suit.HEART, Rank.FOUR, 531);
+        players[1].addCards(List.of(heart4));
+        engine.playCard(1, heart4);
+
+        // Player 2（AI，第 3 位出牌，队友已出且未赢）：无黑桃，持 ♥6（可压过 ♥4）与 ♣7（无分副牌）
+        players[2].getHand().clear();
+        Card heart6 = new Card(Suit.HEART, Rank.SIX, 532);
+        Card club7 = new Card(Suit.CLUB, Rank.SEVEN, 533);
+        players[2].addCards(List.of(heart6, club7));
+
+        MediumAI ai = new MediumAI(new CardTracker());
+        Card chosen = ai.chooseCard(players[2], engine);
+
+        assertEquals(Suit.HEART, chosen.getSuit(),
+            "对手小主毙着 5 分、AI 为最后防线时，应用 ♥6 管上夺分，而非垫 ♣7");
+        assertEquals(Rank.SIX, chosen.getRank());
+    }
 }
