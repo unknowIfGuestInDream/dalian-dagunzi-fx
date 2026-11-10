@@ -29,7 +29,7 @@ buildscript {
             exclude group: 'org.springframework'
         }
         classpath 'org.codehaus.plexus:plexus-utils:3.6.1'
-        classpath 'org.springframework:spring-core:6.2.11'
+        classpath 'org.springframework:spring-core:6.2.19'
     }
 }
 
