@@ -83,7 +83,7 @@ dependencies {
     runtimeOnly "com.badlogicgames.gdx:gdx-freetype-platform:${gdxVersion}:natives-desktop"
 
     // 日志
-    implementation 'ch.qos.logback:logback-classic:1.5.16'
+    implementation 'ch.qos.logback:logback-classic:1.6.6'
     implementation 'org.slf4j:slf4j-api:2.0.16'
     // 更新检查使用 Gson 解析 GitHub Release
     implementation 'com.google.code.gson:gson:2.15.0'
