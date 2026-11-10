@@ -29,7 +29,8 @@ buildscript {
             exclude group: 'org.springframework'
         }
         classpath 'org.codehaus.plexus:plexus-utils:4.1.0'
-        classpath "org.springframework:spring-core:${springCoreVersion}"
+        // 注意：这里是 Gradle 构建期 classpath（供 license 插件使用），不会进入应用运行时依赖树。
+        classpath "org.springframework:spring-core:${project.findProperty('springCoreVersion') ?: '6.2.11'}"
     }
 }
 
