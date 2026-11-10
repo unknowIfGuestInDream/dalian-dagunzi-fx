@@ -28,7 +28,7 @@ buildscript {
             exclude group: 'org.codehaus.plexus', module: 'plexus-utils'
             exclude group: 'org.springframework'
         }
-        classpath 'org.codehaus.plexus:plexus-utils:3.6.1'
+        classpath 'org.codehaus.plexus:plexus-utils:4.1.0'
         classpath "org.springframework:spring-core:${springCoreVersion}"
     }
 }
