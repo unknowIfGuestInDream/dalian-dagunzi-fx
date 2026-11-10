@@ -55,7 +55,7 @@ jobs:
       - name: Upload JaCoCo coverage report
         # 仅在 Linux 任务上传一次覆盖率报告（HTML + XML），避免三平台重复产物
         if: always() && matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: jacoco-coverage-report
           path: build/reports/jacoco/test/
