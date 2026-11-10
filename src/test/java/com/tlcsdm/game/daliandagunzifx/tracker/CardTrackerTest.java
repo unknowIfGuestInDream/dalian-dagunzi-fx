@@ -70,4 +70,80 @@ class CardTrackerTest {
         assertEquals(0, tracker.getPlayedCards().size());
         assertFalse(tracker.isVoid(1, Suit.DIAMOND));
     }
+
+    /** 将记牌器中指定花色+点数的全部副牌标记为已打出，使用真实卡牌保证 id 匹配。 */
+    private static void playAllOfSuit(CardTracker tracker, Suit suit, Rank rank) {
+        for (Card c : tracker.getSuitRemainingCards(suit)) {
+            if (c.getRank() == rank) {
+                tracker.cardPlayed(c, 0);
+            }
+        }
+    }
+
+    @Test
+    void testGetRemainingCountBySuit() {
+        CardTracker tracker = new CardTracker();
+        // 3 副牌：每花色 13 点 × 3 副 = 39 张
+        assertEquals(39, tracker.getRemainingCount(Suit.SPADE));
+        playAllOfSuit(tracker, Suit.SPADE, Rank.ACE);
+        assertEquals(36, tracker.getRemainingCount(Suit.SPADE), "出掉 3 张黑桃A后剩 36 张黑桃");
+        // 其它花色不受影响
+        assertEquals(39, tracker.getRemainingCount(Suit.HEART));
+    }
+
+    @Test
+    void testGetRemainingCountByRank() {
+        CardTracker tracker = new CardTracker();
+        // 每点数 4 花色 × 3 副 = 12 张；王各 3 张
+        assertEquals(12, tracker.getRemainingCount(Rank.ACE));
+        assertEquals(3, tracker.getRemainingCount(Rank.BIG_JOKER));
+        playAllOfSuit(tracker, Suit.HEART, Rank.ACE);
+        assertEquals(9, tracker.getRemainingCount(Rank.ACE), "出掉 3 张红桃A后剩 9 张A");
+    }
+
+    @Test
+    void testGetSuitAndRankRemainingCards() {
+        CardTracker tracker = new CardTracker();
+        assertEquals(39, tracker.getSuitRemainingCards(Suit.CLUB).size());
+        assertEquals(12, tracker.getRankRemainingCards(Rank.KING).size());
+        playAllOfSuit(tracker, Suit.CLUB, Rank.KING);
+        assertEquals(36, tracker.getSuitRemainingCards(Suit.CLUB).size());
+        assertTrue(tracker.getSuitRemainingCards(Suit.CLUB).stream()
+            .noneMatch(c -> c.getRank() == Rank.KING), "梅花K应已全部出掉");
+        assertEquals(9, tracker.getRankRemainingCards(Rank.KING).size());
+    }
+
+    @Test
+    void testGetPlayedCardsBySuitAndByRank() {
+        CardTracker tracker = new CardTracker();
+        Card heartAce = tracker.getSuitRemainingCards(Suit.HEART).stream()
+            .filter(c -> c.getRank() == Rank.ACE).findFirst().orElseThrow();
+        Card spadeKing = tracker.getSuitRemainingCards(Suit.SPADE).stream()
+            .filter(c -> c.getRank() == Rank.KING).findFirst().orElseThrow();
+        Card bigJoker = tracker.getRankRemainingCards(Rank.BIG_JOKER).get(0);
+        tracker.cardPlayed(heartAce, 0);
+        tracker.cardPlayed(spadeKing, 1);
+        tracker.cardPlayed(bigJoker, 2);
+
+        assertTrue(tracker.getPlayedCardsBySuit().get(Suit.HEART).contains(heartAce));
+        assertTrue(tracker.getPlayedCardsBySuit().get(Suit.SPADE).contains(spadeKing));
+        // 王无花色，不应出现在按花色分组中
+        assertFalse(tracker.getPlayedCardsBySuit().get(Suit.HEART).contains(bigJoker));
+        assertTrue(tracker.getPlayedCardsByRank().get(Rank.ACE).contains(heartAce));
+        assertTrue(tracker.getPlayedCardsByRank().get(Rank.BIG_JOKER).contains(bigJoker));
+    }
+
+    @Test
+    void testIsVoidUnknownPlayerReturnsFalse() {
+        CardTracker tracker = new CardTracker();
+        // 未初始化的玩家下标（voids 为 null 分支）应返回 false
+        assertFalse(tracker.isVoid(99, Suit.SPADE));
+    }
+
+    @Test
+    void testGetPlayedCardsIsUnmodifiable() {
+        CardTracker tracker = new CardTracker();
+        assertThrows(UnsupportedOperationException.class,
+            () -> tracker.getPlayedCards().add(new Card(Suit.HEART, Rank.ACE, 0)));
+    }
 }

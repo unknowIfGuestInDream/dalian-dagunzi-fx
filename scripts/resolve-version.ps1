@@ -3,22 +3,22 @@
     Resolve the project version and prepare staging directory.
 
 .DESCRIPTION
-    Extracts the Maven project version, locates the built jar, and copies
+    Extracts the Gradle project version, locates the built jar, and copies
     all files needed for packaging into a staging directory.
     This script should be called from the project root directory after build.ps1.
 #>
 
 $ErrorActionPreference = 'Stop'
 
-# Resolve version from pom.xml
-$versionOutput = & mvn -q -DforceStdout 'help:evaluate' -Dexpression='project.version' 2>$null
-$version = $versionOutput.Trim()
-if (-not $version) { throw 'Failed to extract version from Maven' }
+# Resolve version from Gradle
+$versionOutput = & .\gradlew.bat -q printVersion --no-daemon | Select-Object -Last 1
+$version = "$versionOutput".Trim()
+if (-not $version) { throw 'Failed to extract version from Gradle' }
 Write-Host "Project version: $version" -ForegroundColor Cyan
 
 # Locate jar file
-$jar = Get-ChildItem -Path 'target\dalian-dagunzi.jar' -File -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($null -eq $jar) { throw 'No jar file found matching pattern target\dalian-dagunzi.jar' }
+$jar = Get-ChildItem -Path 'build\app\dalian-dagunzi.jar' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($null -eq $jar) { throw 'No jar file found matching pattern build\app\dalian-dagunzi.jar' }
 Write-Host "Jar file: $($jar.Name)" -ForegroundColor Cyan
 
 # Set environment variables for subsequent steps (GitHub Actions compatible)
@@ -34,7 +34,7 @@ New-Item -ItemType Directory -Path $stagingDir | Out-Null
 
 # Copy files to staging
 Copy-Item -Path $jar.FullName -Destination $stagingDir
-Copy-Item -Path 'target\lib' -Destination "$stagingDir\lib" -Recurse
+Copy-Item -Path 'build\app\lib' -Destination "$stagingDir\lib" -Recurse
 Copy-Item -Path 'README.md' -Destination $stagingDir
 Copy-Item -Path 'LICENSE' -Destination $stagingDir
 if (Test-Path 'docs') {

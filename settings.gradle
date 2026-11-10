@@ -1,0 +1,17 @@
+// 插件仓库优先使用阿里云镜像，加速国内构建；保留官方仓库作为回退
+pluginManagement {
+    repositories {
+        maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url = 'https://maven.aliyun.com/repository/public' }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+// Foojay 工具链解析器：当本地缺少所需的 JDK 25 时自动下载并配置对应工具链，
+// 使仅安装了更高版本 JDK 的开发者也能直接构建，无需手动安装 JDK 25
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.9.0'
+}
+
+rootProject.name = 'dalian-dagunzi-fx'

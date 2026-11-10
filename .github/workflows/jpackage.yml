@@ -19,15 +19,12 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             package-type: deb
-            jfx-platform: linux
           - os: macos-latest
             platform: macos
             package-type: dmg
-            jfx-platform: mac
           - os: windows-latest
             platform: windows
             package-type: exe
-            jfx-platform: win
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -40,22 +37,17 @@ jobs:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Cache Maven packages
-        uses: actions/cache@v5
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Build with Maven
+      - name: Build with Gradle
         shell: bash
-        run: mvn -B clean package --no-transfer-progress -DskipTests -Dmaven.javadoc.skip=true -Djavafx.platform=${{ matrix.jfx-platform }}
+        run: ./gradlew clean appImage -x test --no-daemon
 
       - name: Resolve version
         shell: bash
         id: version
-        run: echo "version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(./gradlew -q printVersion --no-daemon | tail -n1 | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
 
       - name: Create custom JRE with jlink
         env:
@@ -69,10 +61,10 @@ jobs:
           esac
           JLINK_MODULE_PATH="$JAVA_HOME/jmods"
           JDEPS_MODULE_PATH="$JLINK_MODULE_PATH"
-          if [ -d target/lib ]; then
-            JDEPS_MODULE_PATH="$JDEPS_MODULE_PATH${PATH_SEPARATOR}target/lib"
+          if [ -d build/app/lib ]; then
+            JDEPS_MODULE_PATH="$JDEPS_MODULE_PATH${PATH_SEPARATOR}build/app/lib"
           fi
-          APP_JAR=target/dalian-dagunzi.jar
+          APP_JAR=build/app/dalian-dagunzi.jar
           if [ ! -f "$APP_JAR" ]; then
             echo "::error::未找到应用 Jar：$APP_JAR"
             exit 1
@@ -99,7 +91,7 @@ jobs:
             echo "jlink 最终模块集合：$MODULES"
           fi
           if [[ "$MODULES" == *javafx.* ]]; then
-            JLINK_MODULE_PATH="$JLINK_MODULE_PATH${PATH_SEPARATOR}target/lib"
+            JLINK_MODULE_PATH="$JLINK_MODULE_PATH${PATH_SEPARATOR}build/app/lib"
           fi
           rm -rf jpackage-jre
           jlink \
@@ -119,13 +111,14 @@ jobs:
             --type ${{ matrix.package-type }} \
             --name "大连打滚子" \
             --app-version ${{ steps.version.outputs.version }} \
-            --input target \
+            --input build/app \
             --main-jar dalian-dagunzi.jar \
             --runtime-image jpackage-jre \
             --dest dist \
             --description "大连打滚子纸牌游戏" \
             --vendor "tlcsdm" \
             --java-options "-Dfile.encoding=UTF-8" \
+            --java-options "--enable-native-access=ALL-UNNAMED" \
             "${PACKAGE_ARGS[@]}"
 
       - name: Prepare artifact

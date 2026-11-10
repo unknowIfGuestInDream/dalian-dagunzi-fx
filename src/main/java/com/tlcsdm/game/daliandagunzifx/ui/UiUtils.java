@@ -24,39 +24,40 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package com.tlcsdm.game.daliandagunzifx.model;
+package com.tlcsdm.game.daliandagunzifx.ui;
 
-import java.util.List;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 
-public class CardGroup {
+/**
+ * Scene2D 常用交互辅助方法。
+ *
+ * @author unknowIfGuestInDream
+ */
+public final class UiUtils {
 
-    private final List<Card> cards;
-    private final PlayType type;
-    private final Suit leadSuit;
-
-    private CardGroup(List<Card> cards, PlayType type, Suit leadSuit) {
-        this.cards = List.copyOf(cards);
-        this.type = type;
-        this.leadSuit = leadSuit;
+    private UiUtils() {
     }
 
-    public static CardGroup single(Card card) {
-        return new CardGroup(List.of(card), PlayType.SINGLE, card.getSuit());
+    /** 为任意 Actor 绑定左键点击回调。{@code action} 为 null 时不绑定，避免点击时空指针崩溃。 */
+    public static void onClick(Actor actor, Runnable action) {
+        if (action == null) {
+            return;
+        }
+        actor.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                action.run();
+            }
+        });
     }
 
-    public static CardGroup pair(Card first, Card second) {
-        return new CardGroup(List.of(first, second), PlayType.PAIR, first.getSuit());
-    }
-
-    public List<Card> getCards() {
-        return cards;
-    }
-
-    public PlayType getType() {
-        return type;
-    }
-
-    public Suit getLeadSuit() {
-        return leadSuit;
+    /** 创建带点击回调的文本按钮。 */
+    public static TextButton button(String text, TextButton.TextButtonStyle style, Runnable action) {
+        TextButton btn = new TextButton(text, style);
+        onClick(btn, action);
+        return btn;
     }
 }

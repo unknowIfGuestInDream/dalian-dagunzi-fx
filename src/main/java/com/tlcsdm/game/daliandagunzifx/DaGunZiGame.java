@@ -24,57 +24,61 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package com.tlcsdm.game.daliandagunzifx.utils.eventbus;
+package com.tlcsdm.game.daliandagunzifx;
 
-import java.util.List;
-import java.util.concurrent.Executor;
+import com.badlogic.gdx.Game;
+import com.badlogic.gdx.Screen;
+import com.tlcsdm.game.daliandagunzifx.config.AppConfig;
+import com.tlcsdm.game.daliandagunzifx.screen.MenuScreen;
+import com.tlcsdm.game.daliandagunzifx.ui.Assets;
 
 /**
- * 实现 同步阻塞的 EventBus
+ * libgdx 主游戏类，负责加载全局资源并在各界面之间切换。
+ * <p>
+ * 2.0.0 起使用 libgdx（Scene2D）重写原 JavaFX 界面，核心引擎/AI/模型逻辑完全复用。
  *
  * @author unknowIfGuestInDream
  */
-public class EventBus {
-    private Executor executor;
-    private final ObserverRegister register = new ObserverRegister();
+public class DaGunZiGame extends Game {
 
-    public EventBus() {
+    /** 应用版本号，与构建版本保持一致。 */
+    public static final String APP_VERSION = "2.0.0";
+
+    private Assets assets;
+
+    @Override
+    public void create() {
+        assets = new Assets();
+        assets.load();
+        setScreen(new MenuScreen(this));
     }
 
-    protected EventBus(Executor executor) {
-        this.executor = executor;
+    public Assets getAssets() {
+        return assets;
     }
 
-    public static EventBus getDefault() {
-        return SingletonInstance.EVENT_BUS;
-    }
-
-    private static class SingletonInstance {
-        private static final EventBus EVENT_BUS = new EventBus();
-    }
-
-    /**
-     * 注册观察者
-     */
-    public void register(Object observer) {
-        register.register(observer);
-    }
-
-    public void unregister(Object observer) {
-        register.unregister(observer);
+    public AppConfig getConfig() {
+        return AppConfig.getInstance();
     }
 
     /**
-     * 发布者-发送消息
+     * 切换界面并释放上一个界面的资源，避免内存泄漏。
      */
-    public void post(Object event) {
-        List<ObserverAction> observerActions = register.getMatchedObserverActions(event);
-        for (ObserverAction observerAction : observerActions) {
-            if (executor == null) {
-                observerAction.execute(event);
-            } else {
-                executor.execute(() -> observerAction.execute(event));
-            }
+    public void switchScreen(Screen next) {
+        Screen current = getScreen();
+        setScreen(next);
+        if (current != null) {
+            current.dispose();
+        }
+    }
+
+    @Override
+    public void dispose() {
+        if (getScreen() != null) {
+            getScreen().dispose();
+        }
+        if (assets != null) {
+            assets.dispose();
         }
     }
 }

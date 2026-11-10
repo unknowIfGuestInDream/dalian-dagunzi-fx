@@ -580,6 +580,47 @@ class GameEngineTest {
         assertEquals(result.getWinningTeam(), engine.getPreviousWinningTeam());
     }
 
+    @Test
+    void testNextDealerRotationFollowsResult() {
+        // item 6：下一局庄家必须由本局结果确定性地轮转，不受叫主竞争影响。
+        //  - 庄家赢（闲家<120）：下一局庄家为其搭档（+2），同队继续坐庄；
+        //  - 闲家赢（反庄）：下一局庄家为上局庄家的下家（+1），对门坐庄。
+        playFullRound(engine, players);
+        int dealer = engine.getDealerIndex();
+        RoundResult result = engine.calculateRoundResult();
+        int nextDealer = engine.getNextDealerIndex();
+
+        if (result.isDeclarerWins()) {
+            assertEquals((dealer + 2) % 4, nextDealer,
+                "庄家赢→下一局庄家应为其搭档(+2)");
+            assertEquals(players[dealer].getTeam(), players[nextDealer].getTeam(),
+                "庄家赢→下一局庄家应与上局庄家同队");
+        } else {
+            assertEquals((dealer + 1) % 4, nextDealer,
+                "闲家赢（反庄）→下一局庄家应为上局庄家的下家(+1)");
+            assertNotEquals(players[dealer].getTeam(), players[nextDealer].getTeam(),
+                "反庄→下一局庄家应为对门队伍");
+        }
+    }
+
+    @Test
+    void testTributeReceiverIsActualDealerNotTeamFirst() {
+        // item 6：进贡接收方应为“实际庄家”（上一局结果确定的那一位），
+        // 而非“赢方队伍首位”。只要庄家由确定性轮转设定，收贡方即庄家本人。
+        playFullRound(engine, players);
+        RoundResult result = engine.calculateRoundResult();
+        int nextDealer = engine.getNextDealerIndex();
+
+        engine.startNewRound();
+        // 由确定性轮转得到的庄家叫主（非竞争抢庄）
+        engine.declareTrump(nextDealer, Suit.SPADE);
+
+        assertEquals(nextDealer, engine.getTributeReceiverIndex(),
+            "进贡接收方应为确定性轮转得到的实际庄家");
+        assertEquals(result.getWinningTeam(), players[nextDealer].getTeam(),
+            "实际庄家应来自上一局赢方队伍");
+    }
+
     /**
      * 简单地用“首张合法牌”策略打完一整局，使局面进入 ROUND_END。
      */
@@ -753,5 +794,45 @@ class GameEngineTest {
             return; // 已验证一个多贡场景即可
         }
         // 若 400 次内未出现多贡场景，不视为失败（场景较罕见）。
+    }
+
+    @Test
+    void testForbiddenLeadPlaysRejected() {
+        // 领出校验：绝对禁止甩牌、顺子、拖拉机(连对)、泰坦尼克(连三条)，仅允许单张/棒子/滚子
+        engine.startNewRound();
+        engine.declareTrump(0, Suit.SPADE);
+        List<Card> kittyCards = selectNonJokerKitty(players[0], 6);
+        engine.setKitty(kittyCards);
+
+        // 庄家(玩家0)领出；清空手牌并放入受控的红桃副牌（主为黑桃，红桃均为副牌）
+        Player leader = players[0];
+        leader.getHand().clear();
+        Card h5a = new Card(Suit.HEART, Rank.FIVE, 800);
+        Card h5b = new Card(Suit.HEART, Rank.FIVE, 801);
+        Card h6a = new Card(Suit.HEART, Rank.SIX, 802);
+        Card h6b = new Card(Suit.HEART, Rank.SIX, 803);
+        Card h7a = new Card(Suit.HEART, Rank.SEVEN, 804);
+        Card h7b = new Card(Suit.HEART, Rank.SEVEN, 805);
+        Card h7c = new Card(Suit.HEART, Rank.SEVEN, 806);
+        Card h8a = new Card(Suit.HEART, Rank.EIGHT, 807);
+        Card h8b = new Card(Suit.HEART, Rank.EIGHT, 808);
+        Card h8c = new Card(Suit.HEART, Rank.EIGHT, 809);
+        Card h9 = new Card(Suit.HEART, Rank.NINE, 810);
+        Card c6 = new Card(Suit.CLUB, Rank.SIX, 811);
+        leader.addCards(List.of(h5a, h5b, h6a, h6b, h7a, h7b, h7c, h8a, h8b, h8c, h9, c6));
+
+        // 禁止：甩牌（两张不同花色）
+        assertFalse(engine.isValidPlay(0, List.of(h5a, c6)), "应禁止甩牌(不同花色混出)");
+        // 禁止：顺子（5 张连续）
+        assertFalse(engine.isValidPlay(0, List.of(h5a, h6a, h7a, h8a, h9)), "应禁止顺子");
+        // 禁止：拖拉机/连对（5566）
+        assertFalse(engine.isValidPlay(0, List.of(h5a, h5b, h6a, h6b)), "应禁止拖拉机(连对)");
+        // 禁止：泰坦尼克/连三条（777888）
+        assertFalse(engine.isValidPlay(0, List.of(h7a, h7b, h7c, h8a, h8b, h8c)), "应禁止连三条");
+
+        // 允许：单张/棒子/滚子
+        assertTrue(engine.isValidPlay(0, List.of(h5a)), "应允许单张");
+        assertTrue(engine.isValidPlay(0, List.of(h5a, h5b)), "应允许棒子");
+        assertTrue(engine.isValidPlay(0, List.of(h7a, h7b, h7c)), "应允许滚子");
     }
 }

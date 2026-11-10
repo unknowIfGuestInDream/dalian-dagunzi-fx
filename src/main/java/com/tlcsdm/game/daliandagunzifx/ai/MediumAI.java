@@ -285,6 +285,14 @@ public class MediumAI implements AIStrategy {
             if (gamble != null) return gamble;
         }
 
+        // 兑现"绝对赢张"(boss)：借助记牌器判断某门副牌是否已是场上最大，且两名对手均未被
+        // 标记缺该门（不会用主牌毙），领出它可稳拿该墩并保持控制权。这是对原有"仅领 A、
+        // 否则领最大非分牌"策略的增强——例如当 A 已出尽时主动兑现 K，避免被对手后手憋死或毙掉。
+        Card boss = findBossLead(player, engine);
+        if (boss != null) {
+            return boss;
+        }
+
         // Score each suit considering tracked void information
         // 同时考虑短套策略（制造缺门）
         Suit bestSuit = null;
@@ -320,18 +328,80 @@ public class MediumAI implements AIStrategy {
                 .orElse(validCards.get(0));
         }
 
-        // 只剩主牌，优先出非特殊的小主牌
+        // 只剩主牌，优先出非特殊的小主牌：避免送分、不拆棒子/滚子，再省下大主牌控场
         List<Card> nonSpecialTrump = trumpCards.stream()
             .filter(c -> !easyAI.isSpecialTrump(c, trumpInfo))
             .collect(Collectors.toList());
         if (!nonSpecialTrump.isEmpty()) {
             return nonSpecialTrump.stream()
-                .min(Comparator.comparingInt(trumpInfo::getCardStrength))
+                .min(easyAI.leadTrumpComparator(player.getHand(), trumpInfo))
                 .orElse(nonSpecialTrump.get(0));
         }
         return validCards.stream()
             .min(Comparator.comparingInt(trumpInfo::getCardStrength))
             .orElse(validCards.get(0));
+    }
+
+    /**
+     * 领出时寻找可安全兑现的"绝对赢张"(boss)：某门副牌中所有比它大的同门牌都已打出
+     * （或握在自己手中），且两名对手均未被标记为缺该门，则领出它几乎必定赢墩并保持控制权。
+     * 找不到这样的牌时返回 null。供 MediumAI 领出及 HardAI 领出快捷判断共用。
+     *
+     * @param player 当前领出的玩家
+     * @param engine 游戏引擎
+     * @return 可安全兑现的 boss 牌；没有时返回 null
+     */
+    public Card findBossLead(Player player, GameEngine engine) {
+        TrumpInfo trumpInfo = engine.getTrumpInfo();
+        int opp1 = (player.getId() + 1) % 4;
+        int opp3 = (player.getId() + 3) % 4;
+
+        Map<Suit, List<Card>> suitCards = new EnumMap<>(Suit.class);
+        for (Card card : player.getHand()) {
+            Suit effective = trumpInfo.getEffectiveSuit(card);
+            if (effective != null) {
+                suitCards.computeIfAbsent(effective, k -> new ArrayList<>()).add(card);
+            }
+        }
+
+        Card best = null;
+        int bestStrength = -1;
+        for (Map.Entry<Suit, List<Card>> entry : suitCards.entrySet()) {
+            Suit suit = entry.getKey();
+            // 对手已知缺该门，可能用主牌毙，兑现不安全
+            if (cardTracker.isVoid(opp1, suit) || cardTracker.isVoid(opp3, suit)) {
+                continue;
+            }
+            for (Card card : entry.getValue()) {
+                if (isBossCard(player, card, suit, trumpInfo)) {
+                    int strength = trumpInfo.getCardStrength(card);
+                    if (strength > bestStrength) {
+                        best = card;
+                        bestStrength = strength;
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
+     * 判断某张副牌是否为所在花色的"绝对赢张"：场上（未打出）比它更大的同门副牌都在自己手中，
+     * 即没有对手还能在该花色上压过它。
+     */
+    private boolean isBossCard(Player player, Card card, Suit suit, TrumpInfo trumpInfo) {
+        int strength = trumpInfo.getCardStrength(card);
+        for (Card remaining : cardTracker.getSuitRemainingCards(suit)) {
+            // 该门中的主牌级/2 等属于主牌，不参与副牌大小比较
+            if (trumpInfo.isTrump(remaining)) {
+                continue;
+            }
+            if (trumpInfo.getCardStrength(remaining) > strength
+                    && !player.getHand().contains(remaining)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private Card chooseFollowCard(Player player, List<Card> validCards, GameEngine engine) {
@@ -370,8 +440,14 @@ public class MediumAI implements AIStrategy {
             // 无分墩没有抢的价值，仍按常规垫牌，避免无谓浪费主牌。
             // 注意此处与 chooseSuitFollow 中"有同花色可跟时即便无分也争墩"的判断不同：
             // 跟花色用的是副牌、成本低，值得为夺取控制权而争；毙分需消耗主牌，仅在有分时才划算。
-            if (trickPoints >= 10 || engine.getTrickCardsPlayed() == 3
-                || !hasNonPointNonTrump || (easyAI.isAggressive() && trickPoints > 0)) {
+            // item 5：去掉"最后一位(getTrickCardsPlayed()==3)即便 0 分也强制毙"——
+            // 最后一位出牌时 hasPartnerPlayed 恒为真，有分的情况已由
+            // "hasPartnerPlayed && trickPoints > 0" 覆盖；0 分墩有安全副牌可垫时应垫牌而非浪费主牌。
+            // item 3：队友已出且未赢（AI 为本队最后一道防线）时，只要墩面有分就管上夺分，
+            // 不把分白送给对手——即"对门能管上却跑别的牌"的修复。
+            if (trickPoints >= 10
+                || !hasNonPointNonTrump || (easyAI.isAggressive() && trickPoints > 0)
+                || (easyAI.hasPartnerPlayed(player, engine) && trickPoints > 0)) {
                 // 检查后续对手是否也缺该花色（会用主牌毙），需要选更大的主牌
                 boolean hasSubsequentOpponentVoid = isSubsequentOpponentVoid(player, engine, leadSuit);
 
@@ -442,11 +518,17 @@ public class MediumAI implements AIStrategy {
 
         // 有分值得争，或手中只剩分牌时尝试压牌，保护特殊主牌（2/王/主牌级）
         // 冒险策略：即使本墩暂无分，也主动争墩夺取控制权
+        // 队友已出牌时（到此队友必非赢家）AI 是本队最后防线，若墩面有可观分值（≥10 分），
+        // 允许动用常主2/级牌等特殊主牌（大王除外）夺回主牌花色上的分。
+        boolean grabTrumpPoints = trickPoints >= 10 && easyAI.hasPartnerPlayed(player, engine);
         if (trickPoints > 0 || !hasNonPointCard || easyAI.isAggressive()) {
             int currentWinStrength = getCurrentWinningStrength(engine);
             Card bestWinner = null;
             for (Card card : suitCards) {
-                if (easyAI.isSpecialTrump(card, trumpInfo)) continue;
+                if (easyAI.isSpecialTrump(card, trumpInfo)
+                        && (!grabTrumpPoints || card.getRank() == Rank.BIG_JOKER)) {
+                    continue;
+                }
                 int strength = trumpInfo.getCardStrength(card);
                 if (strength > currentWinStrength) {
                     if (bestWinner == null || strength < trumpInfo.getCardStrength(bestWinner)) {
@@ -455,6 +537,36 @@ public class MediumAI implements AIStrategy {
                 }
             }
             if (bestWinner != null) return bestWinner;
+        }
+
+        // item 3：队友已出但未赢（对手正赢着本墩）、AI 为第 3 家（非最后一位）、
+        // 且后续对手未被标记缺该花色时，若手中有该花色的"绝对赢张"(boss) 能压过当前赢牌，
+        // 则盖上去把本墩锁定下来，避免出小牌后被最后一位对手用 10/K 等大牌赢墩得分
+        // （即"副牌前两家出小牌、第 3 家不盖、第 4 家出大牌得分"的修复）。
+        if (!easyAI.isAggressive()
+                && easyAI.hasPartnerPlayed(player, engine)
+                && !easyAI.isLastToPlay(player, engine)) {
+            Card leadCard = engine.getCurrentTrick()[engine.getCurrentTrickLeader()];
+            Suit leadSuit = trumpInfo.getEffectiveSuit(leadCard);
+            if (leadSuit != null && !isSubsequentOpponentVoid(player, engine, leadSuit)) {
+                int currentWinStrength = getCurrentWinningStrength(engine);
+                Card bossCover = null;
+                for (Card card : suitCards) {
+                    // 不动用特殊主牌（王/2/级牌）盖副牌，省作兜底
+                    if (easyAI.isSpecialTrump(card, trumpInfo)) {
+                        continue;
+                    }
+                    int strength = trumpInfo.getCardStrength(card);
+                    if (strength > currentWinStrength
+                            && isBossCard(player, card, leadSuit, trumpInfo)) {
+                        // 选能赢的最小 boss，省下更大的牌
+                        if (bossCover == null || strength < trumpInfo.getCardStrength(bossCover)) {
+                            bossCover = card;
+                        }
+                    }
+                }
+                if (bossCover != null) return bossCover;
+            }
         }
 
         // 无分或赢不了，出最小（保护特殊主牌）

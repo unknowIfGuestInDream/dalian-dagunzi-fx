@@ -24,19 +24,34 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package com.tlcsdm.game.daliandagunzifx.utils.eventbus;
+package com.tlcsdm.game.daliandagunzifx.ai;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import org.junit.jupiter.api.Test;
 
-/**
- * 将方法标记为事件订阅者
- *
- * @author unknowIfGuestInDream
- */
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.METHOD)
-public @interface Subscribe {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class AILevelTest {
+
+    @Test
+    void testDisplayNames() {
+        assertEquals("简单", AILevel.EASY.getDisplayName());
+        assertEquals("中等", AILevel.MEDIUM.getDisplayName());
+        assertEquals("困难", AILevel.HARD.getDisplayName());
+    }
+
+    @Test
+    void testToStringEqualsDisplayName() {
+        for (AILevel level : AILevel.values()) {
+            assertEquals(level.getDisplayName(), level.toString(),
+                "toString 应返回中文显示名");
+        }
+    }
+
+    @Test
+    void testValueOfRoundTrip() {
+        for (AILevel level : AILevel.values()) {
+            assertEquals(level, AILevel.valueOf(level.name()));
+        }
+        assertEquals(3, AILevel.values().length, "应有三个难度等级");
+    }
 }
