@@ -11,7 +11,7 @@
  * 依赖仓库优先使用阿里云镜像，加速国内构建。
  */
 buildscript {
-    ext.springCoreVersion = '6.2.11'
+    ext.springCoreVersion = '7.0.10'
     repositories {
         maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
         maven { url = 'https://maven.aliyun.com/repository/public' }
